@@ -1,0 +1,162 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  employee
+  admin
+}
+
+enum UserStatus {
+  active
+  disabled
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users         User[]
+  aiConfig      AiConfig?
+  companyConfig CompanyConfig?
+}
+
+model CompanyConfig {
+  id                 String   @id @default(cuid())
+  companyId          String   @unique
+  company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  anonymizationEnabled Boolean @default(true)
+  updatedAt          DateTime @updatedAt
+}
+
+model AiConfig {
+  id        String   @id @default(cuid())
+  companyId String   @unique
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  provider  String   @default("openai")
+  model     String   @default("gpt-4o-mini")
+  baseUrl   String?
+  apiKeyEnc String?
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  fullName     String?
+  role         UserRole   @default(employee)
+  status       UserStatus @default(active)
+  createdAt    DateTime   @default(now())
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id])
+
+  loginEvents             LoginEvent[]
+  promptLogs              PromptLog[]
+  predictions             Prediction[]
+  prodeChampionPrediction ProdeChampionPrediction?
+  prodeGuidelines         ProdeGuidelines?
+
+  @@index([companyId])
+}
+
+model ProdeGuidelines {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  text      String   @default("")
+  version   Int      @default(1)
+  updatedAt DateTime @updatedAt
+}
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  ip        String?
+  userAgent String?
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model PromptLog {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  provider  String
+  model     String?
+  promptText   String
+  responseText String
+  tokensIn     Int?
+  tokensOut    Int?
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum MatchStage {
+  group
+  roundOf32
+  roundOf16
+  quarterFinal
+  semiFinal
+  thirdPlace
+  final
+}
+
+model Match {
+  id       String     @id @default(cuid())
+  stage    MatchStage @default(group)
+  teamA    String
+  teamB    String
+  kickoffAt DateTime
+  resultScoreA Int?
+  resultScoreB Int?
+
+  createdAt DateTime @default(now())
+
+  predictions Prediction[]
+
+  @@index([kickoffAt])
+}
+
+model Prediction {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  scoreA    Int
+  scoreB    Int
+
+  userId  String
+  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  matchId String
+  match   Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+model ProdeChampionPrediction {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  champion  String
+  runnerUp  String
+  updatedAt DateTime @updatedAt
+}

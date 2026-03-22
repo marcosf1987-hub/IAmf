@@ -1,0 +1,26 @@
+# Dependencias y builds
+node_modules/
+**/node_modules/
+**/dist/
+**/dist-ssr/
+
+# Secretos (nunca subir a GitHub)
+.env
+.env.*
+!.env.example
+**/.env
+server/.env
+client/.env
+
+# Logs y sistema
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Prisma generado local (si aplica)
+server/src/generated/

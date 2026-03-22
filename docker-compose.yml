@@ -1,0 +1,18 @@
+# Para cuando tengas Docker: levantar Postgres local
+# Uso: docker compose up -d
+# Luego: DATABASE_URL=postgresql://rrhhia:1234@localhost:5432/rrhhia_prode
+version: "3"
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rrhhia
+      POSTGRES_PASSWORD: "1234"
+      POSTGRES_DB: rrhhia_prode
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata: {}
