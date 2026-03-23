@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { isProductionApiUrlMissing } from "../lib/api";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,6 +32,12 @@ export default function LoginPage() {
         <h1>Iniciar sesión</h1>
         <p className="auth-subtitle">Accedé a tu cuenta del programa IA + Prode</p>
         <form onSubmit={handleSubmit} className="auth-form">
+          {isProductionApiUrlMissing && (
+            <div className="auth-error" role="alert">
+              Falta configurar la URL del servidor en el despliegue. En Railway → servicio del frontend → Variables →{" "}
+              <code>VITE_API_URL</code> = tu URL del backend (https://…, sin / al final) → Redeploy.
+            </div>
+          )}
           {error && <div className="auth-error">{error}</div>}
           <label>
             <span>Email</span>

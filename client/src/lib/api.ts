@@ -1,7 +1,37 @@
-const API_BASE =
-  import.meta.env.VITE_API_URL ??
-  (import.meta.env.DEV ? "/api" : "http://localhost:4000");
+/** URL base del backend (sin barra final). En producción debe venir de VITE_API_URL en el build (Railway). */
+function resolveApiBase(): string {
+  const fromEnv = import.meta.env.VITE_API_URL?.trim();
+  if (import.meta.env.DEV) {
+    return (fromEnv || "/api").replace(/\/+$/, "") || "/api";
+  }
+  const fallback = "http://localhost:4000";
+  const base = (fromEnv || fallback).replace(/\/+$/, "");
+  if (import.meta.env.PROD && !fromEnv) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[Promptplay] Falta VITE_API_URL en el build. En Railway: Variables del servicio frontend → VITE_API_URL = https://tu-backend.up.railway.app (sin / al final) → Redeploy."
+    );
+  }
+  return base;
+}
+
+const API_BASE = resolveApiBase();
+
+/** True si el build de producción no incluyó la URL del API (el login fallará). */
+export const isProductionApiUrlMissing =
+  import.meta.env.PROD && !import.meta.env.VITE_API_URL;
+
 const TOKEN_KEY = "rrhhia_token";
+
+function networkHint(err: unknown): Error {
+  // fetch() lanza TypeError ante fallos de red / CORS
+  if (err instanceof TypeError) {
+    return new Error(
+      "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agregá la variable VITE_API_URL con la URL https del backend (sin barra al final) y volvé a desplegar el frontend."
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
 
 function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -80,14 +110,18 @@ export type LoginResponse = {
 export type SignupResponse = LoginResponse;
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
-  const res = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  const data = await parseJson<LoginResponse & { error?: string }>(res);
-  if (!res.ok) throw new Error(data.error ?? "Login failed");
-  return data;
+  try {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await parseJson<LoginResponse & { error?: string }>(res, `${API_BASE}/auth/login`);
+    if (!res.ok) throw new Error(data.error ?? "Login failed");
+    return data;
+  } catch (e) {
+    throw networkHint(e);
+  }
 }
 
 export async function signup(
@@ -95,14 +129,18 @@ export async function signup(
   password: string,
   fullName?: string
 ): Promise<SignupResponse> {
-  const res = await fetch(`${API_BASE}/auth/signup`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password, fullName }),
-  });
-  const data = await parseJson<SignupResponse & { error?: string }>(res);
-  if (!res.ok) throw new Error(data.error ?? "Signup failed");
-  return data;
+  try {
+    const res = await fetch(`${API_BASE}/auth/signup`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, fullName }),
+    });
+    const data = await parseJson<SignupResponse & { error?: string }>(res, `${API_BASE}/auth/signup`);
+    if (!res.ok) throw new Error(data.error ?? "Signup failed");
+    return data;
+  } catch (e) {
+    throw networkHint(e);
+  }
 }
 
 export async function fetchMe(token?: string): Promise<{ user: User }> {

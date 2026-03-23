@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { isProductionApiUrlMissing } from "../lib/api";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -32,6 +33,11 @@ export default function SignupPage() {
         <h1>Crear cuenta</h1>
         <p className="auth-subtitle">Unite al programa de IA y Prode FIFA 2026</p>
         <form onSubmit={handleSubmit} className="auth-form">
+          {isProductionApiUrlMissing && (
+            <div className="auth-error" role="alert">
+              Falta <code>VITE_API_URL</code> en Railway (servicio frontend) → Redeploy.
+            </div>
+          )}
           {error && <div className="auth-error">{error}</div>}
           <label>
             <span>Nombre completo</span>

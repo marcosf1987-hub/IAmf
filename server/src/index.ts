@@ -15,10 +15,26 @@ import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
 
+/** Express 5 tipa `req.params` como string | string[] */
+function routeParamId(req: express.Request): string | undefined {
+  const raw = req.params.id;
+  if (raw === undefined) return undefined;
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
 const app = express();
 const prisma = new PrismaClient();
 
-app.use(cors());
+// Detrás de Railway / reverse proxy
+app.set("trust proxy", 1);
+
+app.use(
+  cors({
+    origin: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/health", (_req, res) => {
@@ -689,7 +705,11 @@ app.patch("/admin/matches/:id/result", requireAdmin, async (req, res) => {
     res.status(400).json({ error: "invalid_body" });
     return;
   }
-  const { id } = req.params;
+  const id = routeParamId(req);
+  if (!id) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
   const match = await prisma.match.findUnique({ where: { id } });
   if (!match) {
     res.status(404).json({ error: "match_not_found" });
@@ -753,7 +773,9 @@ app.get("/admin/ai-config", requireAdmin, async (req, res) => {
 app.patch("/admin/ai-config", requireAdmin, async (req, res) => {
   const parsed = adminAiConfigSchema.safeParse(req.body);
   if (!parsed.success) {
-    const msg = parsed.error.errors.map((e) => e.path.join(".") + ": " + e.message).join("; ");
+    const msg = parsed.error.issues
+      .map((e) => `${e.path.map(String).join(".")}: ${e.message}`)
+      .join("; ");
     res.status(400).json({ error: "invalid_body", message: msg });
     return;
   }
@@ -847,7 +869,11 @@ app.patch("/admin/users/:id", requireAdmin, async (req, res) => {
     return;
   }
   const { companyId } = (req as AuthedRequest).auth;
-  const { id } = req.params;
+  const id = routeParamId(req);
+  if (!id) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
   const updates = parsed.data;
 
   const existing = await prisma.user.findFirst({
@@ -868,7 +894,11 @@ app.patch("/admin/users/:id", requireAdmin, async (req, res) => {
 
 app.delete("/admin/users/:id", requireAdmin, async (req, res) => {
   const { companyId } = (req as AuthedRequest).auth;
-  const { id } = req.params;
+  const id = routeParamId(req);
+  if (!id) {
+    res.status(400).json({ error: "invalid_id" });
+    return;
+  }
 
   const existing = await prisma.user.findFirst({
     where: { id, companyId },

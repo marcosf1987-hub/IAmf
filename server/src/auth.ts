@@ -13,9 +13,18 @@ function getJwtSecret(): string {
   return secret;
 }
 
+/** Segundos hasta expiración (solo número → compatible con todos los @types/jsonwebtoken). */
+function jwtExpiresInSeconds(): number {
+  const raw = process.env.JWT_EXPIRES_IN?.trim();
+  if (!raw) return 7 * 24 * 60 * 60;
+  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
+  const days = /^(\d+)d$/i.exec(raw);
+  if (days) return parseInt(days[1], 10) * 24 * 60 * 60;
+  return 7 * 24 * 60 * 60;
+}
+
 export function signAccessToken(payload: AuthTokenPayload): string {
-  const expiresIn = process.env.JWT_EXPIRES_IN ?? "7d";
-  return jwt.sign(payload, getJwtSecret(), { expiresIn });
+  return jwt.sign(payload, getJwtSecret(), { expiresIn: jwtExpiresInSeconds() });
 }
 
 export type AuthedRequest = Request & { auth: AuthTokenPayload };

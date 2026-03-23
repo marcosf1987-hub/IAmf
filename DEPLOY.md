@@ -29,8 +29,8 @@ Esta guía asume que **nunca** subiste un proyecto a GitHub ni usaste Railway. T
 En PowerShell (reemplazá con tus datos):
 
 ```bash
-git config --global user.name "Tu Nombre"
-git config --global user.email "tu-email@ejemplo.com"
+git config --global user.name "MarcosF"
+git config --global user.email "marcos.felsenstein@gmail.com"
 ```
 
 El email debería ser el mismo que usás en GitHub.
@@ -79,7 +79,7 @@ GitHub te mostrará comandos. Usá algo así (reemplazá `TU-USUARIO` y `NOMBRE-
 
 ```bash
 git branch -M main
-git remote add origin https://github.com/TU-USUARIO/NOMBRE-REPO.git
+git remote add origin https://github.com/marcosf1987-hub/IAmf.git
 git push -u origin main
 ```
 
@@ -112,6 +112,21 @@ La primera vez te pedirá iniciar sesión en GitHub. En Windows suele abrirse el
 
 ---
 
+## ⚠️ Railway: cómo pegar comandos (Build / Start)
+
+En **Build Command** y **Start Command** de Railway escribí **solo la línea del comando**, sin:
+
+- Los ``` ``` (backticks) de Markdown
+- La palabra `bash`
+- Saltos de línea extra dentro del mismo campo
+
+**Correcto:** `npm install && npm run build`  
+**Incorrecto:** `` ```bash npm install && npm run build ``` `` → eso rompe el build (error tipo `cannot execute binary file` o exit 126).
+
+Si no estás seguro, borrá el campo y escribilo a mano.
+
+---
+
 ## Parte G — Desplegar el BACKEND (carpeta `server`)
 
 1. En el mismo proyecto de Railway: **New** → **GitHub Repo**.
@@ -120,14 +135,10 @@ La primera vez te pedirá iniciar sesión en GitHub. En Windows suele abrirse el
    - **Root Directory:** `server`  
      (muy importante: solo la carpeta del API.)
 4. **Settings** → **Build** (o **Deploy**):
-   - **Build Command** (si te deja editarlo):
-     ```bash
-     npm install && npx prisma generate && npm run build
-     ```
-   - **Start Command:**
-     ```bash
-     npx prisma migrate deploy && npm start
-     ```
+   - **Build Command** (si te deja editarlo):  
+     `npm install && npx prisma generate && npm run build`
+   - **Start Command:**  
+     `npx prisma migrate deploy && npm start`  
      Esto aplica migraciones y arranca Node con `node dist/index.js`.
 
 5. **Variables** (pestaña **Variables** del servicio backend):
@@ -160,16 +171,13 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
    |--------|--------|
    | `VITE_API_URL` | La URL pública del backend, **con https**, **sin** barra final. Ejemplo: `https://tu-backend-production.up.railway.app` |
 
-4. **Build Command:**
-   ```bash
-   npm install && npm run build
-   ```
+4. **Build Command:**  
+   `npm install && npm run build`  
+   (solo esa línea, sin Markdown; ver aviso arriba.)
 5. **Start Command** (sitio estático): Railway a veces usa “Static” o Nixpacks. Si ofrece **Static Site**:
    - **Output directory:** `dist`
-6. Si Railway pide un comando para servir archivos, a veces usan:
-   ```bash
-   npx serve dist -s -l 3000
-   ```
+6. Si Railway pide un comando para servir archivos, a veces usan:  
+   `npx serve dist -s -l 3000`
    y variable `PORT=3000` si hace falta. (La interfaz de Railway cambia; lo importante es **build** → carpeta `dist` y que el servicio sirva esa carpeta.)
 
 7. Generá un **dominio** para el frontend también (**Generate Domain**).
@@ -180,8 +188,27 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
 
 ## Parte I — CORS y errores típicos
 
-- El backend ya usa `cors()` abierto; no deberías tener bloqueo por origen en un primer despliegue.
+- El backend permite CORS desde cualquier origen (adecuado para API + SPA en otro dominio).
 - Si el frontend dice que la API devolvió HTML: revisá que `VITE_API_URL` sea exactamente la URL del backend y que **vuelvas a desplegar** el frontend después de cambiar esa variable (Vite “hornea” la URL en el build).
+
+---
+
+## El login no funciona (checklist)
+
+1. **`VITE_API_URL` en el servicio del frontend (Railway)**  
+   - Valor: la URL pública del **backend**, con `https://`, **sin** `/` al final.  
+   - Ejemplo: `https://tu-api-production.up.railway.app`  
+   - Después de agregarla o cambiarla: **Redeploy** del frontend (un build nuevo). Si no redeployás, el sitio sigue usando la URL vieja o `localhost`.
+
+2. **Variables del backend**  
+   - `JWT_SECRET` definida (cualquier string largo; si falta, el servidor puede fallar al firmar el token).  
+   - `DATABASE_URL` referenciada al PostgreSQL de Railway.
+
+3. **Base vacía**  
+   - Si nunca corriste el **seed**, el usuario `admin@demo.com` no existe. Podés **registrarte** con “Crear cuenta” o ejecutar `npm run db:seed` contra la `DATABASE_URL` de Railway (ver Parte J).
+
+4. **Probar el backend**  
+   - En el navegador: `https://TU-BACKEND/health` debería devolver JSON `{"ok":true}`.
 
 ---
 
@@ -219,6 +246,115 @@ La primera vez, la base en Railway está vacía. Podés:
 5. (Opcional) Seed y dominio propio.
 
 Si en algún paso Railway muestra textos distintos (“Service”, “Nixpacks”, etc.), la idea es siempre: **root directory correcto**, **variables de entorno**, **build** que genere `dist` en client y `dist` en server con Prisma.
+
+---
+
+## El build en Railway falla pero en tu PC compila
+
+Railway **siempre** construye lo que está en **GitHub**, no lo que tenés solo en tu computadora. Si cambiás archivos en el PC y no los “subís” a GitHub, Railway sigue usando la versión vieja.
+
+Abajo tenés **dónde** escribir los comandos y **qué** hacer, paso a paso, sin asumir experiencia previa.
+
+---
+
+### Dónde copiar y pegar los comandos (Windows)
+
+Los comandos **no** van en GitHub ni en Railway. Van en una **terminal**: una ventana de texto negra o integrada en el editor donde el ordenador ejecuta instrucciones.
+
+Tenés tres formas habituales (elegí una):
+
+#### Opción A — Terminal dentro de Cursor (recomendada si ya usás el proyecto acá)
+
+1. Abrí **Cursor** con tu carpeta del proyecto (`frontend`).
+2. Menú superior: **Terminal** → **New Terminal** (o atajo de teclado **Ctrl + `** — la tecla debajo del Esc).
+3. Se abre un panel abajo con una línea que termina en algo como `PS C:\Users\Marcos\Desktop\frontend>` Ese es el lugar correcto.
+4. Ahí **pegás** los comandos (clic derecho → Pegar, o **Ctrl + V**) y tocás **Enter** para ejecutar cada uno.
+
+#### Opción B — PowerShell de Windows
+
+1. Tecla **Windows** del teclado.
+2. Escribí **PowerShell** y abrí **Windows PowerShell**.
+3. Se abre una ventana azul u oscura: ahí pegás los comandos y Enter.
+
+#### Opción C — Carpeta del proyecto → “Abrir en terminal”
+
+1. Abrí el **Explorador de archivos** y andá a la carpeta del proyecto, por ejemplo:  
+   `C:\Users\Marcos\Desktop\frontend`
+2. Clic en la **barra de direcciones** (donde dice la ruta), escribí `powershell` y Enter, **o** clic derecho en el fondo de la carpeta → **Abrir en Terminal** (si tu Windows lo muestra).
+
+---
+
+### Qué significa cada comando (en pocas palabras)
+
+| Comando | Para qué sirve |
+|--------|----------------|
+| `cd C:\Users\Marcos\Desktop\frontend` | “Entrar” a la carpeta del proyecto (ajustá la ruta si tu carpeta tiene otro nombre o lugar). |
+| `git status` | Mostrar qué archivos cambiaron y si hay algo pendiente de subir. |
+| `git add .` | Marcar **todos** los cambios actuales para el próximo “paquete” (commit). |
+| `git commit -m "mensaje"` | Guardar ese paquete en tu historial local con un mensaje corto (ej. “fix build”). |
+| `git push origin main` | **Subir** esos cambios a GitHub. `main` es el nombre de la rama más común; a veces se llama `master`. |
+
+---
+
+### Pasos concretos (hacelos en orden)
+
+1. Abrí la terminal (Opción A, B o C de arriba).
+2. Si no estás ya en la carpeta del proyecto, escribí (y Enter):
+
+   ```bash
+   cd C:\Users\Marcos\Desktop\frontend
+   ```
+
+   *(Si tu proyecto está en otra ruta, cambiá solo esa parte.)*
+
+3. Comprobá que Git “ve” el proyecto:
+
+   ```bash
+   git status
+   ```
+
+   - Si ves **“not a git repository”**, todavía no inicializaste Git: seguí la **Parte D** de arriba de este mismo documento (`git init`, conectar con GitHub, etc.).
+   - Si ves una lista de archivos o **“nothing to commit”**, seguí al paso 4.
+
+4. Guardá todos los cambios y prepará el envío:
+
+   ```bash
+   git add .
+   ```
+
+5. Creá un “paquete” con un mensaje que vos entiendas:
+
+   ```bash
+   git commit -m "Actualizo codigo para que Railway compile bien"
+   ```
+
+   - Si Git dice **“nothing to commit”**, no hay cambios nuevos: o ya estaba todo subido, o no guardaste los archivos en el editor (**Ctrl + S** en los archivos abiertos).
+
+6. Subí a GitHub:
+
+   ```bash
+   git push origin main
+   ```
+
+   - Si tu rama **no** se llama `main`, Git a veces te sugiere el nombre correcto en un mensaje de error; podés probar:
+
+     ```bash
+     git push origin master
+     ```
+
+   - La primera vez puede pedirte **usuario y contraseña de GitHub**: hoy suele pedirse un **token** (no la contraseña de la web). Cómo crearlo está explicado un poco más arriba en **Parte D — punto 5** de esta guía.
+
+7. Cuando `git push` termine **sin error**, entrá a [github.com](https://github.com), abrí tu repositorio y verificá que aparezcan los archivos o el commit reciente.
+
+8. Volvé a **Railway** → tu servicio del **backend** → botón **Redeploy** (o “Deploy”) para que vuelva a construir usando el código nuevo de GitHub.
+
+---
+
+### Si algo sale mal
+
+- **“git no se reconoce…”** → Git no está instalado o no está en el PATH. Instalá Git (**Parte B** de esta guía) y cerrá y volvé a abrir la terminal.
+- **“Authentication failed”** al hacer `push` → Revisá usuario/token de GitHub (Parte D, token).
+- **“failed to push” / “rejected”** → A veces alguien más cambió el repo; para uso solo con vos en una PC suele bastar con hacer pull antes: `git pull origin main --rebase` y después otra vez `git push`. Si no estás seguro, pedí ayuda con el texto exacto del error.
 
 ---
 
