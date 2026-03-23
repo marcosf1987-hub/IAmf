@@ -252,10 +252,44 @@ const PHASE_STAGES: Record<string, MatchStage[]> = {
   knockout: ["roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"],
 };
 
+async function countMatchesInStages(stages: MatchStage[]) {
+  return prisma.match.count({ where: { stage: { in: stages } } });
+}
+
+async function countUserPredictionsInStages(userId: string, stages: MatchStage[]) {
+  return prisma.prediction.count({
+    where: { userId, match: { stage: { in: stages } } },
+  });
+}
+
 app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
   const phase = (req.body?.phase as string) || "groups";
   const stages = PHASE_STAGES[phase] ?? PHASE_STAGES.groups;
+
+  const [needGroup, haveGroup] = await Promise.all([
+    countMatchesInStages(["group"]),
+    countUserPredictionsInStages(userId, ["group"]),
+  ]);
+  const [needR32, haveR32] = await Promise.all([
+    countMatchesInStages(["roundOf32"]),
+    countUserPredictionsInStages(userId, ["roundOf32"]),
+  ]);
+
+  if (phase === "roundOf32" && needGroup > 0 && haveGroup < needGroup) {
+    res.status(400).json({
+      error: "complete_groups_first",
+      message: `Primero tenés que generar predicciones para todos los partidos de fase de grupos (${haveGroup}/${needGroup}).`,
+    });
+    return;
+  }
+  if (phase === "knockout" && needR32 > 0 && haveR32 < needR32) {
+    res.status(400).json({
+      error: "complete_roundof32_first",
+      message: `Primero completá predicciones para todos los partidos de la fase anterior (16avos / R32: ${haveR32}/${needR32}).`,
+    });
+    return;
+  }
 
   const [matches, guidelinesRow, aiConfig] = await Promise.all([
     prisma.match.findMany({

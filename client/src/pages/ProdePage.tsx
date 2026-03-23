@@ -14,8 +14,16 @@ const STAGE_LABELS: Record<string, string> = {
   final: "Final",
 };
 
-/** Orden de visualización: de la final hacia atrás */
-const STAGE_ORDER = ["final", "thirdPlace", "semiFinal", "quarterFinal", "roundOf16", "roundOf32", "group"];
+/** Orden de visualización: cronológico por fase (grupos primero, final al final) */
+const STAGE_ORDER = ["group", "roundOf32", "roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"];
+
+const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
+  groups:
+    "Esta acción solo genera marcadores con IA para los partidos de fase de grupos (no para cruces ni final).",
+  roundOf32: "Solo partidos de la ronda de 32 (R32). Antes tenés que tener predicción en todos los partidos de grupos.",
+  knockout:
+    "Incluye octavos, cuartos, semis, tercer puesto y final, más campeón/subcampeón. Antes completá todos los partidos de la fase de 16avos (R32).",
+};
 
 export default function ProdePage() {
   const [matches, setMatches] = useState<Match[]>([]);
@@ -89,6 +97,30 @@ export default function ProdePage() {
 
       {error && <div className="auth-error">{error}</div>}
 
+      {matches.length === 0 && !loading && (
+        <div className="prode-seed-hint" role="status">
+          <h2 className="prode-seed-hint-title">No hay partidos en la base de datos</h2>
+          <p>
+            El botón de generar predicciones está deshabilitado hasta que existan partidos cargados. En
+            producción (Railway) eso se hace ejecutando <strong>una vez</strong> el seed de Prisma contra la
+            misma base que usa el backend.
+          </p>
+          <p className="prode-seed-steps">
+            <strong>Desde tu PC</strong> (PowerShell), con la <code>DATABASE_URL</code> que copiás del
+            servicio PostgreSQL en Railway:
+          </p>
+          <pre className="prode-seed-code">
+            {`cd server
+$env:DATABASE_URL="postgresql://..."   # pegá la URL completa
+npx prisma db seed`}
+          </pre>
+          <p className="prode-seed-note">
+            Cuando termine sin error, <strong>recargá esta página</strong>. Deberías ver el listado de partidos
+            y el botón se habilitará.
+          </p>
+        </div>
+      )}
+
       <div className="prode-grid">
         {currentPhase ? (
           <div className="prode-actions prode-actions-full">
@@ -97,6 +129,11 @@ export default function ProdePage() {
               className="btn-primary"
               onClick={() => handleGeneratePredictions(currentPhase.phase)}
               disabled={generating || matches.length === 0}
+              title={
+                matches.length === 0
+                  ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
+                  : undefined
+              }
             >
               {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
             </button>
@@ -104,6 +141,7 @@ export default function ProdePage() {
               Podés generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
               <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
             </p>
+            <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
           </div>
         ) : (
           <div className="prode-actions prode-actions-full">
@@ -112,6 +150,20 @@ export default function ProdePage() {
             </p>
           </div>
         )}
+
+        {matches
+          .sort((a, b) => {
+            const ia = STAGE_ORDER.indexOf(a.stage);
+            const ib = STAGE_ORDER.indexOf(b.stage);
+            if (ia === -1) return 1;
+            if (ib === -1) return -1;
+            if (ia !== ib) return ia - ib;
+            return new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime();
+          })
+          .map((m) => {
+            const pred = predictions[m.id];
+            return <MatchCard key={m.id} match={m} prediction={pred} />;
+          })}
 
         {championPrediction && (
           <>
@@ -129,23 +181,7 @@ export default function ProdePage() {
             </div>
           </>
         )}
-
-        {matches
-          .sort((a, b) => {
-            const ia = STAGE_ORDER.indexOf(a.stage);
-            const ib = STAGE_ORDER.indexOf(b.stage);
-            if (ia !== ib) return ia - ib;
-            return new Date(a.kickoffAt).getTime() - new Date(b.kickoffAt).getTime();
-          })
-          .map((m) => {
-            const pred = predictions[m.id];
-            return <MatchCard key={m.id} match={m} prediction={pred} />;
-          })}
       </div>
-
-      {matches.length === 0 && (
-        <p className="placeholder-text">No hay partidos cargados aún.</p>
-      )}
     </div>
   );
 }

@@ -944,6 +944,51 @@ a:hover {
   color: var(--text-muted);
 }
 
+.prode-seed-hint {
+  margin-bottom: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-input);
+  max-width: 1000px;
+}
+
+.prode-seed-hint-title {
+  font-family: var(--font-display);
+  font-size: 1.125rem;
+  margin: 0 0 0.75rem;
+}
+
+.prode-seed-hint p {
+  margin: 0.5rem 0;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.prode-seed-hint code {
+  font-size: 0.85em;
+  padding: 0.1em 0.35em;
+  background: var(--bg);
+  border-radius: 4px;
+}
+
+.prode-seed-code {
+  display: block;
+  margin: 0.75rem 0;
+  padding: 1rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+
+.prode-seed-note {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
 .btn-sm {
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
@@ -993,6 +1038,15 @@ a:hover {
 
 .prode-deadline strong {
   color: var(--accent);
+}
+
+.prode-phase-hint {
+  margin: 0;
+  max-width: 36rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
 .prode-deadline-passed {
