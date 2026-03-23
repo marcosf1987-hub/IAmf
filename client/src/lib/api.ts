@@ -195,6 +195,29 @@ export async function fetchMyPredictions(): Promise<{ predictions: Prediction[] 
   return fetchAuth("/predictions/me");
 }
 
+/** Historial de cambios de predicciones (solo del usuario autenticado; servidor) */
+export type PredictionHistoryEntry = {
+  id: string;
+  createdAt: string;
+  kind: "match" | "champion";
+  source: "manual" | "ai";
+  batchId: string | null;
+  phaseLabel: string | null;
+  matchId: string | null;
+  teamA: string | null;
+  teamB: string | null;
+  stage: string | null;
+  groupCode: string | null;
+  scoreA: number | null;
+  scoreB: number | null;
+  champion: string | null;
+  runnerUp: string | null;
+};
+
+export async function fetchPredictionHistory(limit = 400): Promise<{ entries: PredictionHistoryEntry[] }> {
+  return fetchAuth(`/predictions/me/history?limit=${limit}`);
+}
+
 export type ResultPrediction = Prediction & { hasResult: boolean; isHit: boolean };
 
 export async function fetchMyResults(): Promise<{

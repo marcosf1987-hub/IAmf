@@ -1,18 +1,83 @@
-import { useEffect, useState } from "react";
-import { fetchProdeGuidelines, updateProdeGuidelines } from "../lib/api";
+import { useEffect, useMemo, useState } from "react";
+import { fetchProdeGuidelines, fetchPredictionHistory, updateProdeGuidelines } from "../lib/api";
+import type { PredictionHistoryEntry } from "../lib/api";
 
-type GuidelineHistoryEntry = {
-  id: string;
-  text: string;
-  savedAt: string;
+const PHASE_LABELS: Record<string, string> = {
+  groups: "Fase de grupos",
+  roundOf32: "Treintaidosavos",
+  knockout: "Eliminatorias",
 };
+
+type HistoryTimelineItem =
+  | {
+      key: string;
+      kind: "batch";
+      batchId: string;
+      createdAt: string;
+      phaseLabel: string | null;
+      items: PredictionHistoryEntry[];
+    }
+  | {
+      key: string;
+      kind: "single";
+      entry: PredictionHistoryEntry;
+    };
+
+function buildTimeline(entries: PredictionHistoryEntry[]): HistoryTimelineItem[] {
+  const byBatch = new Map<string, PredictionHistoryEntry[]>();
+  const singles: PredictionHistoryEntry[] = [];
+
+  for (const e of entries) {
+    if (e.batchId) {
+      if (!byBatch.has(e.batchId)) byBatch.set(e.batchId, []);
+      byBatch.get(e.batchId)!.push(e);
+    } else {
+      singles.push(e);
+    }
+  }
+
+  const batchItems: HistoryTimelineItem[] = [...byBatch.entries()].map(([batchId, items]) => {
+    const sorted = [...items].sort(
+      (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+    );
+    const createdAt = sorted[sorted.length - 1]?.createdAt ?? items[0].createdAt;
+    const phaseLabel = sorted.find((x) => x.phaseLabel)?.phaseLabel ?? null;
+    return {
+      key: `batch-${batchId}`,
+      kind: "batch" as const,
+      batchId,
+      createdAt,
+      phaseLabel,
+      items: sorted,
+    };
+  });
+
+  const singleItems: HistoryTimelineItem[] = singles.map((entry) => ({
+    key: `single-${entry.id}`,
+    kind: "single" as const,
+    entry,
+  }));
+
+  const merged = [...batchItems, ...singleItems];
+  merged.sort((a, b) => {
+    const ta = a.kind === "batch" ? a.createdAt : a.entry.createdAt;
+    const tb = b.kind === "batch" ? b.createdAt : b.entry.createdAt;
+    return new Date(tb).getTime() - new Date(ta).getTime();
+  });
+  return merged;
+}
 
 export default function IAPage() {
   const [guidelines, setGuidelines] = useState("");
   const [guidelinesSaving, setGuidelinesSaving] = useState(false);
   const [guidelinesSaved, setGuidelinesSaved] = useState(false);
   const [error, setError] = useState("");
-  const [history, setHistory] = useState<GuidelineHistoryEntry[]>([]);
+  const [historyEntries, setHistoryEntries] = useState<PredictionHistoryEntry[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
+  const [expandedBatches, setExpandedBatches] = useState<Record<string, boolean>>({});
+
+  const timeline = useMemo(() => buildTimeline(historyEntries), [historyEntries]);
 
   useEffect(() => {
     async function load() {
@@ -24,16 +89,23 @@ export default function IAPage() {
       }
     }
     load();
+  }, []);
 
-    try {
-      const stored = localStorage.getItem("prode_guidelines_history");
-      if (stored) {
-        const parsed = JSON.parse(stored) as GuidelineHistoryEntry[];
-        setHistory(parsed);
+  useEffect(() => {
+    async function loadHistory() {
+      setHistoryLoading(true);
+      setHistoryError("");
+      try {
+        const res = await fetchPredictionHistory(500);
+        setHistoryEntries(res.entries);
+      } catch (e) {
+        setHistoryError(e instanceof Error ? e.message : "No se pudo cargar el historial");
+        setHistoryEntries([]);
+      } finally {
+        setHistoryLoading(false);
       }
-    } catch {
-      setHistory([]);
     }
+    loadHistory();
   }, []);
 
   async function handleSaveGuidelines(e: React.FormEvent) {
@@ -43,20 +115,6 @@ export default function IAPage() {
     setError("");
     try {
       await updateProdeGuidelines(guidelines);
-      const entry: GuidelineHistoryEntry = {
-        id: `g-${Date.now()}`,
-        text: guidelines,
-        savedAt: new Date().toISOString(),
-      };
-      setHistory((prev) => {
-        const next = [entry, ...prev];
-        try {
-          localStorage.setItem("prode_guidelines_history", JSON.stringify(next));
-        } catch {
-          // ignore storage errors
-        }
-        return next;
-      });
       setGuidelinesSaved(true);
       setTimeout(() => setGuidelinesSaved(false), 2000);
     } catch (err) {
@@ -64,6 +122,10 @@ export default function IAPage() {
     } finally {
       setGuidelinesSaving(false);
     }
+  }
+
+  function toggleBatch(batchId: string) {
+    setExpandedBatches((prev) => ({ ...prev, [batchId]: !prev[batchId] }));
   }
 
   return (
@@ -118,23 +180,105 @@ export default function IAPage() {
         </aside>
       </div>
 
-      <section className="ia-versions">
-        <h2>Control de versiones (log)</h2>
-        {history.length === 0 ? (
+      <section className="ia-versions" aria-labelledby="ia-versions-heading">
+        <h2 id="ia-versions-heading">Control de versiones (log)</h2>
+        <p className="ia-prediction-history-note">
+          Historial de <strong>tus predicciones</strong> (marcadores y campeón/subcampeón). Solo vos podés verlo:
+          está guardado en tu cuenta y <strong>no se comparte</strong> con otros usuarios.
+        </p>
+
+        {historyLoading && <p className="placeholder-text">Cargando historial…</p>}
+        {historyError && <div className="auth-error">{historyError}</div>}
+
+        {!historyLoading && !historyError && timeline.length === 0 && (
           <p className="placeholder-text">
-            Aún no hay versiones guardadas. Cada vez que guardes tus pautas, se almacenará una copia acá.
+            Aún no hay movimientos registrados. Aparecerán cuando generes predicciones con IA o guardes
+            marcadores manualmente desde el Prode.
           </p>
-        ) : (
-          <div className="ia-versions-list">
-            {history.map((entry, i) => (
-              <div key={entry.id} className="chat-log ia-version-card">
-                <h3 className="ia-version-title">Estrategia v{history.length - i}</h3>
-                <div className="chat-log-response">{entry.text || "(vacío)"}</div>
-                <div className="chat-log-meta">
-                  {new Date(entry.savedAt).toLocaleString("es-AR")}
+        )}
+
+        {!historyLoading && timeline.length > 0 && (
+          <div className="ia-history-timeline">
+            {timeline.map((item) => {
+              if (item.kind === "batch") {
+                const expanded = expandedBatches[item.batchId] ?? false;
+                const phase =
+                  item.phaseLabel && PHASE_LABELS[item.phaseLabel]
+                    ? PHASE_LABELS[item.phaseLabel]
+                    : item.phaseLabel ?? "";
+                const matchCount = item.items.filter((i) => i.kind === "match").length;
+                const hasChampion = item.items.some((i) => i.kind === "champion");
+                return (
+                  <div key={item.key} className="ia-history-batch">
+                    <button
+                      type="button"
+                      className="ia-history-batch-trigger"
+                      aria-expanded={expanded}
+                      onClick={() => toggleBatch(item.batchId)}
+                    >
+                      <span className="ia-history-batch-title">
+                        Generación con IA
+                        {phase ? ` · ${phase}` : ""}
+                      </span>
+                      <span className="ia-history-batch-meta">
+                        {matchCount > 0 && `${matchCount} partido${matchCount === 1 ? "" : "s"}`}
+                        {hasChampion && (
+                          <span>{matchCount > 0 ? " · " : ""}Campeón/subcampeón</span>
+                        )}
+                      </span>
+                      <span className="ia-history-batch-date">
+                        {new Date(item.createdAt).toLocaleString("es-AR")}
+                      </span>
+                      <span className="ia-history-batch-chevron" aria-hidden>
+                        {expanded ? "▼" : "▶"}
+                      </span>
+                    </button>
+                    {expanded && (
+                      <ul className="ia-history-batch-list">
+                        {item.items.map((row) => (
+                          <li key={row.id}>
+                            {row.kind === "champion" && row.champion && row.runnerUp && (
+                              <span>
+                                🏆 {row.champion} / 🥈 {row.runnerUp}
+                              </span>
+                            )}
+                            {row.kind === "match" && row.teamA && row.teamB && (
+                              <span>
+                                {row.teamA} vs {row.teamB}: {row.scoreA}-{row.scoreB}
+                              </span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                );
+              }
+
+              const row = item.entry;
+              return (
+                <div key={item.key} className="ia-history-single">
+                  <div className="ia-history-single-line">
+                    <span className="ia-history-single-badge">
+                      {row.source === "manual" ? "Manual" : "IA"}
+                    </span>
+                    {row.kind === "champion" && row.champion && row.runnerUp && (
+                      <span>
+                        Campeón/subcampeón: {row.champion} / {row.runnerUp}
+                      </span>
+                    )}
+                    {row.kind === "match" && row.teamA && row.teamB && (
+                      <span>
+                        {row.teamA} vs {row.teamB}: {row.scoreA}-{row.scoreB}
+                      </span>
+                    )}
+                    <span className="ia-history-single-date">
+                      {new Date(row.createdAt).toLocaleString("es-AR")}
+                    </span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>

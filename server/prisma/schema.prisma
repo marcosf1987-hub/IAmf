@@ -66,6 +66,7 @@ model User {
   loginEvents             LoginEvent[]
   promptLogs              PromptLog[]
   predictions             Prediction[]
+  predictionHistory       PredictionHistory[]
   prodeChampionPrediction ProdeChampionPrediction?
   prodeGuidelines         ProdeGuidelines?
 
@@ -134,9 +135,41 @@ model Match {
 
   createdAt DateTime @default(now())
 
-  predictions Prediction[]
+  predictions        Prediction[]
+  predictionHistory  PredictionHistory[]
 
   @@index([kickoffAt])
+}
+
+enum PredictionHistoryKind {
+  match
+  champion
+}
+
+/// Registro append-only de cambios de predicción; una fila por usuario (no compartido)
+model PredictionHistory {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  kind PredictionHistoryKind
+
+  matchId String?
+  match   Match? @relation(fields: [matchId], references: [id], onDelete: SetNull)
+  scoreA  Int?
+  scoreB  Int?
+
+  champion String?
+  runnerUp String?
+
+  source     String  // "manual" | "ai"
+  batchId    String?
+  phaseLabel String? // p. ej. groups, roundOf32, knockout
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([batchId])
 }
 
 model Prediction {

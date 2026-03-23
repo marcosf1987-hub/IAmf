@@ -1673,6 +1673,114 @@ a:hover {
   margin: 0 0 1rem;
 }
 
+.ia-prediction-history-note {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1.25rem;
+  max-width: 48rem;
+}
+
+.ia-history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 52rem;
+}
+
+.ia-history-batch {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.ia-history-batch-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr auto auto auto;
+  gap: 0.5rem 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ia-history-batch-trigger:hover {
+  background: rgba(128, 128, 128, 0.06);
+}
+
+.ia-history-batch-title {
+  font-weight: 600;
+  grid-column: 1 / -1;
+}
+
+@media (min-width: 520px) {
+  .ia-history-batch-trigger {
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
+  }
+  .ia-history-batch-title {
+    grid-column: auto;
+  }
+}
+
+.ia-history-batch-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ia-history-batch-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.ia-history-batch-chevron {
+  font-size: 0.7rem;
+  color: var(--accent);
+}
+
+.ia-history-batch-list {
+  margin: 0;
+  padding: 0 1rem 1rem 2rem;
+  list-style: disc;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.ia-history-single {
+  border: 1px solid var(--border);
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+}
+
+.ia-history-single-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  font-size: 0.9rem;
+}
+
+.ia-history-single-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  border: 1px solid var(--accent-border);
+  padding: 0.15rem 0.45rem;
+}
+
+.ia-history-single-date {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
 .ia-versions-list {
   display: grid;
   grid-template-columns: 1fr;

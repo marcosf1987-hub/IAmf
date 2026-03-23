@@ -1,7 +1,8 @@
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
-import { PrismaClient, MatchStage } from "@prisma/client";
+import { randomUUID } from "node:crypto";
+import { PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma/client";
 import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
@@ -222,13 +223,26 @@ app.post("/predictions", requireAuth, async (req, res) => {
     return;
   }
 
-  const prediction = await prisma.prediction.upsert({
-    where: {
-      userId_matchId: { userId, matchId },
-    },
-    update: { scoreA, scoreB },
-    create: { userId, matchId, scoreA, scoreB },
-    select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+  const prediction = await prisma.$transaction(async (tx) => {
+    const pred = await tx.prediction.upsert({
+      where: {
+        userId_matchId: { userId, matchId },
+      },
+      update: { scoreA, scoreB },
+      create: { userId, matchId, scoreA, scoreB },
+      select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+    });
+    await tx.predictionHistory.create({
+      data: {
+        userId,
+        kind: PredictionHistoryKind.match,
+        matchId,
+        scoreA,
+        scoreB,
+        source: "manual",
+      },
+    });
+    return pred;
   });
   res.status(200).json({ prediction });
 });
@@ -373,6 +387,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
   const predictions: Array<{ id: string; matchId: string; scoreA: number; scoreB: number; createdAt: Date }> = [];
   let championPrediction: { champion: string; runnerUp: string } | null = null;
+  const batchId = randomUUID();
 
   for (const m of matches) {
     try {
@@ -393,11 +408,26 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
       const parsed = parseAiScore(result.text);
       if (parsed) {
-        const pred = await prisma.prediction.upsert({
-          where: { userId_matchId: { userId, matchId: m.id } },
-          update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-          create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-          select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+        const pred = await prisma.$transaction(async (tx) => {
+          const p = await tx.prediction.upsert({
+            where: { userId_matchId: { userId, matchId: m.id } },
+            update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+            create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+            select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+          });
+          await tx.predictionHistory.create({
+            data: {
+              userId,
+              kind: PredictionHistoryKind.match,
+              matchId: m.id,
+              scoreA: parsed.scoreA,
+              scoreB: parsed.scoreB,
+              source: "ai",
+              batchId,
+              phaseLabel: phase,
+            },
+          });
+          return p;
         });
         predictions.push(pred);
       }
@@ -428,10 +458,23 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
     const parsed = parseAiChampionRunnerUp(championResult.text);
     if (parsed) {
-      await prisma.prodeChampionPrediction.upsert({
-        where: { userId },
-        update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
-        create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
+      await prisma.$transaction(async (tx) => {
+        await tx.prodeChampionPrediction.upsert({
+          where: { userId },
+          update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
+          create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
+        });
+        await tx.predictionHistory.create({
+          data: {
+            userId,
+            kind: PredictionHistoryKind.champion,
+            champion: parsed.champion,
+            runnerUp: parsed.runnerUp,
+            source: "ai",
+            batchId,
+            phaseLabel: phase,
+          },
+        });
       });
       championPrediction = parsed;
     }
@@ -483,6 +526,55 @@ app.get("/predictions/me", requireAuth, async (req, res) => {
     orderBy: { createdAt: "desc" },
   });
   res.status(200).json({ predictions });
+});
+
+app.get("/predictions/me/history", requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).auth;
+  const limitRaw = Number.parseInt(String(req.query.limit ?? "400"), 10);
+  const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 400;
+
+  try {
+    const rows = await prisma.predictionHistory.findMany({
+      where: { userId },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+      include: {
+        match: {
+          select: {
+            id: true,
+            stage: true,
+            teamA: true,
+            teamB: true,
+            groupCode: true,
+          },
+        },
+      },
+    });
+
+    res.status(200).json({
+      entries: rows.map((r) => ({
+        id: r.id,
+        createdAt: r.createdAt.toISOString(),
+        kind: r.kind,
+        source: r.source,
+        batchId: r.batchId,
+        phaseLabel: r.phaseLabel,
+        matchId: r.matchId,
+        teamA: r.match?.teamA ?? null,
+        teamB: r.match?.teamB ?? null,
+        stage: r.match?.stage ?? null,
+        groupCode: r.match?.groupCode ?? null,
+        scoreA: r.scoreA,
+        scoreB: r.scoreB,
+        champion: r.champion,
+        runnerUp: r.runnerUp,
+      })),
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("GET /predictions/me/history error:", err);
+    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+  }
 });
 
 app.get("/results/me", requireAuth, async (req, res) => {
