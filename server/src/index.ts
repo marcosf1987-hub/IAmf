@@ -188,7 +188,16 @@ app.get("/matches", requireAuth, async (_req, res) => {
   try {
     const matches = await prisma.match.findMany({
       orderBy: { kickoffAt: "asc" },
-      select: { id: true, stage: true, teamA: true, teamB: true, kickoffAt: true, resultScoreA: true, resultScoreB: true },
+      select: {
+        id: true,
+        stage: true,
+        groupCode: true,
+        teamA: true,
+        teamB: true,
+        kickoffAt: true,
+        resultScoreA: true,
+        resultScoreB: true,
+      },
     });
     res.status(200).json({ matches });
   } catch (err) {

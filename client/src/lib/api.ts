@@ -92,6 +92,8 @@ async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
 export type Match = {
   id: string;
   stage: string;
+  /** A–L en fase de grupos; null/omitido en eliminatorias o datos antiguos */
+  groupCode?: string | null;
   teamA: string;
   teamB: string;
   kickoffAt: string;

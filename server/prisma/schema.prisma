@@ -124,6 +124,8 @@ enum MatchStage {
 model Match {
   id       String     @id @default(cuid())
   stage    MatchStage @default(group)
+  /// Grupo A–L solo en fase de grupos (Mundial 2026)
+  groupCode String?
   teamA    String
   teamB    String
   kickoffAt DateTime
