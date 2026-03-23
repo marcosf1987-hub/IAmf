@@ -169,7 +169,7 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
 
    | Nombre | Valor |
    |--------|--------|
-   | `VITE_API_URL` | La URL pública del backend, **con https**, **sin** barra final. Ejemplo: `https://tu-backend-production.up.railway.app` |
+   | `VITE_API_URL` | URL del backend **sin barra final**. Podés usar `https://iamf-production.up.railway.app` o solo el dominio `iamf-production.up.railway.app` (el front agrega `https://` solo). **No** pongas solo el nombre sin dominio completo. |
 
 4. **Build Command:**  
    `npm install && npm run build`  

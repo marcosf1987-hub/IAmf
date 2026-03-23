@@ -1,17 +1,33 @@
-/** URL base del backend (sin barra final). En producción debe venir de VITE_API_URL en el build (Railway). */
+/**
+ * URL base del backend (sin barra final).
+ * Si VITE_API_URL no tiene `https://`, el navegador lo interpreta como RUTA del sitio actual
+ * (ej. frontend.up.railway.app/iamf-production.../auth/login) y el login falla.
+ */
 function resolveApiBase(): string {
   const fromEnv = import.meta.env.VITE_API_URL?.trim();
-  if (import.meta.env.DEV) {
-    return (fromEnv || "/api").replace(/\/+$/, "") || "/api";
+
+  if (import.meta.env.DEV && !fromEnv) {
+    return "/api";
   }
+
   const fallback = "http://localhost:4000";
-  const base = (fromEnv || fallback).replace(/\/+$/, "");
+  let base = (fromEnv || fallback).replace(/\/+$/, "");
+
+  if (!/^https?:\/\//i.test(base)) {
+    const isLocal =
+      base.startsWith("localhost") ||
+      base.startsWith("127.0.0.1") ||
+      base.startsWith("[::1]");
+    base = `${isLocal ? "http" : "https"}://${base}`;
+  }
+
   if (import.meta.env.PROD && !fromEnv) {
     // eslint-disable-next-line no-console
     console.error(
       "[Promptplay] Falta VITE_API_URL en el build. En Railway: Variables del servicio frontend → VITE_API_URL = https://tu-backend.up.railway.app (sin / al final) → Redeploy."
     );
   }
+
   return base;
 }
 

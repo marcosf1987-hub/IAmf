@@ -37,6 +37,16 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 
+/** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
+app.get("/", (_req, res) => {
+  res.status(200).json({
+    ok: true,
+    service: "Promptplay API",
+    message: "Usá el frontend para la app web. Probar estado: GET /health",
+    health: "/health",
+  });
+});
+
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
