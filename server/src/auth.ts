@@ -24,7 +24,11 @@ function jwtExpiresInSeconds(): number {
 }
 
 export function signAccessToken(payload: AuthTokenPayload): string {
-  return jwt.sign(payload, getJwtSecret(), { expiresIn: jwtExpiresInSeconds() });
+  // Cast explícito: distintas versiones de @types/jsonwebtoken tipan distinto `expiresIn`.
+  return jwt.sign(payload, getJwtSecret(), {
+    expiresIn: jwtExpiresInSeconds(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any);
 }
 
 export type AuthedRequest = Request & { auth: AuthTokenPayload };

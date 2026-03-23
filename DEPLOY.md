@@ -251,6 +251,8 @@ Si en algún paso Railway muestra textos distintos (“Service”, “Nixpacks�
 
 ## El build en Railway falla pero en tu PC compila
 
+**Antes de seguir:** abrí en el navegador el archivo `server/src/auth.ts` **en tu repositorio de GitHub**. Si no ves la función `jwtExpiresInSeconds`, el código **no se subió**. Guía paso a paso: **[VERIFICAR-GITHUB.md](./VERIFICAR-GITHUB.md)**.
+
 Railway **siempre** construye lo que está en **GitHub**, no lo que tenés solo en tu computadora. Si cambiás archivos en el PC y no los “subís” a GitHub, Railway sigue usando la versión vieja.
 
 Abajo tenés **dónde** escribir los comandos y **qué** hacer, paso a paso, sin asumir experiencia previa.
