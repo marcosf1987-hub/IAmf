@@ -33,6 +33,15 @@ export function signAccessToken(payload: AuthTokenPayload): string {
 
 export type AuthedRequest = Request & { auth: AuthTokenPayload };
 
+/** Verifica el JWT sin middleware (p. ej. requireAdmin con rol desde BD). */
+export function verifyAccessToken(token: string): AuthTokenPayload | null {
+  try {
+    return jwt.verify(token, getJwtSecret()) as AuthTokenPayload;
+  } catch {
+    return null;
+  }
+}
+
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.header("authorization") ?? "";
   const [scheme, token] = header.split(" ");
@@ -49,15 +58,3 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
     res.status(401).json({ error: "invalid_token" });
   }
 }
-
-export function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  requireAuth(req, res, () => {
-    const authed = req as AuthedRequest;
-    if (authed.auth.role !== "admin") {
-      res.status(403).json({ error: "forbidden" });
-      return;
-    }
-    next();
-  });
-}
-

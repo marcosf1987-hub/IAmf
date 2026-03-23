@@ -2,7 +2,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { PrismaClient, MatchStage } from "@prisma/client";
-import { signAccessToken, requireAuth, requireAdmin, type AuthedRequest } from "./auth";
+import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp } from "./ai-parse";
@@ -24,6 +24,45 @@ function routeParamId(req: express.Request): string | undefined {
 
 const app = express();
 const prisma = new PrismaClient();
+
+/** Admin: el rol debe coincidir con la **base de datos**, no solo con el JWT (si promovieron a admin, el token viejo decía employee → 403). */
+async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
+  try {
+    const header = req.header("authorization") ?? "";
+    const [scheme, token] = header.split(" ");
+    if (scheme?.toLowerCase() !== "bearer" || !token) {
+      res.status(401).json({ error: "missing_token" });
+      return;
+    }
+    const payload = verifyAccessToken(token);
+    if (!payload) {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, role: true, companyId: true, status: true },
+    });
+    if (!user || user.status !== "active") {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    if (user.role !== "admin") {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+    (req as AuthedRequest).auth = {
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId,
+    };
+    next();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("requireAdmin:", err);
+    res.status(500).json({ error: "server_error" });
+  }
+}
 
 // Detrás de Railway / reverse proxy
 app.set("trust proxy", 1);
