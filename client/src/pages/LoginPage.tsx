@@ -19,8 +19,12 @@ export default function LoginPage() {
       await login(email, password);
       navigate("/app");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error al iniciar sesión";
-      setError(msg === "invalid_credentials" ? "Email o contraseña incorrectos" : msg);
+      const raw = err instanceof Error ? err.message : "Error al iniciar sesión";
+      let msg = raw;
+      if (raw === "invalid_credentials") msg = "Email o contraseña incorrectos. Si es la primera vez en la web publicada, creá una cuenta en «Registrarse» o cargá usuarios con el seed (admin@demo.com / Admin1234).";
+      else if (raw.includes("JWT_SECRET")) msg = "Falta configurar JWT_SECRET en el backend (Railway → Variables).";
+      else if (/P1001|database server|Can't reach database/i.test(raw)) msg = "No se puede conectar a la base de datos. Revisá DATABASE_URL en Railway.";
+      setError(msg);
     } finally {
       setLoading(false);
     }

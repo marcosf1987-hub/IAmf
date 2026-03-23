@@ -229,6 +229,31 @@ La primera vez, la base en Railway está vacía. Podés:
 
 ---
 
+## Error: «The table `ProdeGuidelines` does not exist» (u otras tablas)
+
+El **login** puede funcionar (usa tablas creadas por la primera migración), pero **ProdeGuidelines**, **AiConfig**, resultados de partidos, etc. están en migraciones **posteriores**. Si no corrieron en Railway, aparece ese error.
+
+### Qué hacer
+
+1. **Confirmá el Start Command del backend** en Railway:  
+   `npx prisma migrate deploy && npm start`  
+   Sin `migrate deploy`, las tablas nuevas nunca se crean.
+
+2. **Subí el código** a GitHub (este repo incluye la migración `20260319120000_schema_sync_prode_and_config`) y hacé **Redeploy** del backend.
+
+3. **O** aplicá migraciones a mano desde tu PC (misma `DATABASE_URL` que Railway):
+
+   ```powershell
+   cd server
+   $env:DATABASE_URL="postgresql://..."   # pegá la URL del Postgres en Railway
+   npx prisma migrate deploy
+   npm run db:seed
+   ```
+
+   Después probá de nuevo predicciones, IA y resultados.
+
+---
+
 ## Parte K — Conectar tu dominio de GoDaddy (opcional)
 
 1. En Railway, en el servicio del **frontend** → **Domains** → **Custom Domain** → agregá `www.tudominio.com` o `tudominio.com`.

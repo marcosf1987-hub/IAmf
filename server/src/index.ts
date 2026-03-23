@@ -98,41 +98,51 @@ app.post("/auth/signup", async (req, res) => {
 });
 
 app.post("/auth/login", async (req, res) => {
-  const parsed = loginSchema.safeParse(req.body);
-  if (!parsed.success) {
-    res.status(400).json({ error: "invalid_body" });
-    return;
+  try {
+    const parsed = loginSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+
+    const { email, password } = parsed.data;
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, email: true, fullName: true, role: true, companyId: true, passwordHash: true, status: true },
+    });
+    if (!user || user.status !== "active") {
+      res.status(401).json({ error: "invalid_credentials" });
+      return;
+    }
+
+    const ok = await verifyPassword(password, user.passwordHash);
+    if (!ok) {
+      res.status(401).json({ error: "invalid_credentials" });
+      return;
+    }
+
+    await prisma.loginEvent.create({
+      data: {
+        userId: user.id,
+        ip: req.ip,
+        userAgent: req.header("user-agent") ?? null,
+      },
+    });
+
+    const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
+    res.status(200).json({
+      token,
+      user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, companyId: user.companyId },
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("POST /auth/login:", err);
+    const msg = err instanceof Error ? err.message : String(err);
+    res.status(500).json({
+      error: "server_error",
+      message: msg.includes("JWT_SECRET") ? "JWT_SECRET no configurado en el servidor" : msg,
+    });
   }
-
-  const { email, password } = parsed.data;
-  const user = await prisma.user.findUnique({
-    where: { email },
-    select: { id: true, email: true, fullName: true, role: true, companyId: true, passwordHash: true, status: true },
-  });
-  if (!user || user.status !== "active") {
-    res.status(401).json({ error: "invalid_credentials" });
-    return;
-  }
-
-  const ok = await verifyPassword(password, user.passwordHash);
-  if (!ok) {
-    res.status(401).json({ error: "invalid_credentials" });
-    return;
-  }
-
-  await prisma.loginEvent.create({
-    data: {
-      userId: user.id,
-      ip: req.ip,
-      userAgent: req.header("user-agent") ?? null,
-    },
-  });
-
-  const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
-  res.status(200).json({
-    token,
-    user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, companyId: user.companyId },
-  });
 });
 
 app.get("/matches", requireAuth, async (_req, res) => {

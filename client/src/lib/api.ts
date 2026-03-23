@@ -132,8 +132,14 @@ export async function login(email: string, password: string): Promise<LoginRespo
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
-    const data = await parseJson<LoginResponse & { error?: string }>(res, `${API_BASE}/auth/login`);
-    if (!res.ok) throw new Error(data.error ?? "Login failed");
+    const data = await parseJson<LoginResponse & { error?: string; message?: string }>(
+      res,
+      `${API_BASE}/auth/login`
+    );
+    if (!res.ok) {
+      const d = data as { error?: string; message?: string };
+      throw new Error(d.message ?? d.error ?? `Error ${res.status}`);
+    }
     return data;
   } catch (e) {
     throw networkHint(e);
