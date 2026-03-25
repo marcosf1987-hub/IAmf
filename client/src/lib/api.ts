@@ -214,7 +214,15 @@ export type PredictionHistoryEntry = {
   runnerUp: string | null;
 };
 
-export async function fetchPredictionHistory(limit = 400): Promise<{ entries: PredictionHistoryEntry[] }> {
+export type BatchPromptLine = {
+  promptText: string;
+  createdAt: string;
+};
+
+export async function fetchPredictionHistory(limit = 400): Promise<{
+  entries: PredictionHistoryEntry[];
+  batchPrompts?: Record<string, BatchPromptLine[]>;
+}> {
   return fetchAuth(`/predictions/me/history?limit=${limit}`);
 }
 
@@ -290,7 +298,13 @@ export async function fetchMyPrompts(): Promise<{ prompts: PromptLog[] }> {
   return fetchAuth("/prompts/me");
 }
 
-export async function fetchProdeGuidelines(): Promise<{ guidelines: string }> {
+export type ProdeGuidelinesByPhase = {
+  groups: string;
+  roundOf32: string;
+  knockout: string;
+};
+
+export async function fetchProdeGuidelines(): Promise<{ guidelines: ProdeGuidelinesByPhase }> {
   return fetchAuth("/me/guidelines");
 }
 
@@ -329,11 +343,13 @@ export async function generateProdePredictions(phase: ProdePhaseId): Promise<{
   });
 }
 
-export async function updateProdeGuidelines(text: string): Promise<{ guidelines: string }> {
+export async function updateProdeGuidelines(
+  guidelines: ProdeGuidelinesByPhase
+): Promise<{ guidelines: ProdeGuidelinesByPhase }> {
   return fetchAuth("/me/guidelines", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(guidelines),
   });
 }
 

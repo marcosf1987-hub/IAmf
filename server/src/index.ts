@@ -2,7 +2,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "node:crypto";
-import { PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma/client";
+import { Prisma, PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma/client";
 import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
@@ -223,16 +223,16 @@ app.post("/predictions", requireAuth, async (req, res) => {
     return;
   }
 
-  const prediction = await prisma.$transaction(async (tx) => {
-    const pred = await tx.prediction.upsert({
-      where: {
-        userId_matchId: { userId, matchId },
-      },
-      update: { scoreA, scoreB },
-      create: { userId, matchId, scoreA, scoreB },
-      select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
-    });
-    await tx.predictionHistory.create({
+  const prediction = await prisma.prediction.upsert({
+    where: {
+      userId_matchId: { userId, matchId },
+    },
+    update: { scoreA, scoreB },
+    create: { userId, matchId, scoreA, scoreB },
+    select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+  });
+  try {
+    await prisma.predictionHistory.create({
       data: {
         userId,
         kind: PredictionHistoryKind.match,
@@ -242,8 +242,10 @@ app.post("/predictions", requireAuth, async (req, res) => {
         source: "manual",
       },
     });
-    return pred;
-  });
+  } catch (histErr) {
+    // eslint-disable-next-line no-console
+    console.error("PredictionHistory (manual) no se pudo guardar. ¿Corriste prisma migrate deploy?", histErr);
+  }
   res.status(200).json({ prediction });
 });
 
@@ -361,7 +363,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     }),
     prisma.prodeGuidelines.findUnique({
       where: { userId },
-      select: { text: true },
+      select: { textGroups: true, textRoundOf32: true, textKnockout: true },
     }),
     prisma.aiConfig.findUnique({ where: { companyId } }),
   ]);
@@ -380,10 +382,29 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     }
   }
 
-  const pautas = (guidelinesRow?.text ?? "").trim();
-  const pautasSuffix = pautas
-    ? `\n\nTENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ${pautas}`
-    : "";
+  const phaseKey = phase === "groups" || phase === "roundOf32" || phase === "knockout" ? phase : "groups";
+  const rawPautas =
+    phaseKey === "groups"
+      ? (guidelinesRow?.textGroups ?? "")
+      : phaseKey === "roundOf32"
+        ? (guidelinesRow?.textRoundOf32 ?? "")
+        : (guidelinesRow?.textKnockout ?? "");
+  const pautas = rawPautas.trim();
+  if (!pautas) {
+    const phaseLabel =
+      phaseKey === "groups"
+        ? "Fase de grupos"
+        : phaseKey === "roundOf32"
+          ? "Treintaidosavos (R32)"
+          : "Eliminatorias";
+    res.status(400).json({
+      error: "guidelines_required",
+      message: `No hay pautas guardadas para ${phaseLabel}. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`,
+    });
+    return;
+  }
+
+  const pautasSuffix = `\n\nTENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ${pautas}`;
 
   const predictions: Array<{ id: string; matchId: string; scoreA: number; scoreB: number; createdAt: Date }> = [];
   let championPrediction: { champion: string; runnerUp: string } | null = null;
@@ -397,6 +418,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
       await prisma.promptLog.create({
         data: {
           userId,
+          batchId,
           provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
           model: result.model,
           promptText: prompt,
@@ -408,14 +430,14 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
       const parsed = parseAiScore(result.text);
       if (parsed) {
-        const pred = await prisma.$transaction(async (tx) => {
-          const p = await tx.prediction.upsert({
-            where: { userId_matchId: { userId, matchId: m.id } },
-            update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-            create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-            select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
-          });
-          await tx.predictionHistory.create({
+        const pred = await prisma.prediction.upsert({
+          where: { userId_matchId: { userId, matchId: m.id } },
+          update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+          create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+          select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+        });
+        try {
+          await prisma.predictionHistory.create({
             data: {
               userId,
               kind: PredictionHistoryKind.match,
@@ -427,8 +449,10 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
               phaseLabel: phase,
             },
           });
-          return p;
-        });
+        } catch (histErr) {
+          // eslint-disable-next-line no-console
+          console.error("PredictionHistory (IA) no se pudo guardar. ¿Migración aplicada?", histErr);
+        }
         predictions.push(pred);
       }
     } catch (err) {
@@ -447,6 +471,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     await prisma.promptLog.create({
       data: {
         userId,
+        batchId,
         provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
         model: championResult.model,
         promptText: championPrompt,
@@ -458,13 +483,13 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
     const parsed = parseAiChampionRunnerUp(championResult.text);
     if (parsed) {
-      await prisma.$transaction(async (tx) => {
-        await tx.prodeChampionPrediction.upsert({
-          where: { userId },
-          update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
-          create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
-        });
-        await tx.predictionHistory.create({
+      await prisma.prodeChampionPrediction.upsert({
+        where: { userId },
+        update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
+        create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
+      });
+      try {
+        await prisma.predictionHistory.create({
           data: {
             userId,
             kind: PredictionHistoryKind.champion,
@@ -475,7 +500,10 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
             phaseLabel: phase,
           },
         });
-      });
+      } catch (histErr) {
+        // eslint-disable-next-line no-console
+        console.error("PredictionHistory (campeón) no se pudo guardar. ¿Migración aplicada?", histErr);
+      }
       championPrediction = parsed;
     }
   } catch (err) {
@@ -516,18 +544,6 @@ app.get("/prode/champion-prediction", requireAuth, async (req, res) => {
   res.status(200).json({ championPrediction: pred });
 });
 
-app.get("/predictions/me", requireAuth, async (req, res) => {
-  const { userId } = (req as AuthedRequest).auth;
-  const predictions = await prisma.prediction.findMany({
-    where: { userId },
-    include: {
-      match: { select: { id: true, stage: true, teamA: true, teamB: true, kickoffAt: true, resultScoreA: true, resultScoreB: true } },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  res.status(200).json({ predictions });
-});
-
 app.get("/predictions/me/history", requireAuth, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
   const limitRaw = Number.parseInt(String(req.query.limit ?? "400"), 10);
@@ -551,30 +567,68 @@ app.get("/predictions/me/history", requireAuth, async (req, res) => {
       },
     });
 
-    res.status(200).json({
-      entries: rows.map((r) => ({
-        id: r.id,
-        createdAt: r.createdAt.toISOString(),
-        kind: r.kind,
-        source: r.source,
-        batchId: r.batchId,
-        phaseLabel: r.phaseLabel,
-        matchId: r.matchId,
-        teamA: r.match?.teamA ?? null,
-        teamB: r.match?.teamB ?? null,
-        stage: r.match?.stage ?? null,
-        groupCode: r.match?.groupCode ?? null,
-        scoreA: r.scoreA,
-        scoreB: r.scoreB,
-        champion: r.champion,
-        runnerUp: r.runnerUp,
-      })),
-    });
+    const entries = rows.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt.toISOString(),
+      kind: r.kind,
+      source: r.source,
+      batchId: r.batchId,
+      phaseLabel: r.phaseLabel,
+      matchId: r.matchId,
+      teamA: r.match?.teamA ?? null,
+      teamB: r.match?.teamB ?? null,
+      stage: r.match?.stage ?? null,
+      groupCode: r.match?.groupCode ?? null,
+      scoreA: r.scoreA,
+      scoreB: r.scoreB,
+      champion: r.champion,
+      runnerUp: r.runnerUp,
+    }));
+
+    const batchIds = [...new Set(entries.map((e) => e.batchId).filter((id): id is string => Boolean(id)))];
+    const batchPrompts: Record<string, Array<{ promptText: string; createdAt: string }>> = {};
+    if (batchIds.length > 0) {
+      const logs = await prisma.promptLog.findMany({
+        where: { userId, batchId: { in: batchIds } },
+        orderBy: { createdAt: "asc" },
+        select: { batchId: true, promptText: true, createdAt: true },
+      });
+      for (const log of logs) {
+        if (!log.batchId) continue;
+        if (!batchPrompts[log.batchId]) batchPrompts[log.batchId] = [];
+        batchPrompts[log.batchId].push({
+          promptText: log.promptText,
+          createdAt: log.createdAt.toISOString(),
+        });
+      }
+    }
+
+    res.status(200).json({ entries, batchPrompts });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /predictions/me/history error:", err);
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2021") {
+      res.status(503).json({
+        error: "migration_required",
+        message:
+          "Falta aplicar migraciones en la base de datos (tabla PredictionHistory). En el servidor debe ejecutarse prisma migrate deploy; en local: cd server && npx prisma migrate dev",
+      });
+      return;
+    }
     res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
   }
+});
+
+app.get("/predictions/me", requireAuth, async (req, res) => {
+  const { userId } = (req as AuthedRequest).auth;
+  const predictions = await prisma.prediction.findMany({
+    where: { userId },
+    include: {
+      match: { select: { id: true, stage: true, teamA: true, teamB: true, kickoffAt: true, resultScoreA: true, resultScoreB: true } },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+  res.status(200).json({ predictions });
 });
 
 app.get("/results/me", requireAuth, async (req, res) => {
@@ -1309,11 +1363,13 @@ app.get("/me/prode-status", requireAuth, async (req, res) => {
     const [guidelines, predCount] = await Promise.all([
       prisma.prodeGuidelines.findUnique({
         where: { userId },
-        select: { text: true, version: true },
+        select: { textGroups: true, textRoundOf32: true, textKnockout: true, version: true },
       }),
       prisma.prediction.count({ where: { userId } }),
     ]);
-    const hasGuidelines = Boolean(guidelines?.text?.trim());
+    const hasGuidelines = Boolean(
+      guidelines?.textGroups?.trim() || guidelines?.textRoundOf32?.trim() || guidelines?.textKnockout?.trim()
+    );
     const hasPredictions = predCount > 0;
     res.status(200).json({
       hasGuidelines,
@@ -1333,7 +1389,13 @@ app.get("/me/guidelines", requireAuth, async (req, res) => {
     const g = await prisma.prodeGuidelines.findUnique({
       where: { userId },
     });
-    res.status(200).json({ guidelines: g?.text ?? "" });
+    res.status(200).json({
+      guidelines: {
+        groups: g?.textGroups ?? "",
+        roundOf32: g?.textRoundOf32 ?? "",
+        knockout: g?.textKnockout ?? "",
+      },
+    });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /me/guidelines error:", err);
@@ -1349,7 +1411,7 @@ app.patch("/me/guidelines", requireAuth, async (req, res) => {
   }
   try {
     const { userId } = (req as AuthedRequest).auth;
-    const text = parsed.data.text ?? "";
+    const { groups, roundOf32, knockout } = parsed.data;
     const existing = await prisma.prodeGuidelines.findUnique({
       where: { userId },
       select: { version: true },
@@ -1357,12 +1419,23 @@ app.patch("/me/guidelines", requireAuth, async (req, res) => {
     const g = existing
       ? await prisma.prodeGuidelines.update({
           where: { userId },
-          data: { text, version: existing.version + 1 },
+          data: {
+            textGroups: groups,
+            textRoundOf32: roundOf32,
+            textKnockout: knockout,
+            version: existing.version + 1,
+          },
         })
       : await prisma.prodeGuidelines.create({
-          data: { userId, text },
+          data: { userId, textGroups: groups, textRoundOf32: roundOf32, textKnockout: knockout },
         });
-    res.status(200).json({ guidelines: g.text });
+    res.status(200).json({
+      guidelines: {
+        groups: g.textGroups,
+        roundOf32: g.textRoundOf32,
+        knockout: g.textKnockout,
+      },
+    });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("PATCH /me/guidelines error:", err);

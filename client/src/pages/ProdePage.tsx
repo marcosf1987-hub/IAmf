@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import type { Match, Prediction, ChampionPrediction } from "../lib/api";
 import { getFlag } from "../lib/flags";
-import { fetchMatches, fetchMyPredictions, fetchChampionPrediction, generateProdePredictions } from "../lib/api";
+import type { ProdeGuidelinesByPhase } from "../lib/api";
+import {
+  fetchMatches,
+  fetchMyPredictions,
+  fetchChampionPrediction,
+  fetchProdeGuidelines,
+  generateProdePredictions,
+} from "../lib/api";
 import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 
 const STAGE_LABELS: Record<string, string> = {
@@ -84,10 +92,41 @@ const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
     "Incluye octavos, cuartos, semis, tercer puesto y final, más campeón/subcampeón. Antes completá todos los partidos de la fase de 16avos (R32).",
 };
 
+const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
+  groups: "Fase de grupos",
+  roundOf32: "Treintaidosavos (R32)",
+  knockout: "Eliminatorias",
+};
+
+const EMPTY_LAB: ProdeGuidelinesByPhase = { groups: "", roundOf32: "", knockout: "" };
+
+function normalizeGuidelinesResponse(res: { guidelines: unknown }): ProdeGuidelinesByPhase {
+  const raw = res.guidelines;
+  if (typeof raw === "string") {
+    return { groups: raw, roundOf32: "", knockout: "" };
+  }
+  if (raw && typeof raw === "object") {
+    const o = raw as Record<string, string>;
+    return {
+      groups: o.groups ?? "",
+      roundOf32: o.roundOf32 ?? "",
+      knockout: o.knockout ?? "",
+    };
+  }
+  return EMPTY_LAB;
+}
+
+function pautasForPhase(phase: ProdePhaseId, lab: ProdeGuidelinesByPhase): string {
+  if (phase === "groups") return lab.groups;
+  if (phase === "roundOf32") return lab.roundOf32;
+  return lab.knockout;
+}
+
 export default function ProdePage() {
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [championPrediction, setChampionPrediction] = useState<ChampionPrediction | null>(null);
+  const [labGuidelines, setLabGuidelines] = useState<ProdeGuidelinesByPhase>(EMPTY_LAB);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
@@ -96,6 +135,10 @@ export default function ProdePage() {
   const sections = useMemo(() => buildProdeSections(matches), [matches]);
 
   const currentPhase = getCurrentPhase();
+
+  const hasLabGuidelinesForCurrentPhase = currentPhase
+    ? pautasForPhase(currentPhase.phase, labGuidelines).trim().length > 0
+    : false;
 
   useEffect(() => {
     const next: Record<string, boolean> = {};
@@ -109,29 +152,14 @@ export default function ProdePage() {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   }
 
-  function expandAllSections() {
-    const next: Record<string, boolean> = {};
-    sections.forEach((s) => {
-      next[s.id] = true;
-    });
-    setOpenSections(next);
-  }
-
-  function collapseAllSections() {
-    const next: Record<string, boolean> = {};
-    sections.forEach((s) => {
-      next[s.id] = false;
-    });
-    setOpenSections(next);
-  }
-
   useEffect(() => {
     async function load() {
       try {
-        const [matchesRes, predsRes, champRes] = await Promise.all([
+        const [matchesRes, predsRes, champRes, guidelinesRes] = await Promise.all([
           fetchMatches(),
           fetchMyPredictions(),
           fetchChampionPrediction(),
+          fetchProdeGuidelines().catch(() => ({ guidelines: EMPTY_LAB })),
         ]);
         setMatches(matchesRes.matches);
         const map: Record<string, Prediction> = {};
@@ -140,6 +168,7 @@ export default function ProdePage() {
         }
         setPredictions(map);
         setChampionPrediction(champRes.championPrediction);
+        setLabGuidelines(normalizeGuidelinesResponse(guidelinesRes));
       } catch (err) {
         setError(err instanceof Error ? err.message : "Error al cargar");
       } finally {
@@ -149,7 +178,24 @@ export default function ProdePage() {
     load();
   }, []);
 
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState !== "visible") return;
+      fetchProdeGuidelines()
+        .then((r) => setLabGuidelines(normalizeGuidelinesResponse(r)))
+        .catch(() => {});
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, []);
+
   async function handleGeneratePredictions(phase: ProdePhaseId) {
+    if (!pautasForPhase(phase, labGuidelines).trim()) {
+      setError(
+        `No tenés pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
+      );
+      return;
+    }
     setGenerating(true);
     setError("");
     try {
@@ -183,7 +229,10 @@ export default function ProdePage() {
   return (
     <div className="page-content">
       <h1>Prode FIFA 2026</h1>
-      <p className="page-subtitle">Generá predicciones con IA usando las pautas definidas en el Laboratorio</p>
+      <p className="page-subtitle">
+        Generá predicciones con IA usando las pautas por etapa que guardás en el Laboratorio (grupos, R32 y
+        eliminatorias). Para cada ventana activa hace falta el bloque correspondiente.
+      </p>
 
       {error && <div className="auth-error">{error}</div>}
 
@@ -214,15 +263,28 @@ npx prisma db seed`}
       <div className="prode-grid">
         {currentPhase ? (
           <div className="prode-actions prode-actions-full">
+            {!hasLabGuidelinesForCurrentPhase && (
+              <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
+                Todavía <strong>no guardaste pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
+                Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribí el texto en el
+                Laboratorio (elegí la etapa arriba), pulsá <strong>Guardar pautas</strong> y volvé acá.{" "}
+                <Link to="/app/ia" className="prode-lab-required-link">
+                  Ir al Laboratorio
+                </Link>
+              </p>
+            )}
             <button
               type="button"
               className="btn-primary"
               onClick={() => handleGeneratePredictions(currentPhase.phase)}
-              disabled={generating || matches.length === 0}
+              disabled={generating || matches.length === 0 || !hasLabGuidelinesForCurrentPhase}
+              aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
               title={
                 matches.length === 0
                   ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
-                  : undefined
+                  : !hasLabGuidelinesForCurrentPhase
+                    ? `Guardá las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
+                    : undefined
               }
             >
               {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
@@ -238,21 +300,6 @@ npx prisma db seed`}
             <p className="prode-deadline prode-deadline-passed">
               Ya no se pueden cargar predicciones. Todas las fases han cerrado.
             </p>
-          </div>
-        )}
-
-        {sections.length > 0 && (
-          <div
-            className="prode-accordion-toolbar prode-actions-full"
-            role="toolbar"
-            aria-label="Desplegar o colapsar todas las secciones"
-          >
-            <button type="button" className="btn-secondary btn-sm" onClick={expandAllSections}>
-              Desplegar todo
-            </button>
-            <button type="button" className="btn-secondary btn-sm" onClick={collapseAllSections}>
-              Colapsar todo
-            </button>
           </div>
         )}
 

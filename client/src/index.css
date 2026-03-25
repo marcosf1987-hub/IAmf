@@ -1015,19 +1015,6 @@ a:hover {
   }
 }
 
-.prode-accordion-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-}
-
-.prode-accordion-toolbar .btn-sm {
-  min-width: 9rem;
-}
-
 /* Acordeón Mis Predicciones (grupos A–L + fases) */
 .prode-accordion {
   padding: 0;
@@ -1123,6 +1110,28 @@ a:hover {
 .prode-actions-full .btn-primary {
   width: 100%;
   max-width: 400px;
+}
+
+.prode-lab-required {
+  margin: 0 0 0.25rem;
+  max-width: 38rem;
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--error);
+  line-height: 1.5;
+  padding: 0.75rem 1rem;
+  border: 1px solid rgba(224, 122, 122, 0.35);
+  background: rgba(224, 122, 122, 0.08);
+}
+
+.prode-lab-required-link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.prode-lab-required-link:hover {
+  color: var(--text);
 }
 
 .prode-deadline {
@@ -1673,12 +1682,105 @@ a:hover {
   margin: 0 0 1rem;
 }
 
+.ia-console-flow {
+  margin: 1rem 0 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  font-size: 0.875rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 40rem;
+}
+
+.ia-console-flow strong {
+  color: var(--text);
+}
+
 .ia-prediction-history-note {
   font-size: 0.9rem;
   color: var(--text-muted);
   line-height: 1.5;
   margin: 0 0 1.25rem;
   max-width: 48rem;
+}
+
+.ia-batch-prompt-block {
+  padding: 0.75rem 1rem 0;
+  border-bottom: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.ia-batch-prompt-block--empty .ia-batch-prompt-note {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ia-batch-prompt-subtitle {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+}
+
+.ia-batch-prompt-label {
+  margin: 0.65rem 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.ia-batch-prompt-muted {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ia-batch-prompt-pre {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.ia-batch-prompt-pre--full {
+  max-height: 14rem;
+}
+
+.ia-batch-prompt-details {
+  margin: 0.75rem 0 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.ia-batch-prompt-details summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.ia-batch-prompt-all {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.ia-batch-prompt-all li {
+  margin-bottom: 0.75rem;
+}
+
+.ia-batch-prompt-all .ia-batch-prompt-pre {
+  max-height: 8rem;
 }
 
 .ia-history-timeline {
@@ -1808,6 +1910,58 @@ a:hover {
 }
 
 /* Pautas Prode */
+.guidelines-phase-block {
+  margin-bottom: 1.25rem;
+}
+
+.guidelines-phase-label {
+  display: block;
+  margin-bottom: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.guidelines-phase-select {
+  width: 100%;
+  max-width: 22rem;
+  margin-bottom: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+}
+
+.guidelines-phase-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.guidelines-phase-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guidelines-phase-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.guidelines-phase-block .guidelines-count {
+  display: block;
+  margin-top: 0.25rem;
+}
+
 .guidelines-form {
   display: flex;
   flex-direction: column;

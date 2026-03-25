@@ -227,6 +227,8 @@ La primera vez, la base en Railway está vacía. Podés:
 
 (El comando exacto de seed en tu proyecto es `npm run db:seed` dentro de `server`.)
 
+**Historial de predicciones (Laboratorio → Control de versiones):** requiere la migración `PredictionHistory` (p. ej. `20260316160000_prediction_history`). Si no corrés `migrate deploy`, el historial no se guarda ni se lista; el mensaje de error en pantalla puede indicar que falta aplicar migraciones.
+
 ---
 
 ## Error: «The table `ProdeGuidelines` does not exist» (u otras tablas)

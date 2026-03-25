@@ -77,7 +77,10 @@ model ProdeGuidelines {
   id        String   @id @default(cuid())
   userId    String   @unique
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  text      String   @default("")
+  /// Pautas obligatorias por etapa de generación (Laboratorio)
+  textGroups    String @default("")
+  textRoundOf32 String @default("")
+  textKnockout  String @default("")
   version   Int      @default(1)
   updatedAt DateTime @updatedAt
 }
@@ -105,11 +108,15 @@ model PromptLog {
   tokensIn     Int?
   tokensOut    Int?
 
+  /// Mismo UUID que el lote en PredictionHistory (generación Prode por IA)
+  batchId String?
+
   userId String
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([userId, batchId])
 }
 
 enum MatchStage {

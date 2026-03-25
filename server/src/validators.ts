@@ -40,7 +40,9 @@ export const updateMeSchema = z.object({
 });
 
 export const prodeGuidelinesSchema = z.object({
-  text: z.string().max(2000).optional(),
+  groups: z.string().max(2000),
+  roundOf32: z.string().max(2000),
+  knockout: z.string().max(2000),
 });
 
 export const matchResultSchema = z.object({
