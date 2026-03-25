@@ -1923,23 +1923,48 @@ a:hover {
   letter-spacing: 0.02em;
 }
 
+/* Chrome/Edge (Win): el <select> nativo ignora a menudo el fondo oscuro con appearance:auto; forzamos estilo custom. */
 .guidelines-phase-select {
   width: 100%;
   max-width: 22rem;
   margin-bottom: 0.35rem;
-  padding: 0.5rem 0.65rem;
+  padding: 0.5rem 2.25rem 0.5rem 0.65rem;
   font-family: inherit;
   font-size: 0.9rem;
+  line-height: 1.4;
   color: var(--text);
-  background: var(--surface);
+  background-color: #1a1a1a;
+  background-color: var(--bg-input);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24'%3E%3Cpath fill='%23c9a962' d='M7 10l5 5 5-5H7z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  background-size: 1rem 1rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 6px);
+  border-radius: 0;
+  cursor: pointer;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.guidelines-phase-select::-ms-expand {
+  display: none;
+}
+
+.guidelines-phase-select:hover {
+  border-color: var(--accent-border);
 }
 
 .guidelines-phase-select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 25%, transparent);
+  box-shadow: 0 0 0 1px var(--accent-border);
+}
+
+.guidelines-phase-select option {
+  background: var(--bg-card);
+  color: var(--text);
 }
 
 .guidelines-phase-title {
