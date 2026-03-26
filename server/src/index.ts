@@ -326,6 +326,62 @@ async function countUserPredictionsInStages(userId: string, stages: MatchStage[]
   });
 }
 
+type ProdePromptPhase = "groups" | "roundOf32" | "knockout";
+
+function prodePhaseNameEs(phaseKey: ProdePromptPhase): string {
+  switch (phaseKey) {
+    case "groups":
+      return "fase de grupos";
+    case "roundOf32":
+      return "treintaidosavos (R32)";
+    default:
+      return "eliminatorias (octavos a la final, y campeón)";
+  }
+}
+
+/** Un prompt por partido: las pautas se repiten en cada llamada pero el encuadre aclara que rigen toda la etapa. */
+function buildProdeMatchPrompt(params: {
+  phaseKey: ProdePromptPhase;
+  pautas: string;
+  teamA: string;
+  teamB: string;
+  matchIndex1Based: number;
+  matchTotal: number;
+}): string {
+  const { phaseKey, pautas, teamA, teamB, matchIndex1Based, matchTotal } = params;
+  const phaseName = prodePhaseNameEs(phaseKey);
+  const batchHint =
+    matchTotal > 1
+      ? `Esta etapa tiene ${matchTotal} partidos en el fixture; cada llamada de la API es un partido distinto. Ahora corresponde el partido ${matchIndex1Based} de ${matchTotal}. Las pautas de arriba aplican a todos los pronósticos de esta etapa, no solo a este.\n\n`
+      : "";
+
+  return `Estás ayudando a completar pronósticos del Prode (Mundial).
+
+Las pautas del usuario que siguen son criterios generales de la etapa «${phaseName}»: orientan cómo pensar todos los marcadores de esta ventana del torneo. No las interpretes como atadas solo al partido de esta pregunta: son la guía coherente para cada resultado de esta fase.
+
+--- PAUTAS DEL USUARIO (toda esta etapa) ---
+${pautas}
+---
+
+${batchHint}Pregunta concreta (respondé únicamente el marcador de este partido): ¿Cuál será el resultado del partido de fútbol entre ${teamA} y ${teamB}?
+
+Responde ÚNICAMENTE con dos números separados por guión en el orden ${teamA}-${teamB}, por ejemplo: 2-1. Sin explicaciones ni texto extra.`;
+}
+
+function buildProdeChampionPrompt(pautas: string): string {
+  return `Estás ayudando a completar pronósticos del Prode (Mundial).
+
+Las pautas del usuario son criterios de la etapa eliminatoria: rigen los partidos de esta fase; aplicá la misma coherencia para campeón y subcampeón.
+
+--- PAUTAS DEL USUARIO (toda esta etapa) ---
+${pautas}
+---
+
+Pregunta concreta: ¿Quiénes serán el campeón y subcampeón del Mundial FIFA 2026?
+
+Responde ÚNICAMENTE con dos nombres de selecciones separados por guión en el orden campeón-subcampeón, por ejemplo: Argentina-Brasil. Sin explicaciones ni texto extra.`;
+}
+
 app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
   const phase = (req.body?.phase as string) || "groups";
@@ -404,15 +460,23 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     return;
   }
 
-  const pautasSuffix = `\n\nTENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ${pautas}`;
-
   const predictions: Array<{ id: string; matchId: string; scoreA: number; scoreB: number; createdAt: Date }> = [];
   let championPrediction: { champion: string; runnerUp: string } | null = null;
   const batchId = randomUUID();
+  const matchTotal = matches.length;
+  const promptPhase = phaseKey as ProdePromptPhase;
 
-  for (const m of matches) {
+  for (let idx = 0; idx < matches.length; idx++) {
+    const m = matches[idx];
     try {
-      const prompt = `¿Cuál será el resultado del partido de fútbol entre ${m.teamA} y ${m.teamB}?${pautasSuffix}\n\nResponde ÚNICAMENTE con dos números separados por guión en el orden ${m.teamA}-${m.teamB}, por ejemplo: 2-1. Sin explicaciones ni texto extra.`;
+      const prompt = buildProdeMatchPrompt({
+        phaseKey: promptPhase,
+        pautas,
+        teamA: m.teamA,
+        teamB: m.teamB,
+        matchIndex1Based: idx + 1,
+        matchTotal,
+      });
       const result = await chat(prompt, chatConfig);
 
       await prisma.promptLog.create({
@@ -464,52 +528,52 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
 
   // Generar predicción de campeón y subcampeón solo en fase knockout
   if (phase === "knockout") {
-  try {
-    const championPrompt = `¿Quiénes serán el campeón y subcampeón del Mundial FIFA 2026?${pautasSuffix}\n\nResponde ÚNICAMENTE con dos nombres de selecciones separados por guión en el orden campeón-subcampeón, por ejemplo: Argentina-Brasil. Sin explicaciones ni texto extra.`;
-    const championResult = await chat(championPrompt, chatConfig);
+    try {
+      const championPrompt = buildProdeChampionPrompt(pautas);
+      const championResult = await chat(championPrompt, chatConfig);
 
-    await prisma.promptLog.create({
-      data: {
-        userId,
-        batchId,
-        provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
-        model: championResult.model,
-        promptText: championPrompt,
-        responseText: championResult.text,
-        tokensIn: championResult.tokensIn ?? undefined,
-        tokensOut: championResult.tokensOut ?? undefined,
-      },
-    });
-
-    const parsed = parseAiChampionRunnerUp(championResult.text);
-    if (parsed) {
-      await prisma.prodeChampionPrediction.upsert({
-        where: { userId },
-        update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
-        create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
+      await prisma.promptLog.create({
+        data: {
+          userId,
+          batchId,
+          provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
+          model: championResult.model,
+          promptText: championPrompt,
+          responseText: championResult.text,
+          tokensIn: championResult.tokensIn ?? undefined,
+          tokensOut: championResult.tokensOut ?? undefined,
+        },
       });
-      try {
-        await prisma.predictionHistory.create({
-          data: {
-            userId,
-            kind: PredictionHistoryKind.champion,
-            champion: parsed.champion,
-            runnerUp: parsed.runnerUp,
-            source: "ai",
-            batchId,
-            phaseLabel: phase,
-          },
+
+      const parsed = parseAiChampionRunnerUp(championResult.text);
+      if (parsed) {
+        await prisma.prodeChampionPrediction.upsert({
+          where: { userId },
+          update: { champion: parsed.champion, runnerUp: parsed.runnerUp },
+          create: { userId, champion: parsed.champion, runnerUp: parsed.runnerUp },
         });
-      } catch (histErr) {
-        // eslint-disable-next-line no-console
-        console.error("PredictionHistory (campeón) no se pudo guardar. ¿Migración aplicada?", histErr);
+        try {
+          await prisma.predictionHistory.create({
+            data: {
+              userId,
+              kind: PredictionHistoryKind.champion,
+              champion: parsed.champion,
+              runnerUp: parsed.runnerUp,
+              source: "ai",
+              batchId,
+              phaseLabel: phase,
+            },
+          });
+        } catch (histErr) {
+          // eslint-disable-next-line no-console
+          console.error("PredictionHistory (campeón) no se pudo guardar. ¿Migración aplicada?", histErr);
+        }
+        championPrediction = parsed;
       }
-      championPrediction = parsed;
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("Error generating champion prediction:", err);
     }
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("Error generating champion prediction:", err);
-  }
   }
 
   res.status(200).json({

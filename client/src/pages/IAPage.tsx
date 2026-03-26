@@ -32,13 +32,22 @@ const PHASE_EDITOR: {
 import { fetchProdeGuidelines, fetchPredictionHistory, updateProdeGuidelines } from "../lib/api";
 import type { BatchPromptLine, PredictionHistoryEntry } from "../lib/api";
 
-const PAUTAS_MARKER = "TENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ";
+const PAUTAS_MARKER_LEGACY = "TENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ";
+const PAUTAS_BLOCK_START = "--- PAUTAS DEL USUARIO (toda esta etapa) ---\n";
 
-/** Extrae el texto guardado en el Laboratorio desde el prompt completo (mismo formato que el servidor). */
+/** Extrae el texto guardado en el Laboratorio desde el prompt completo (formato actual o histórico del servidor). */
 function extractGuidelinesFromPrompt(promptText: string): string | null {
-  const idx = promptText.indexOf(PAUTAS_MARKER);
+  const newIdx = promptText.indexOf(PAUTAS_BLOCK_START);
+  if (newIdx !== -1) {
+    const after = promptText.slice(newIdx + PAUTAS_BLOCK_START.length);
+    const end = after.indexOf("\n---\n");
+    const raw = end >= 0 ? after.slice(0, end) : after;
+    const t = raw.trim();
+    return t.length > 0 ? t : null;
+  }
+  const idx = promptText.indexOf(PAUTAS_MARKER_LEGACY);
   if (idx === -1) return null;
-  const after = promptText.slice(idx + PAUTAS_MARKER.length);
+  const after = promptText.slice(idx + PAUTAS_MARKER_LEGACY.length);
   const end = after.indexOf("\n\nResponde");
   const raw = end >= 0 ? after.slice(0, end) : after;
   const t = raw.trim();
@@ -312,10 +321,11 @@ export default function IAPage() {
               cuando esa ventana esté activa.
             </p>
             <p className="ia-console-flow">
-              <strong>¿Cómo llega esto a los resultados?</strong> Al generar en el Prode, el servidor toma el
-              bloque correspondiente a la fase activa, lo concatena al prompt de cada partido con el texto{" "}
-              <em>TENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: …</em> y envía eso al modelo. Si ese bloque está vacío,
-              la generación no se puede ejecutar.
+              <strong>¿Cómo llega esto a los resultados?</strong> Al generar en el Prode, el servidor arma un
+              prompt por cada partido de la etapa e incluye las pautas como{" "}
+              <em>criterios generales de toda esa etapa</em> (no solo de ese encuentro), para que el modelo mantenga
+              la misma guía en todos los marcadores. Si el bloque de esa etapa está vacío, la generación no se puede
+              ejecutar.
             </p>
           </div>
         </section>
