@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
 
 type GuidelinePhaseKey = keyof ProdeGuidelinesByPhase;
@@ -253,7 +253,6 @@ export default function IAPage() {
     try {
       await updateProdeGuidelines(guidelines);
       setGuidelinesSaved(true);
-      setTimeout(() => setGuidelinesSaved(false), 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al guardar pautas");
     } finally {
@@ -298,9 +297,10 @@ export default function IAPage() {
                 <p className="guidelines-phase-hint">{phaseMeta.hint}</p>
                 <textarea
                   value={guidelines[editorPhase]}
-                  onChange={(e) =>
-                    setGuidelines((prev) => ({ ...prev, [editorPhase]: e.target.value }))
-                  }
+                  onChange={(e) => {
+                    setGuidelinesSaved(false);
+                    setGuidelines((prev) => ({ ...prev, [editorPhase]: e.target.value }));
+                  }}
                   placeholder={phaseMeta.placeholder}
                   rows={10}
                   className="chat-input"
@@ -310,9 +310,21 @@ export default function IAPage() {
                 <span className="guidelines-count">{guidelines[editorPhase].length}/2000</span>
               </div>
               <div className="guidelines-actions">
-                <button type="submit" disabled={guidelinesSaving} className="btn-primary btn-sm">
+                <button
+                  type="submit"
+                  disabled={guidelinesSaving || guidelinesSaved}
+                  className="btn-primary btn-sm"
+                  title={
+                    guidelinesSaved
+                      ? "Pautas guardadas. Editá el texto para volver a guardar."
+                      : undefined
+                  }
+                >
                   {guidelinesSaving ? "Guardando…" : guidelinesSaved ? "Guardado" : "Guardar pautas"}
                 </button>
+                <Link to="/app/prode" className="btn-secondary btn-sm guidelines-prode-link">
+                  Generar predicción
+                </Link>
               </div>
             </form>
             <p className="ia-console-legend">
