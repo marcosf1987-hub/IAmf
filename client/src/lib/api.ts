@@ -372,8 +372,16 @@ export type AdminMetric = {
   predictions: number;
 };
 
-export async function fetchAdminUsers(): Promise<{ users: AdminUser[] }> {
-  return fetchAuth("/admin/users");
+/** Sin fechas = todo el período; con `from`/`to` (YYYY-MM-DD) = filtrado en servidor. */
+export type AdminReportRange = "all" | { from: string; to: string };
+
+function adminReportQuery(range: AdminReportRange): string {
+  if (range === "all") return "";
+  return `?from=${encodeURIComponent(range.from)}&to=${encodeURIComponent(range.to)}`;
+}
+
+export async function fetchAdminUsers(range: AdminReportRange = "all"): Promise<{ users: AdminUser[] }> {
+  return fetchAuth(`/admin/users${adminReportQuery(range)}`);
 }
 
 export async function createAdminUser(data: {
@@ -404,8 +412,8 @@ export async function deleteAdminUser(id: string): Promise<{ ok: boolean }> {
   return fetchAuth(`/admin/users/${id}`, { method: "DELETE" });
 }
 
-export async function fetchAdminMetrics(): Promise<{ metrics: AdminMetric[] }> {
-  return fetchAuth("/admin/metrics");
+export async function fetchAdminMetrics(range: AdminReportRange = "all"): Promise<{ metrics: AdminMetric[] }> {
+  return fetchAuth(`/admin/metrics${adminReportQuery(range)}`);
 }
 
 export type AdminStats = {
@@ -416,8 +424,8 @@ export type AdminStats = {
   promptsPerUser: string;
 };
 
-export async function fetchAdminStats(): Promise<AdminStats> {
-  return fetchAuth("/admin/stats");
+export async function fetchAdminStats(range: AdminReportRange = "all"): Promise<AdminStats> {
+  return fetchAuth(`/admin/stats${adminReportQuery(range)}`);
 }
 
 export type TimeSeriesPoint = {
@@ -426,8 +434,10 @@ export type TimeSeriesPoint = {
   prompts: number;
 };
 
-export async function fetchAdminTimeSeries(): Promise<{ data: TimeSeriesPoint[] }> {
-  return fetchAuth("/admin/metrics/time-series");
+export async function fetchAdminTimeSeries(
+  range: AdminReportRange = "all"
+): Promise<{ data: TimeSeriesPoint[] }> {
+  return fetchAuth(`/admin/metrics/time-series${adminReportQuery(range)}`);
 }
 
 export type AiConfig = {
@@ -493,19 +503,36 @@ export async function setMatchResult(
   });
 }
 
-export async function downloadExport(type: "prompts" | "logins" | "users"): Promise<void> {
+export async function downloadExport(
+  type: "prompts" | "logins" | "users",
+  range: AdminReportRange = "all"
+): Promise<void> {
   const token = getToken();
   if (!token) throw new Error("Unauthorized");
   const base = API_BASE;
-  const res = await fetch(`${base}/admin/exports/${type}.csv`, {
+  const q = adminReportQuery(range);
+  const res = await fetch(`${base}/admin/exports/${type}.csv${q}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
-  if (!res.ok) throw new Error("Error al descargar");
+  if (!res.ok) {
+    const errText = await res.text();
+    let msg = "Error al descargar";
+    try {
+      const j = JSON.parse(errText) as { message?: string };
+      if (j.message) msg = j.message;
+    } catch {
+      /* CSV u otro */
+    }
+    throw new Error(msg);
+  }
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `${type}.csv`;
+  const cd = res.headers.get("Content-Disposition");
+  const m = cd?.match(/filename=([^;]+)/i);
+  const filename = m?.[1]?.replace(/"/g, "").trim() || `${type}.csv`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }

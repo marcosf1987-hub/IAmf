@@ -1034,23 +1034,81 @@ app.patch("/admin/matches/:id/result", requireAdmin, async (req, res) => {
   res.status(200).json({ ok: true });
 });
 
-app.get("/admin/stats", requireAdmin, async (req, res) => {
-  const { companyId } = (req as AuthedRequest).auth;
+const ADMIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+type AdminDateRangeResult =
+  | { ok: true; range?: { from: Date; to: Date } }
+  | { ok: false; message: string };
+
+/** Query `from` y `to` en YYYY-MM-DD (día UTC). Sin parámetros = todo el período. */
+function parseAdminDateRangeQuery(req: express.Request): AdminDateRangeResult {
+  const fromRaw = typeof req.query.from === "string" ? req.query.from.trim() : "";
+  const toRaw = typeof req.query.to === "string" ? req.query.to.trim() : "";
+  if (!fromRaw && !toRaw) return { ok: true };
+  if (!fromRaw || !toRaw) {
+    return { ok: false, message: "Indicá fecha desde y hasta, o ninguna para todo el período." };
+  }
+  if (!ADMIN_DATE_RE.test(fromRaw) || !ADMIN_DATE_RE.test(toRaw)) {
+    return { ok: false, message: "Las fechas deben tener formato YYYY-MM-DD." };
+  }
+  const from = new Date(`${fromRaw}T00:00:00.000Z`);
+  const to = new Date(`${toRaw}T23:59:59.999Z`);
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return { ok: false, message: "Fecha inválida." };
+  }
+  if (from > to) {
+    return { ok: false, message: "La fecha desde no puede ser posterior a la fecha hasta." };
+  }
+  return { ok: true, range: { from, to } };
+}
+
+app.get("/admin/stats", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
+  const { companyId } = (req as AuthedRequest).auth;
+  const range = parsed.range;
+
+  const activeUsersDenominator = await prisma.user.count({
+    where: { companyId, status: "active" },
+  });
+
+  if (!range) {
+    const [totalUsers, totalLogins, totalPrompts, totalPredictions] = await Promise.all([
+      prisma.user.count({ where: { companyId, status: "active" } }),
+      prisma.loginEvent.count({ where: { user: { companyId } } }),
+      prisma.promptLog.count({ where: { user: { companyId } } }),
+      prisma.prediction.count({ where: { user: { companyId } } }),
+    ]);
+    const promptsPerUser = activeUsersDenominator > 0 ? (totalPrompts / activeUsersDenominator).toFixed(1) : "0";
+    res.status(200).json({
+      totalUsers,
+      totalLogins,
+      totalPrompts,
+      totalPredictions,
+      promptsPerUser,
+    });
+    return;
+  }
+
+  const { from, to } = range;
   const [totalUsers, totalLogins, totalPrompts, totalPredictions] = await Promise.all([
-    prisma.user.count({ where: { companyId, status: "active" } }),
+    prisma.user.count({
+      where: { companyId, status: "active", createdAt: { gte: from, lte: to } },
+    }),
     prisma.loginEvent.count({
-      where: { user: { companyId } },
+      where: { user: { companyId }, createdAt: { gte: from, lte: to } },
     }),
     prisma.promptLog.count({
-      where: { user: { companyId } },
+      where: { user: { companyId }, createdAt: { gte: from, lte: to } },
     }),
     prisma.prediction.count({
-      where: { user: { companyId } },
+      where: { user: { companyId }, createdAt: { gte: from, lte: to } },
     }),
   ]);
-
-  const promptsPerUser = totalUsers > 0 ? (totalPrompts / totalUsers).toFixed(1) : "0";
+  const promptsPerUser = activeUsersDenominator > 0 ? (totalPrompts / activeUsersDenominator).toFixed(1) : "0";
 
   res.status(200).json({
     totalUsers,
@@ -1129,9 +1187,18 @@ app.patch("/admin/ai-config", requireAdmin, async (req, res) => {
 });
 
 app.get("/admin/users", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
   const { companyId } = (req as AuthedRequest).auth;
+  const range = parsed.range;
   const users = await prisma.user.findMany({
-    where: { companyId },
+    where: {
+      companyId,
+      ...(range ? { createdAt: { gte: range.from, lte: range.to } } : {}),
+    },
     select: { id: true, email: true, fullName: true, role: true, status: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
@@ -1228,7 +1295,14 @@ app.delete("/admin/users/:id", requireAdmin, async (req, res) => {
 });
 
 app.get("/admin/metrics", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
   const { companyId } = (req as AuthedRequest).auth;
+  const range = parsed.range;
+  const dateWhere = range ? { gte: range.from, lte: range.to } : undefined;
 
   const users = await prisma.user.findMany({
     where: { companyId },
@@ -1238,9 +1312,15 @@ app.get("/admin/metrics", requireAdmin, async (req, res) => {
   const metrics = await Promise.all(
     users.map(async (u) => {
       const [logins, prompts, predictions] = await Promise.all([
-        prisma.loginEvent.count({ where: { userId: u.id } }),
-        prisma.promptLog.count({ where: { userId: u.id } }),
-        prisma.prediction.count({ where: { userId: u.id } }),
+        prisma.loginEvent.count({
+          where: { userId: u.id, ...(dateWhere ? { createdAt: dateWhere } : {}) },
+        }),
+        prisma.promptLog.count({
+          where: { userId: u.id, ...(dateWhere ? { createdAt: dateWhere } : {}) },
+        }),
+        prisma.prediction.count({
+          where: { userId: u.id, ...(dateWhere ? { createdAt: dateWhere } : {}) },
+        }),
       ]);
       return {
         userId: u.id,
@@ -1258,17 +1338,44 @@ app.get("/admin/metrics", requireAdmin, async (req, res) => {
 });
 
 app.get("/admin/metrics/time-series", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
   const { companyId } = (req as AuthedRequest).auth;
+  const range = parsed.range;
 
   type Row = { d: Date; c: bigint };
-  const usersByDay = await prisma.$queryRaw<Row[]>`
+  const usersByDay = range
+    ? await prisma.$queryRaw<Row[]>`
+    SELECT date_trunc('day', "createdAt")::date as d, count(*)::bigint as c
+    FROM "User"
+    WHERE "companyId" = ${companyId}
+      AND "createdAt" >= ${range.from}
+      AND "createdAt" <= ${range.to}
+    GROUP BY date_trunc('day', "createdAt")::date
+    ORDER BY d
+  `
+    : await prisma.$queryRaw<Row[]>`
     SELECT date_trunc('day', "createdAt")::date as d, count(*)::bigint as c
     FROM "User"
     WHERE "companyId" = ${companyId}
     GROUP BY date_trunc('day', "createdAt")::date
     ORDER BY d
   `;
-  const promptsByDay = await prisma.$queryRaw<Row[]>`
+  const promptsByDay = range
+    ? await prisma.$queryRaw<Row[]>`
+    SELECT date_trunc('day', p."createdAt")::date as d, count(*)::bigint as c
+    FROM "PromptLog" p
+    JOIN "User" u ON p."userId" = u.id
+    WHERE u."companyId" = ${companyId}
+      AND p."createdAt" >= ${range.from}
+      AND p."createdAt" <= ${range.to}
+    GROUP BY date_trunc('day', p."createdAt")::date
+    ORDER BY d
+  `
+    : await prisma.$queryRaw<Row[]>`
     SELECT date_trunc('day', p."createdAt")::date as d, count(*)::bigint as c
     FROM "PromptLog" p
     JOIN "User" u ON p."userId" = u.id
@@ -1305,6 +1412,12 @@ app.get("/admin/metrics/time-series", requireAdmin, async (req, res) => {
 });
 
 app.get("/admin/exports/prompts.csv", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
+  const range = parsed.range;
   const { companyId } = (req as AuthedRequest).auth;
 
   const users = await prisma.user.findMany({
@@ -1315,7 +1428,10 @@ app.get("/admin/exports/prompts.csv", requireAdmin, async (req, res) => {
   const userMap = new Map(users.map((u) => [u.id, u.email]));
 
   const logs = await prisma.promptLog.findMany({
-    where: { userId: { in: userIds } },
+    where: {
+      userId: { in: userIds },
+      ...(range ? { createdAt: { gte: range.from, lte: range.to } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     select: { userId: true, promptText: true, responseText: true, model: true, createdAt: true },
   });
@@ -1328,11 +1444,20 @@ app.get("/admin/exports/prompts.csv", requireAdmin, async (req, res) => {
   const csv = header + rows.join("\n");
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", "attachment; filename=prompts.csv");
+  const filename = range
+    ? `prompts_${range.from.toISOString().slice(0, 10)}_${range.to.toISOString().slice(0, 10)}.csv`
+    : "prompts.csv";
+  res.setHeader("Content-Disposition", `attachment; filename=${filename}`);
   res.status(200).send("\uFEFF" + csv);
 });
 
 app.get("/admin/exports/logins.csv", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
+  const range = parsed.range;
   const { companyId } = (req as AuthedRequest).auth;
 
   const users = await prisma.user.findMany({
@@ -1343,7 +1468,10 @@ app.get("/admin/exports/logins.csv", requireAdmin, async (req, res) => {
   const userMap = new Map(users.map((u) => [u.id, u.email]));
 
   const events = await prisma.loginEvent.findMany({
-    where: { userId: { in: userIds } },
+    where: {
+      userId: { in: userIds },
+      ...(range ? { createdAt: { gte: range.from, lte: range.to } } : {}),
+    },
     orderBy: { createdAt: "desc" },
     select: { userId: true, ip: true, userAgent: true, createdAt: true },
   });
@@ -1356,15 +1484,27 @@ app.get("/admin/exports/logins.csv", requireAdmin, async (req, res) => {
   const csv = header + rows.join("\n");
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", "attachment; filename=logins.csv");
+  const loginsFilename = range
+    ? `logins_${range.from.toISOString().slice(0, 10)}_${range.to.toISOString().slice(0, 10)}.csv`
+    : "logins.csv";
+  res.setHeader("Content-Disposition", `attachment; filename=${loginsFilename}`);
   res.status(200).send("\uFEFF" + csv);
 });
 
 app.get("/admin/exports/users.csv", requireAdmin, async (req, res) => {
+  const parsed = parseAdminDateRangeQuery(req);
+  if (!parsed.ok) {
+    res.status(400).json({ error: "invalid_query", message: parsed.message });
+    return;
+  }
+  const range = parsed.range;
   const { companyId } = (req as AuthedRequest).auth;
 
   const users = await prisma.user.findMany({
-    where: { companyId },
+    where: {
+      companyId,
+      ...(range ? { createdAt: { gte: range.from, lte: range.to } } : {}),
+    },
     select: { email: true, fullName: true, role: true, status: true, createdAt: true },
     orderBy: { createdAt: "desc" },
   });
@@ -1377,7 +1517,10 @@ app.get("/admin/exports/users.csv", requireAdmin, async (req, res) => {
   const csv = header + rows.join("\n");
 
   res.setHeader("Content-Type", "text/csv; charset=utf-8");
-  res.setHeader("Content-Disposition", "attachment; filename=users.csv");
+  const usersFilename = range
+    ? `users_${range.from.toISOString().slice(0, 10)}_${range.to.toISOString().slice(0, 10)}.csv`
+    : "users.csv";
+  res.setHeader("Content-Disposition", `attachment; filename=${usersFilename}`);
   res.status(200).send("\uFEFF" + csv);
 });
 

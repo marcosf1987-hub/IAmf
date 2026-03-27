@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import type { AdminMetric, AdminUser, TimeSeriesPoint } from "../lib/api";
+import type { AdminMetric, AdminReportRange, AdminUser, TimeSeriesPoint } from "../lib/api";
 import type { AdminStats } from "../lib/api";
 import {
   createAdminUser,
@@ -30,13 +30,18 @@ import {
 
 type Tab = "users" | "metrics" | "exports" | "config" | "ai";
 
+function defaultReportRange(): { from: string; to: string } {
+  const to = new Date();
+  const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  return {
+    from: from.toISOString().slice(0, 10),
+    to: to.toISOString().slice(0, 10),
+  };
+}
+
 export default function AdminPage() {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("users");
-
-  if (user?.role !== "admin") {
-    return <Navigate to="/app" replace />;
-  }
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<AdminMetric[]>([]);
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -45,65 +50,82 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    if (tab === "users") {
-      loadUsers();
-      loadStats();
-      loadTimeSeries();
+  const [appliedRange, setAppliedRange] = useState<AdminReportRange>(() => {
+    const d = defaultReportRange();
+    return { from: d.from, to: d.to };
+  });
+  const [fromInput, setFromInput] = useState(() => defaultReportRange().from);
+  const [toInput, setToInput] = useState(() => defaultReportRange().to);
+  const [rangeAllTime, setRangeAllTime] = useState(false);
+
+  const [companyConfig, setCompanyConfig] = useState<{ anonymizationEnabled: boolean } | null>(null);
+  const [aiConfig, setAiConfig] = useState<{
+    provider: string;
+    model: string;
+    baseUrl: string | null;
+    hasApiKey: boolean;
+  } | null>(null);
+
+  const reportScoped = appliedRange !== "all";
+
+  const reloadUsersData = useCallback(async () => {
+    setLoading(true);
+    setLoadingTimeSeries(true);
+    setError("");
+    try {
+      const [uRes, s, ts] = await Promise.all([
+        fetchAdminUsers(appliedRange),
+        fetchAdminStats(appliedRange),
+        fetchAdminTimeSeries(appliedRange),
+      ]);
+      setUsers(uRes.users);
+      setStats(s);
+      setTimeSeries(ts.data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar");
+      setUsers([]);
+      setStats(null);
+      setTimeSeries([]);
+    } finally {
+      setLoading(false);
+      setLoadingTimeSeries(false);
     }
-    if (tab === "metrics") loadMetrics();
+  }, [appliedRange]);
+
+  const reloadMetricsData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { metrics: m } = await fetchAdminMetrics(appliedRange);
+      setMetrics(m);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar");
+      setMetrics([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [appliedRange]);
+
+  useEffect(() => {
+    if (tab === "users") void reloadUsersData();
+  }, [tab, reloadUsersData]);
+
+  useEffect(() => {
+    if (tab === "metrics") void reloadMetricsData();
+  }, [tab, reloadMetricsData]);
+
+  useEffect(() => {
     if (tab === "ai") loadAiConfig();
     if (tab === "config") loadCompanyConfig();
   }, [tab]);
 
-  async function loadTimeSeries() {
-    setLoadingTimeSeries(true);
-    try {
-      const { data } = await fetchAdminTimeSeries();
-      setTimeSeries(data);
-    } catch {
-      setTimeSeries([]);
-    } finally {
-      setLoadingTimeSeries(false);
+  function applyReportRange() {
+    if (rangeAllTime) {
+      setAppliedRange("all");
+    } else {
+      setAppliedRange({ from: fromInput, to: toInput });
     }
   }
-
-  async function loadStats() {
-    try {
-      const s = await fetchAdminStats();
-      setStats(s);
-    } catch {
-      setStats(null);
-    }
-  }
-
-  async function loadUsers() {
-    setLoading(true);
-    setError("");
-    try {
-      const { users: u } = await fetchAdminUsers();
-      setUsers(u);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadMetrics() {
-    setLoading(true);
-    setError("");
-    try {
-      const { metrics: m } = await fetchAdminMetrics();
-      setMetrics(m);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  const [companyConfig, setCompanyConfig] = useState<{ anonymizationEnabled: boolean } | null>(null);
 
   async function loadCompanyConfig() {
     try {
@@ -114,13 +136,6 @@ export default function AdminPage() {
     }
   }
 
-  const [aiConfig, setAiConfig] = useState<{
-    provider: string;
-    model: string;
-    baseUrl: string | null;
-    hasApiKey: boolean;
-  } | null>(null);
-
   async function loadAiConfig() {
     try {
       const { config } = await fetchAdminAiConfig();
@@ -128,6 +143,10 @@ export default function AdminPage() {
     } catch {
       setAiConfig(null);
     }
+  }
+
+  if (user?.role !== "admin") {
+    return <Navigate to="/app" replace />;
   }
 
   return (
@@ -173,6 +192,57 @@ export default function AdminPage() {
         </button>
       </div>
 
+      {(tab === "users" || tab === "metrics" || tab === "exports") && (
+        <div className="admin-date-range">
+          <span className="admin-date-range-label">Período del reporte</span>
+          <label className="admin-date-range-field">
+            <span>Desde</span>
+            <input
+              type="date"
+              value={fromInput}
+              disabled={rangeAllTime}
+              onChange={(e) => setFromInput(e.target.value)}
+            />
+          </label>
+          <label className="admin-date-range-field">
+            <span>Hasta</span>
+            <input
+              type="date"
+              value={toInput}
+              disabled={rangeAllTime}
+              onChange={(e) => setToInput(e.target.value)}
+            />
+          </label>
+          <label className="admin-date-range-alltime">
+            <input
+              type="checkbox"
+              checked={rangeAllTime}
+              onChange={(e) => {
+                const v = e.target.checked;
+                setRangeAllTime(v);
+                if (v) {
+                  setAppliedRange("all");
+                } else {
+                  setAppliedRange({ from: fromInput, to: toInput });
+                }
+              }}
+            />
+            Todo el período
+          </label>
+          <button type="button" className="btn-secondary btn-sm" onClick={applyReportRange} disabled={rangeAllTime}>
+            Aplicar fechas
+          </button>
+          {reportScoped && (
+            <span className="admin-date-range-hint">
+              Datos entre {appliedRange.from} y {appliedRange.to} (UTC, día calendario)
+            </span>
+          )}
+          {appliedRange === "all" && (
+            <span className="admin-date-range-hint">Histórico completo (sin filtro de fechas)</span>
+          )}
+        </div>
+      )}
+
       {error && <div className="auth-error">{error}</div>}
 
       {tab === "users" && (
@@ -182,17 +252,14 @@ export default function AdminPage() {
           timeSeries={timeSeries}
           loadingTimeSeries={loadingTimeSeries}
           loading={loading}
-          onRefresh={() => {
-            loadUsers();
-            loadStats();
-            loadTimeSeries();
-          }}
+          reportScoped={reportScoped}
+          onRefresh={reloadUsersData}
         />
       )}
       {tab === "metrics" && (
-        <MetricsTab metrics={metrics} loading={loading} />
+        <MetricsTab metrics={metrics} loading={loading} reportScoped={reportScoped} />
       )}
-      {tab === "exports" && <ExportsTab />}
+      {tab === "exports" && <ExportsTab appliedRange={appliedRange} />}
       {tab === "config" && (
         <ConfigTab
           config={companyConfig}
@@ -221,6 +288,7 @@ function UsersTab({
   timeSeries,
   loadingTimeSeries,
   loading,
+  reportScoped,
   onRefresh,
 }: {
   users: AdminUser[];
@@ -228,7 +296,8 @@ function UsersTab({
   timeSeries: TimeSeriesPoint[];
   loadingTimeSeries: boolean;
   loading: boolean;
-  onRefresh: () => void;
+  reportScoped: boolean;
+  onRefresh: () => void | Promise<void>;
 }) {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -334,29 +403,38 @@ function UsersTab({
         <div className="admin-stats-cards">
           <div className="admin-stat-card">
             <span className="admin-stat-value">{stats.totalUsers}</span>
-            <span className="admin-stat-label">Usuarios totales</span>
+            <span className="admin-stat-label">
+              {reportScoped ? "Altas de usuario (período)" : "Usuarios activos"}
+            </span>
           </div>
           <div className="admin-stat-card">
             <span className="admin-stat-value">{stats.totalLogins}</span>
-            <span className="admin-stat-label">Logins totales</span>
+            <span className="admin-stat-label">{reportScoped ? "Logins (período)" : "Logins totales"}</span>
           </div>
           <div className="admin-stat-card">
             <span className="admin-stat-value">{stats.totalPrompts}</span>
-            <span className="admin-stat-label">Prompts totales</span>
+            <span className="admin-stat-label">{reportScoped ? "Prompts (período)" : "Prompts totales"}</span>
           </div>
           <div className="admin-stat-card">
             <span className="admin-stat-value">{stats.promptsPerUser}</span>
-            <span className="admin-stat-label">Prompts / usuario</span>
+            <span className="admin-stat-label">
+              {reportScoped ? "Prompts / usuario activo (promedio período)" : "Prompts / usuario"}
+            </span>
           </div>
           <div className="admin-stat-card">
             <span className="admin-stat-value">{stats.totalPredictions}</span>
-            <span className="admin-stat-label">Predicciones</span>
+            <span className="admin-stat-label">
+              {reportScoped ? "Predicciones creadas (período)" : "Predicciones"}
+            </span>
           </div>
         </div>
       )}
 
       <div className="admin-chart-wrap">
         <h3>Usuarios y prompts a lo largo del tiempo</h3>
+        {reportScoped && (
+          <p className="admin-chart-scope-hint">Serie acumulada solo dentro del período seleccionado.</p>
+        )}
         {loadingTimeSeries ? (
           <div className="app-loading" style={{ minHeight: 200 }}>
             <div className="spinner" />
@@ -401,9 +479,13 @@ function UsersTab({
             </LineChart>
           </ResponsiveContainer>
         ) : (
-          <p className="page-subtitle">No hay datos para mostrar</p>
+          <p className="page-subtitle">No hay datos para mostrar en este período</p>
         )}
       </div>
+
+      {reportScoped && users.length === 0 && !loading && (
+        <p className="page-subtitle">No hay usuarios dados de alta en el rango seleccionado.</p>
+      )}
 
       {showForm && (
         <form onSubmit={handleCreate} className="admin-form">
@@ -559,7 +641,15 @@ function UsersTab({
   );
 }
 
-function MetricsTab({ metrics, loading }: { metrics: AdminMetric[]; loading: boolean }) {
+function MetricsTab({
+  metrics,
+  loading,
+  reportScoped,
+}: {
+  metrics: AdminMetric[];
+  loading: boolean;
+  reportScoped: boolean;
+}) {
   if (loading) {
     return (
       <div className="app-loading">
@@ -572,7 +662,11 @@ function MetricsTab({ metrics, loading }: { metrics: AdminMetric[]; loading: boo
   return (
     <div className="admin-section">
       <h2>Adopción de IA</h2>
-      <p className="page-subtitle">Logins, prompts y predicciones por usuario</p>
+      <p className="page-subtitle">
+        {reportScoped
+          ? "Logins, prompts y predicciones por usuario en el período seleccionado"
+          : "Logins, prompts y predicciones por usuario (histórico completo)"}
+      </p>
 
       <div className="admin-table-wrap">
         <table className="admin-table">
@@ -888,7 +982,7 @@ function AiConfigTab({
   );
 }
 
-function ExportsTab() {
+function ExportsTab({ appliedRange }: { appliedRange: AdminReportRange }) {
   const [loading, setLoading] = useState<string | null>(null);
   const [err, setErr] = useState("");
 
@@ -896,7 +990,7 @@ function ExportsTab() {
     setErr("");
     setLoading(type);
     try {
-      await downloadExport(type);
+      await downloadExport(type, appliedRange);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al descargar");
     } finally {
@@ -907,7 +1001,11 @@ function ExportsTab() {
   return (
     <div className="admin-section">
       <h2>Exportar reportes</h2>
-      <p className="page-subtitle">Descargar CSV para análisis externo</p>
+      <p className="page-subtitle">
+        {appliedRange === "all"
+          ? "Descargar CSV (histórico completo)"
+          : "Descargar CSV filtrado por el período elegido arriba"}
+      </p>
       {err && <div className="auth-error">{err}</div>}
       <div className="admin-exports">
         <button
