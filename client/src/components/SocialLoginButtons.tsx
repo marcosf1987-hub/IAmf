@@ -8,32 +8,50 @@ export default function SocialLoginButtons() {
     void fetchOAuthConfig().then(setCfg);
   }, []);
 
-  if (!cfg) return null;
-  const any = cfg.google || cfg.facebook || cfg.microsoft;
-  if (!any) return null;
+  const providers = [
+    { id: "google" as const, label: "Continuar con Google", className: "btn-oauth-google" },
+    { id: "facebook" as const, label: "Continuar con Meta", className: "btn-oauth-facebook" },
+    { id: "microsoft" as const, label: "Continuar con Microsoft", className: "btn-oauth-microsoft" },
+  ];
 
   return (
     <div className="auth-oauth">
       <div className="auth-oauth-divider">
         <span>o continuá con</span>
       </div>
-      <div className="auth-oauth-buttons">
-        {cfg.google && (
-          <a href={oauthStartUrl("google")} className="btn-oauth btn-oauth-google">
-            Continuar con Google
-          </a>
-        )}
-        {cfg.facebook && (
-          <a href={oauthStartUrl("facebook")} className="btn-oauth btn-oauth-facebook">
-            Continuar con Meta
-          </a>
-        )}
-        {cfg.microsoft && (
-          <a href={oauthStartUrl("microsoft")} className="btn-oauth btn-oauth-microsoft">
-            Continuar con Microsoft
-          </a>
-        )}
-      </div>
+      {cfg === null ? (
+        <p className="auth-oauth-hint">Cargando opciones de acceso social…</p>
+      ) : (
+        <>
+          <div className="auth-oauth-buttons">
+            {providers.map((p) => {
+              if (!cfg[p.id]) {
+                return (
+                  <span
+                    key={p.id}
+                    className={`btn-oauth ${p.className} btn-oauth-disabled`}
+                    title="Configurá las variables OAUTH_* de este proveedor en el servidor (API)."
+                  >
+                    {p.label}
+                  </span>
+                );
+              }
+              return (
+                <a key={p.id} href={oauthStartUrl(p.id)} className={`btn-oauth ${p.className}`}>
+                  {p.label}
+                </a>
+              );
+            })}
+          </div>
+          {!cfg.google && !cfg.facebook && !cfg.microsoft && (
+            <p className="auth-oauth-hint">
+              Ningún proveedor OAuth está configurado en el backend. Agregá{" "}
+              <code>OAUTH_GOOGLE_*</code>, <code>OAUTH_FACEBOOK_*</code> y/o <code>OAUTH_MICROSOFT_*</code> en
+              las variables del servidor y reiniciá el API.
+            </p>
+          )}
+        </>
+      )}
     </div>
   );
 }
