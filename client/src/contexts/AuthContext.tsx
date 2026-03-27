@@ -20,6 +20,7 @@ type AuthState = {
 type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName?: string) => Promise<void>;
+  loginWithToken: (token: string) => Promise<void>;
   logout: () => void;
   setUser: (user: User) => void;
 };
@@ -70,6 +71,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     []
   );
 
+  const loginWithToken = useCallback(async (token: string) => {
+    const { user } = await fetchMe(token);
+    localStorage.setItem(TOKEN_KEY, token);
+    setState({ user, token, loading: false });
+  }, []);
+
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     setState({ user: null, token: null, loading: false });
@@ -83,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     ...state,
     login,
     signup,
+    loginWithToken,
     logout,
     setUser,
   };

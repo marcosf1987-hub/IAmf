@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isProductionApiUrlMissing } from "../lib/api";
+import SocialLoginButtons from "../components/SocialLoginButtons";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -76,6 +77,7 @@ export default function SignupPage() {
             {loading ? "Creando cuenta…" : "Registrarse"}
           </button>
         </form>
+        <SocialLoginButtons />
         <p className="auth-footer">
           ¿Ya tenés cuenta? <Link to="/login">Iniciar sesión</Link>
         </p>

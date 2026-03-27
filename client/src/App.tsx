@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
+import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import AppLayout from "./pages/AppLayout";
 import AppDashboard from "./pages/AppDashboard";
 import ProdePage from "./pages/ProdePage";
@@ -16,6 +17,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<AppDashboard />} />
         <Route path="prode" element={<ProdePage />} />

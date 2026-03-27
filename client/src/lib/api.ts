@@ -31,6 +31,33 @@ function resolveApiBase(): string {
   return base;
 }
 
+export type OAuthProviderId = "google" | "facebook" | "microsoft";
+
+/** URL absoluta para abrir el flujo OAuth (mismo host que el API). */
+export function oauthStartUrl(provider: OAuthProviderId): string {
+  return `${resolveApiBase()}/auth/oauth/${provider}/start`;
+}
+
+/** Indica qué proveedores tienen variables configuradas en el servidor. */
+export async function fetchOAuthConfig(): Promise<{
+  google: boolean;
+  facebook: boolean;
+  microsoft: boolean;
+}> {
+  const url = `${resolveApiBase()}/auth/oauth/config`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { google: false, facebook: false, microsoft: false };
+    return (await res.json()) as {
+      google: boolean;
+      facebook: boolean;
+      microsoft: boolean;
+    };
+  } catch {
+    return { google: false, facebook: false, microsoft: false };
+  }
+}
+
 const API_BASE = resolveApiBase();
 
 /** True si el build de producción no incluyó la URL del API (el login fallará). */

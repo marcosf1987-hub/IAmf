@@ -54,7 +54,8 @@ model AiConfig {
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
-  passwordHash String
+  /// Null si el usuario solo entra con OAuth (Google / Meta / Microsoft)
+  passwordHash String?
   fullName     String?
   role         UserRole   @default(employee)
   status       UserStatus @default(active)
@@ -63,6 +64,7 @@ model User {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
+  oauthAccounts           OAuthAccount[]
   loginEvents             LoginEvent[]
   promptLogs              PromptLog[]
   predictions             Prediction[]
@@ -71,6 +73,19 @@ model User {
   prodeGuidelines         ProdeGuidelines?
 
   @@index([companyId])
+}
+
+/// Cuentas vinculadas a proveedores OAuth (sub / id del proveedor)
+model OAuthAccount {
+  id             String   @id @default(cuid())
+  provider       String
+  providerUserId String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model ProdeGuidelines {

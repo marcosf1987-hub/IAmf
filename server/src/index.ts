@@ -15,6 +15,7 @@ import {
 import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
+import { mountOAuthRoutes } from "./oauth";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -76,6 +77,8 @@ app.use(
   })
 );
 app.use(express.json({ limit: "1mb" }));
+
+mountOAuthRoutes(app, prisma);
 
 /** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
 app.get("/", (_req, res) => {
@@ -152,6 +155,14 @@ app.post("/auth/login", async (req, res) => {
     });
     if (!user || user.status !== "active") {
       res.status(401).json({ error: "invalid_credentials" });
+      return;
+    }
+
+    if (!user.passwordHash) {
+      res.status(401).json({
+        error: "oauth_only",
+        message: "Esta cuenta usa inicio de sesión con Google, Meta o Microsoft.",
+      });
       return;
     }
 
