@@ -58,8 +58,8 @@ export default function HomePage() {
           Domina la IA y convierte los datos en decisiones.
         </p>
         <p className="home-lead">
-          Llevá tu capacidad de análisis al siguiente nivel. Entrená tus habilidades de prompting
-          diseñando la estrategia ganadora para el Mundial y demostrá qué podés generar la IA más
+          Lleva tu capacidad de análisis al siguiente nivel. Entrena tus habilidades de prompting
+          diseñando la estrategia ganadora para el Mundial y demostra qué puedes generar la IA más
           precisa de todo tu equipo.
         </p>
         <div className="home-cta">
@@ -97,7 +97,7 @@ export default function HomePage() {
             </svg>
           </div>
           <h3>PREDICE</h3>
-          <p>Construí prompts de alta complejidad para generar proyecciones automatizadas.</p>
+          <p>Construye prompts de alta complejidad para generar proyecciones automatizadas.</p>
         </div>
         <div className="feature-card">
           <div className="feature-icon" aria-hidden>
@@ -111,12 +111,12 @@ export default function HomePage() {
             </svg>
           </div>
           <h3>COMPITE</h3>
-          <p>Medí la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real.</p>
+          <p>Mide la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real.</p>
         </div>
       </section>
 
       <footer className="home-footer">
-        <p>RRHH IA Prode — Inducción a IA para empresas</p>
+        <p>PromptPlay 2026 - Conviértete en un Prompt Master</p>
       </footer>
     </div>
   );
