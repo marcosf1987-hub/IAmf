@@ -224,8 +224,10 @@ export default function IAPage() {
       try {
         const guidelinesRes = await fetchProdeGuidelines();
         setGuidelines(normalizeGuidelinesResponse(guidelinesRes));
+        setGuidelinesSaved(true);
       } catch {
         setGuidelines(EMPTY_GUIDELINES);
+        setGuidelinesSaved(false);
       }
     }
     load();
@@ -322,9 +324,25 @@ export default function IAPage() {
                 >
                   {guidelinesSaving ? "Guardando…" : guidelinesSaved ? "Guardado" : "Guardar pautas"}
                 </button>
-                <Link to="/app/prode" className="btn-secondary btn-sm guidelines-prode-link">
-                  Generar predicción
-                </Link>
+                {guidelinesSaved && !guidelinesSaving ? (
+                  <Link
+                    to="/app/prode?generate=1"
+                    className="btn-secondary btn-sm guidelines-prode-link"
+                  >
+                    Generar predicción
+                  </Link>
+                ) : (
+                  <span
+                    className="btn-secondary btn-sm guidelines-prode-link guidelines-prode-link-disabled"
+                    title={
+                      guidelinesSaving
+                        ? "Esperá a que termine el guardado."
+                        : "Guardá las pautas antes de ir al Prode a generar predicciones."
+                    }
+                  >
+                    Generar predicción
+                  </span>
+                )}
               </div>
             </form>
             <p className="ia-console-legend">

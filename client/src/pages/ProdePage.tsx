@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Match, Prediction, ChampionPrediction } from "../lib/api";
 import { getFlag } from "../lib/flags";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
@@ -123,6 +123,10 @@ function pautasForPhase(phase: ProdePhaseId, lab: ProdeGuidelinesByPhase): strin
 }
 
 export default function ProdePage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const autoGenKeysDone = useRef(new Set<string>());
+
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
   const [championPrediction, setChampionPrediction] = useState<ChampionPrediction | null>(null);
@@ -189,31 +193,69 @@ export default function ProdePage() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, []);
 
-  async function handleGeneratePredictions(phase: ProdePhaseId) {
-    if (!pautasForPhase(phase, labGuidelines).trim()) {
+  const handleGeneratePredictions = useCallback(
+    async (phase: ProdePhaseId) => {
+      if (!pautasForPhase(phase, labGuidelines).trim()) {
+        setError(
+          `No tenés pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
+        );
+        return;
+      }
+      setGenerating(true);
+      setError("");
+      try {
+        const { predictions: newPreds, championPrediction: newChamp } = await generateProdePredictions(phase);
+        setPredictions((prev) => {
+          const next = { ...prev };
+          for (const p of newPreds) {
+            next[p.matchId] = p;
+          }
+          return next;
+        });
+        if (newChamp) setChampionPrediction(newChamp);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al generar predicciones");
+      } finally {
+        setGenerating(false);
+      }
+    },
+    [labGuidelines]
+  );
+
+  useEffect(() => {
+    if (loading) return;
+    const q = new URLSearchParams(location.search);
+    if (q.get("generate") !== "1") return;
+    if (autoGenKeysDone.current.has(location.key)) return;
+    autoGenKeysDone.current.add(location.key);
+
+    navigate("/app/prode", { replace: true });
+
+    if (!currentPhase) {
+      setError("No hay una ventana de carga de predicciones abierta en este momento.");
+      return;
+    }
+    if (!pautasForPhase(currentPhase.phase, labGuidelines).trim()) {
       setError(
-        `No tenés pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
+        `No tenés pautas guardadas para ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio. Escribí y guardá ese bloque antes de generar.`
       );
       return;
     }
-    setGenerating(true);
-    setError("");
-    try {
-      const { predictions: newPreds, championPrediction: newChamp } = await generateProdePredictions(phase);
-      setPredictions((prev) => {
-        const next = { ...prev };
-        for (const p of newPreds) {
-          next[p.matchId] = p;
-        }
-        return next;
-      });
-      if (newChamp) setChampionPrediction(newChamp);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al generar predicciones");
-    } finally {
-      setGenerating(false);
+    if (matches.length === 0) {
+      setError("No hay partidos cargados en la base. Ejecutá el seed antes de generar.");
+      return;
     }
-  }
+    void handleGeneratePredictions(currentPhase.phase);
+  }, [
+    loading,
+    location.search,
+    location.key,
+    navigate,
+    currentPhase,
+    labGuidelines,
+    matches.length,
+    handleGeneratePredictions,
+  ]);
 
   if (loading) {
     return (

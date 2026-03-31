@@ -2089,6 +2089,12 @@ a:hover {
   align-items: center;
 }
 
+.guidelines-prode-link-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .guidelines-count {
   font-size: 0.8rem;
   color: var(--text-muted);
