@@ -125,7 +125,8 @@ function pautasForPhase(phase: ProdePhaseId, lab: ProdeGuidelinesByPhase): strin
 export default function ProdePage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const autoGenKeysDone = useRef(new Set<string>());
+  /** Evita doble disparo en el mismo render; se resetea cuando la URL deja de tener ?generate=1 (no usar solo location.key: puede ser undefined y bloquear visitas repetidas). */
+  const autoGenerateHandledForQuery = useRef(false);
 
   const [matches, setMatches] = useState<Match[]>([]);
   const [predictions, setPredictions] = useState<Record<string, Prediction>>({});
@@ -225,9 +226,12 @@ export default function ProdePage() {
   useEffect(() => {
     if (loading) return;
     const q = new URLSearchParams(location.search);
-    if (q.get("generate") !== "1") return;
-    if (autoGenKeysDone.current.has(location.key)) return;
-    autoGenKeysDone.current.add(location.key);
+    if (q.get("generate") !== "1") {
+      autoGenerateHandledForQuery.current = false;
+      return;
+    }
+    if (autoGenerateHandledForQuery.current) return;
+    autoGenerateHandledForQuery.current = true;
 
     navigate("/app/prode", { replace: true });
 
@@ -249,7 +253,6 @@ export default function ProdePage() {
   }, [
     loading,
     location.search,
-    location.key,
     navigate,
     currentPhase,
     labGuidelines,
