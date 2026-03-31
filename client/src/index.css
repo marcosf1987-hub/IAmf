@@ -2545,3 +2545,23 @@ a:hover {
   outline: none;
   border-color: var(--accent);
 }
+
+.pricing-cta-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.pricing-list {
+  padding-left: 1.25rem;
+}
+
+.admin-invite-results {
+  list-style: none;
+  padding: 0;
+}
+
+.admin-invite-results li {
+  margin-bottom: 0.5rem;
+}

@@ -137,20 +137,42 @@ export type Prediction = {
   match?: Match;
 };
 
+export type UserRole = "super_admin" | "org_admin" | "member";
+
+export type CompanySummary = {
+  id: string;
+  name: string;
+  slug: string;
+  seatLimit: number;
+};
+
+export type OrgUsage = {
+  seatLimit: number;
+  activeUsers: number;
+  invitationsPending: number;
+  invitationsAccepted: number;
+  invitationsTotal: number;
+  seatsRemaining: number;
+  billingCheckoutUrl: string | null;
+};
+
 export type User = {
   id: string;
   email: string;
   fullName: string | null;
-  role: "employee" | "admin";
+  role: UserRole;
   companyId: string;
   status?: string;
   createdAt?: string;
 };
 
-export type LoginResponse = {
-  token: string;
+export type MeResponse = {
   user: User;
+  company: CompanySummary | null;
+  usage: OrgUsage | null;
 };
+
+export type LoginResponse = MeResponse & { token: string };
 
 export type SignupResponse = LoginResponse;
 
@@ -169,7 +191,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
       const d = data as { error?: string; message?: string };
       throw new Error(d.message ?? d.error ?? `Error ${res.status}`);
     }
-    return data;
+    return data as LoginResponse;
   } catch (e) {
     throw networkHint(e);
   }
@@ -188,29 +210,130 @@ export async function signup(
     });
     const data = await parseJson<SignupResponse & { error?: string }>(res, `${API_BASE}/auth/signup`);
     if (!res.ok) throw new Error(data.error ?? "Signup failed");
-    return data;
+    return data as SignupResponse;
   } catch (e) {
     throw networkHint(e);
   }
 }
 
-export async function fetchMe(token?: string): Promise<{ user: User }> {
+export async function fetchMe(token?: string): Promise<MeResponse> {
   if (token) {
     const res = await fetch(`${API_BASE}/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    const data = await parseJson<{ user: User; error?: string }>(res);
+    const data = await parseJson<MeResponse & { error?: string }>(res);
     if (!res.ok) throw new Error(data.error ?? "Unauthorized");
     return data;
   }
   return fetchAuth("/me");
 }
 
-export async function updateMe(data: { fullName?: string; password?: string }): Promise<{ user: User }> {
+export async function updateMe(data: { fullName?: string; password?: string }): Promise<MeResponse> {
   return fetchAuth("/me", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
+  });
+}
+
+export async function fetchOrgUsage(): Promise<OrgUsage> {
+  return fetchAuth("/org/usage");
+}
+
+export type OrgInvitationRow = {
+  id: string;
+  email: string;
+  createdAt: string;
+  expiresAt: string;
+  acceptedAt: string | null;
+};
+
+export async function fetchOrgInvitations(): Promise<{ invitations: OrgInvitationRow[] }> {
+  return fetchAuth("/org/invitations");
+}
+
+export async function postOrgInvitations(emails: string[]): Promise<{
+  results: { email: string; inviteUrl: string; error?: string }[];
+}> {
+  return fetchAuth("/org/invitations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ emails }),
+  });
+}
+
+export async function fetchInvitePreview(token: string): Promise<{
+  companyName: string;
+  companySlug: string;
+  email: string;
+}> {
+  const url = `${API_BASE}/auth/invite/preview?token=${encodeURIComponent(token)}`;
+  const res = await fetch(url);
+  const data = await parseJson<{ companyName: string; companySlug: string; email: string; error?: string }>(
+    res,
+    url
+  );
+  if (!res.ok) {
+    throw new Error(data.error ?? "Invitación no válida");
+  }
+  return data;
+}
+
+export async function acceptInvite(
+  token: string,
+  password: string,
+  fullName?: string
+): Promise<{ token: string; user: User }> {
+  const res = await fetch(`${API_BASE}/auth/invite/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password, fullName }),
+  });
+  const data = await parseJson<{ token: string; user: User; error?: string }>(res, `${API_BASE}/auth/invite/accept`);
+  if (!res.ok) throw new Error(data.error ?? "No se pudo aceptar la invitación");
+  return data;
+}
+
+export type PlatformCompanyRow = {
+  id: string;
+  name: string;
+  slug: string;
+  seatLimit: number;
+  createdAt: string;
+  userCount: number;
+  invitationCount: number;
+  stripeCustomerId: string | null;
+};
+
+export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {
+  return fetchAuth("/platform/companies");
+}
+
+export async function createPlatformCompany(body: {
+  name: string;
+  slug: string;
+  adminEmail: string;
+  adminPassword: string;
+  seatLimit?: number;
+}): Promise<{
+  company: { id: string; name: string; slug: string; seatLimit: number };
+  admin: { id: string; email: string; role: string; companyId: string };
+}> {
+  return fetchAuth("/platform/companies", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function patchPlatformCompanySeat(
+  companyId: string,
+  seatLimit: number
+): Promise<{ company: { id: string; name: string; slug: string; seatLimit: number } }> {
+  return fetchAuth(`/platform/companies/${companyId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ seatLimit }),
   });
 }
 
@@ -415,7 +538,7 @@ export async function createAdminUser(data: {
   email: string;
   password: string;
   fullName?: string;
-  role?: "employee" | "admin";
+  role?: "member" | "org_admin";
 }): Promise<{ user: AdminUser }> {
   return fetchAuth("/admin/users", {
     method: "POST",

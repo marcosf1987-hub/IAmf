@@ -213,9 +213,9 @@ async function findOrCreateOAuthUser(
   }
 
   const company = await prisma.company.upsert({
-    where: { name: "DemoCompany" },
+    where: { slug: "demo" },
     update: {},
-    create: { name: "DemoCompany" },
+    create: { name: "DemoCompany", slug: "demo", seatLimit: 100 },
   });
 
   const user = await prisma.user.create({
@@ -224,7 +224,7 @@ async function findOrCreateOAuthUser(
       passwordHash: null,
       fullName,
       companyId: company.id,
-      role: "employee",
+      role: "member",
       status: "active",
       oauthAccounts: { create: { provider, providerUserId } },
     },
@@ -347,7 +347,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
 
       const token = signAccessToken({
         userId: user.id,
-        role: user.role as "employee" | "admin",
+        role: user.role,
         companyId: user.companyId,
       });
       redirectFrontend(res, { token });

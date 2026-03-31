@@ -25,13 +25,39 @@ export const adminCreateUserSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   fullName: z.string().optional(),
-  role: z.enum(["employee", "admin"]).optional(),
+  role: z.enum(["member", "org_admin"]).optional(),
 });
 
 export const adminUpdateUserSchema = z.object({
   fullName: z.string().min(1).optional(),
-  role: z.enum(["employee", "admin"]).optional(),
+  role: z.enum(["member", "org_admin"]).optional(),
   status: z.enum(["active", "disabled"]).optional(),
+});
+
+export const platformCreateCompanySchema = z.object({
+  name: z.string().min(1).max(200),
+  slug: z
+    .string()
+    .min(2)
+    .max(64)
+    .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  adminEmail: z.string().email(),
+  adminPassword: z.string().min(6),
+  seatLimit: z.number().int().min(1).max(100000).optional().default(50),
+});
+
+export const platformPatchCompanySchema = z.object({
+  seatLimit: z.number().int().min(1).max(100000),
+});
+
+export const orgInviteSchema = z.object({
+  emails: z.array(z.string().email()).min(1).max(100),
+});
+
+export const inviteAcceptSchema = z.object({
+  token: z.string().min(10),
+  password: z.string().min(6),
+  fullName: z.string().min(1).max(200).optional(),
 });
 
 export const updateMeSchema = z.object({

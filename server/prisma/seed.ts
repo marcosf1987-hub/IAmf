@@ -135,9 +135,15 @@ const MATCHES_SEED = [
 
 async function main() {
   const company = await prisma.company.upsert({
-    where: { name: "DemoCompany" },
+    where: { slug: "demo" },
     update: {},
-    create: { name: "DemoCompany" },
+    create: { name: "DemoCompany", slug: "demo", seatLimit: 100 },
+  });
+
+  const platformCompany = await prisma.company.upsert({
+    where: { slug: "platform-internal" },
+    update: {},
+    create: { name: "Plataforma", slug: "platform-internal", seatLimit: 99999 },
   });
 
   const email = "admin@demo.com";
@@ -146,7 +152,7 @@ async function main() {
   await prisma.user.upsert({
     where: { email },
     update: {
-      role: UserRole.admin,
+      role: UserRole.org_admin,
       status: UserStatus.active,
       companyId: company.id,
     },
@@ -154,11 +160,33 @@ async function main() {
       email,
       passwordHash,
       fullName: "Admin Demo",
-      role: UserRole.admin,
+      role: UserRole.org_admin,
       status: UserStatus.active,
       companyId: company.id,
     },
   });
+
+  const superEmail = process.env.PLATFORM_SUPER_ADMIN_EMAIL?.trim();
+  if (superEmail) {
+    const superPass = process.env.PLATFORM_SUPER_ADMIN_PASSWORD?.trim() || "ChangeMe123!";
+    const superHash = await hashPassword(superPass);
+    await prisma.user.upsert({
+      where: { email: superEmail },
+      update: {
+        role: UserRole.super_admin,
+        status: UserStatus.active,
+        companyId: platformCompany.id,
+      },
+      create: {
+        email: superEmail,
+        passwordHash: superHash,
+        fullName: "Super administrador",
+        role: UserRole.super_admin,
+        status: UserStatus.active,
+        companyId: platformCompany.id,
+      },
+    });
+  }
 
   const replaceMatches = process.env.REPLACE_MATCHES === "true";
   const matchCount = await prisma.match.count();

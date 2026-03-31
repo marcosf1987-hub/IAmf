@@ -1,9 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
 
+/** Roles en JWT (alineados con Prisma `UserRole`). */
+export type AppRole = "super_admin" | "org_admin" | "member";
+
 export type AuthTokenPayload = {
   userId: string;
-  role: "employee" | "admin";
+  role: AppRole;
   companyId: string;
 };
 

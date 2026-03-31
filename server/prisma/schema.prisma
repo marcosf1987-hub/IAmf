@@ -13,8 +13,9 @@ datasource db {
 }
 
 enum UserRole {
-  employee
-  admin
+  super_admin
+  org_admin
+  member
 }
 
 enum UserStatus {
@@ -24,10 +25,17 @@ enum UserStatus {
 
 model Company {
   id        String   @id @default(cuid())
-  name      String   @unique
+  name      String
+  /// Identificador único para URLs y API (ej. acme-corp)
+  slug      String   @unique
+  /// Cupos contratados (empleados + admin de la org; no aplica a la org interna de plataforma)
+  seatLimit Int      @default(50)
+  stripeCustomerId     String?
+  stripeSubscriptionId String?
   createdAt DateTime @default(now())
 
   users         User[]
+  invitations   Invitation[]
   aiConfig      AiConfig?
   companyConfig CompanyConfig?
 }
@@ -57,7 +65,7 @@ model User {
   /// Null si el usuario solo entra con OAuth (Google / Meta / Microsoft)
   passwordHash String?
   fullName     String?
-  role         UserRole   @default(employee)
+  role         UserRole   @default(member)
   status       UserStatus @default(active)
   createdAt    DateTime   @default(now())
 
@@ -71,8 +79,26 @@ model User {
   predictionHistory       PredictionHistory[]
   prodeChampionPrediction ProdeChampionPrediction?
   prodeGuidelines         ProdeGuidelines?
+  invitationsSent         Invitation[] @relation("InvitationInviter")
 
   @@index([companyId])
+}
+
+/// Invitación por email a una empresa (B2B). El token en el enlace es distinto del hash guardado.
+model Invitation {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  email       String
+  tokenHash   String    @unique
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+  invitedById String?
+  invitedBy   User?     @relation("InvitationInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedAt  DateTime?
+
+  @@index([companyId])
+  @@index([email])
 }
 
 /// Cuentas vinculadas a proveedores OAuth (sub / id del proveedor)

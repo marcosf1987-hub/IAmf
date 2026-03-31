@@ -13,9 +13,14 @@ import {
   fetchAdminStats,
   fetchAdminTimeSeries,
   fetchAdminUsers,
+  fetchOrgInvitations,
+  postOrgInvitations,
   updateAdminAiConfig,
   updateAdminCompanyConfig,
   updateAdminUser,
+  type CompanySummary,
+  type OrgInvitationRow,
+  type OrgUsage,
 } from "../lib/api";
 import {
   LineChart,
@@ -28,7 +33,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
-type Tab = "users" | "metrics" | "exports" | "config" | "ai";
+type Tab = "users" | "equipo" | "metrics" | "exports" | "config" | "ai";
 
 function defaultReportRange(): { from: string; to: string } {
   const to = new Date();
@@ -39,8 +44,194 @@ function defaultReportRange(): { from: string; to: string } {
   };
 }
 
+function EquipoTab({
+  usage,
+  company,
+  loading,
+  invitations,
+  onReload,
+}: {
+  usage: OrgUsage | null;
+  company: CompanySummary | null;
+  loading: boolean;
+  invitations: OrgInvitationRow[];
+  onReload: () => void | Promise<void>;
+}) {
+  const [emailsText, setEmailsText] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [inviteErr, setInviteErr] = useState("");
+  const [lastResults, setLastResults] = useState<{ email: string; inviteUrl: string; error?: string }[] | null>(
+    null
+  );
+
+  async function handleInvite(e: React.FormEvent) {
+    e.preventDefault();
+    setInviteErr("");
+    const emails = emailsText
+      .split(/[\n,;]+/)
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean);
+    if (!emails.length) {
+      setInviteErr("Ingresá al menos un email.");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { results } = await postOrgInvitations(emails);
+      setLastResults(results);
+      setEmailsText("");
+      await onReload();
+    } catch (err) {
+      setInviteErr(err instanceof Error ? err.message : "Error al invitar");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="admin-section">
+      <h2 className="admin-section-header" style={{ marginBottom: "0.5rem" }}>
+        Cupos e invitaciones
+      </h2>
+      {company && (
+        <p className="page-subtitle" style={{ marginTop: 0 }}>
+          Empresa: <strong>{company.name}</strong> ({company.slug})
+        </p>
+      )}
+
+      {loading && <p className="placeholder-text">Cargando…</p>}
+
+      {usage && !loading && (
+        <div className="admin-stats-cards" style={{ marginBottom: "1.25rem" }}>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.seatLimit}</span>
+            <span className="admin-stat-label">Cupos contratados</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.activeUsers}</span>
+            <span className="admin-stat-label">Usuarios activos</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.invitationsPending}</span>
+            <span className="admin-stat-label">Invitaciones pendientes</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.invitationsAccepted}</span>
+            <span className="admin-stat-label">Invitaciones aceptadas</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.invitationsTotal}</span>
+            <span className="admin-stat-label">Invitaciones enviadas (total)</span>
+          </div>
+          <div className="admin-stat-card">
+            <span className="admin-stat-value">{usage.seatsRemaining}</span>
+            <span className="admin-stat-label">Cupos disponibles</span>
+          </div>
+        </div>
+      )}
+
+      {usage?.billingCheckoutUrl && (
+        <p style={{ marginBottom: "1rem" }}>
+          <a
+            href={usage.billingCheckoutUrl}
+            className="btn-secondary btn-sm"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Ampliar cupos (checkout)
+          </a>
+        </p>
+      )}
+
+      <form onSubmit={handleInvite} className="admin-form" style={{ maxWidth: 520 }}>
+        <label>
+          <span>Emails de participantes (uno por línea o separados por coma)</span>
+          <textarea
+            value={emailsText}
+            onChange={(e) => setEmailsText(e.target.value)}
+            rows={6}
+            className="chat-input"
+            placeholder={"juan@empresa.com\nmaria@empresa.com"}
+          />
+        </label>
+        {inviteErr && <div className="auth-error">{inviteErr}</div>}
+        <button type="submit" className="btn-primary" disabled={submitting}>
+          {submitting ? "Generando enlaces…" : "Generar invitaciones"}
+        </button>
+        <p className="admin-date-range-hint" style={{ marginTop: "0.75rem" }}>
+          Se genera un enlace por email. Copiá el enlace y enviáselo por tu canal corporativo hasta que integremos
+          envío automático de mails.
+        </p>
+      </form>
+
+      {lastResults && lastResults.length > 0 && (
+        <div style={{ marginTop: "1.5rem" }}>
+          <h3>Última tanda</h3>
+          <ul className="admin-invite-results">
+            {lastResults.map((r) => (
+              <li key={r.email}>
+                <strong>{r.email}</strong>
+                {r.error ? (
+                  <span className="auth-error"> — {r.error}</span>
+                ) : (
+                  <>
+                    :{" "}
+                    <a href={r.inviteUrl} target="_blank" rel="noopener noreferrer">
+                      abrir invitación
+                    </a>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div style={{ marginTop: "2rem" }}>
+        <h3>Historial de invitaciones</h3>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Creada</th>
+                <th>Vence</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invitations.length === 0 ? (
+                <tr>
+                  <td colSpan={4}>
+                    <span className="placeholder-text">No hay invitaciones registradas.</span>
+                  </td>
+                </tr>
+              ) : (
+                invitations.map((inv) => (
+                  <tr key={inv.id}>
+                    <td>{inv.email}</td>
+                    <td>{new Date(inv.createdAt).toLocaleString()}</td>
+                    <td>{new Date(inv.expiresAt).toLocaleString()}</td>
+                    <td>
+                      {inv.acceptedAt
+                        ? `Aceptada ${new Date(inv.acceptedAt).toLocaleString()}`
+                        : new Date(inv.expiresAt).getTime() < Date.now()
+                          ? "Expirada"
+                          : "Pendiente"}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminPage() {
-  const { user } = useAuth();
+  const { user, refreshSession, usage, company } = useAuth();
   const [tab, setTab] = useState<Tab>("users");
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [metrics, setMetrics] = useState<AdminMetric[]>([]);
@@ -119,6 +310,28 @@ export default function AdminPage() {
     if (tab === "config") loadCompanyConfig();
   }, [tab]);
 
+  const [equipoLoading, setEquipoLoading] = useState(false);
+  const [invitations, setInvitations] = useState<OrgInvitationRow[]>([]);
+
+  const reloadEquipo = useCallback(async () => {
+    setEquipoLoading(true);
+    setError("");
+    try {
+      await refreshSession();
+      const inv = await fetchOrgInvitations();
+      setInvitations(inv.invitations);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al cargar invitaciones");
+      setInvitations([]);
+    } finally {
+      setEquipoLoading(false);
+    }
+  }, [refreshSession]);
+
+  useEffect(() => {
+    if (tab === "equipo") void reloadEquipo();
+  }, [tab, reloadEquipo]);
+
   function applyReportRange() {
     if (rangeAllTime) {
       setAppliedRange("all");
@@ -145,7 +358,7 @@ export default function AdminPage() {
     }
   }
 
-  if (user?.role !== "admin") {
+  if (user?.role !== "org_admin") {
     return <Navigate to="/app" replace />;
   }
 
@@ -161,6 +374,13 @@ export default function AdminPage() {
           onClick={() => setTab("users")}
         >
           Usuarios
+        </button>
+        <button
+          type="button"
+          className={tab === "equipo" ? "tab-active" : ""}
+          onClick={() => setTab("equipo")}
+        >
+          Equipo e invitaciones
         </button>
         <button
           type="button"
@@ -256,6 +476,15 @@ export default function AdminPage() {
           onRefresh={reloadUsersData}
         />
       )}
+      {tab === "equipo" && (
+        <EquipoTab
+          usage={usage}
+          company={company}
+          loading={equipoLoading}
+          invitations={invitations}
+          onReload={reloadEquipo}
+        />
+      )}
       {tab === "metrics" && (
         <MetricsTab metrics={metrics} loading={loading} reportScoped={reportScoped} />
       )}
@@ -305,11 +534,11 @@ function UsersTab({
     email: "",
     password: "",
     fullName: "",
-    role: "employee" as "employee" | "admin",
+    role: "member" as "member" | "org_admin",
   });
   const [editForm, setEditForm] = useState<{ fullName: string; role: string; status: string }>({
     fullName: "",
-    role: "employee",
+    role: "member",
     status: "active",
   });
   const [submitting, setSubmitting] = useState(false);
@@ -326,7 +555,7 @@ function UsersTab({
         fullName: form.fullName || undefined,
         role: form.role,
       });
-      setForm({ email: "", password: "", fullName: "", role: "employee" });
+      setForm({ email: "", password: "", fullName: "", role: "member" });
       setShowForm(false);
       onRefresh();
     } catch (e) {
@@ -342,7 +571,7 @@ function UsersTab({
     try {
       await updateAdminUser(id, {
         fullName: editForm.fullName,
-        role: editForm.role as "employee" | "admin",
+        role: editForm.role as "member" | "org_admin",
         status: editForm.status as "active" | "disabled",
       });
       setEditing(null);
@@ -521,10 +750,10 @@ function UsersTab({
             <span>Rol</span>
             <select
               value={form.role}
-              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as "employee" | "admin" }))}
+              onChange={(e) => setForm((f) => ({ ...f, role: e.target.value as "member" | "org_admin" }))}
             >
-              <option value="employee">Empleado</option>
-              <option value="admin">Admin</option>
+              <option value="member">Participante</option>
+              <option value="org_admin">Administrador</option>
             </select>
           </label>
           <button type="submit" disabled={submitting} className="btn-primary">
@@ -569,11 +798,15 @@ function UsersTab({
                         setEditForm((f) => ({ ...f, role: e.target.value }))
                       }
                     >
-                      <option value="employee">Empleado</option>
-                      <option value="admin">Admin</option>
+                      <option value="member">Participante</option>
+                      <option value="org_admin">Administrador</option>
                     </select>
                   ) : (
-                    u.role
+                    u.role === "org_admin"
+                      ? "Administrador"
+                      : u.role === "member"
+                        ? "Participante"
+                        : u.role
                   )}
                 </td>
                 <td>

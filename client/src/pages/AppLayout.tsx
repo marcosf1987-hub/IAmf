@@ -62,9 +62,14 @@ export default function AppLayout() {
             <Link to="/app/perfil" onClick={() => setMenuOpen(false)}>Mi usuario</Link>
           </nav>
           <div className="app-header-right">
-            {user.role === "admin" && (
+            {user.role === "org_admin" && (
               <Link to="/app/admin" className="nav-admin" onClick={() => setMenuOpen(false)}>
                 Admin
+              </Link>
+            )}
+            {user.role === "super_admin" && (
+              <Link to="/app/platform" className="nav-admin" onClick={() => setMenuOpen(false)}>
+                Plataforma
               </Link>
             )}
             <div className="app-user">

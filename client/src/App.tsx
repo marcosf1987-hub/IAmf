@@ -10,13 +10,18 @@ import IAPage from "./pages/IAPage";
 import ResultadosPage from "./pages/ResultadosPage";
 import PerfilPage from "./pages/PerfilPage";
 import AdminPage from "./pages/AdminPage";
+import PlatformAdminPage from "./pages/PlatformAdminPage";
+import PricingPage from "./pages/PricingPage";
+import AcceptInvitePage from "./pages/AcceptInvitePage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/pricing" element={<PricingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
+      <Route path="/invite/accept" element={<AcceptInvitePage />} />
       <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<AppDashboard />} />
@@ -25,6 +30,7 @@ export default function App() {
         <Route path="resultados" element={<ResultadosPage />} />
         <Route path="perfil" element={<PerfilPage />} />
         <Route path="admin" element={<AdminPage />} />
+        <Route path="platform" element={<PlatformAdminPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

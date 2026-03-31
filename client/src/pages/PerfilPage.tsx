@@ -2,8 +2,14 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import { updateMe } from "../lib/api";
 
+function roleLabel(role: string): string {
+  if (role === "super_admin") return "Super administrador (plataforma)";
+  if (role === "org_admin") return "Administrador de empresa";
+  return "Participante";
+}
+
 export default function PerfilPage() {
-  const { user, setUser } = useAuth();
+  const { user, refreshSession } = useAuth();
   const [fullName, setFullName] = useState(user?.fullName ?? "");
 
   useEffect(() => {
@@ -40,8 +46,8 @@ export default function PerfilPage() {
         return;
       }
 
-      const { user: updated } = await updateMe(updates);
-      setUser(updated);
+      await updateMe(updates);
+      await refreshSession();
       setPassword("");
       setConfirmPassword("");
       setSuccess("Datos actualizados correctamente");
@@ -64,7 +70,7 @@ export default function PerfilPage() {
 
       <div className="perfil-info">
         <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Rol:</strong> {user.role === "admin" ? "Admin (RRHH)" : "Empleado"}</p>
+        <p><strong>Rol:</strong> {roleLabel(user.role)}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="perfil-form">

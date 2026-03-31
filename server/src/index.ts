@@ -16,6 +16,8 @@ import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
 import { mountOAuthRoutes } from "./oauth";
+import { registerB2BRoutes } from "./b2b-routes";
+import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -27,7 +29,32 @@ function routeParamId(req: express.Request): string | undefined {
 const app = express();
 const prisma = new PrismaClient();
 
-/** Admin: el rol debe coincidir con la **base de datos**, no solo con el JWT (si promovieron a admin, el token viejo decía employee → 403). */
+async function buildMeResponse(userId: string) {
+  const row = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      fullName: true,
+      role: true,
+      status: true,
+      companyId: true,
+      createdAt: true,
+      company: { select: { id: true, name: true, slug: true, seatLimit: true } },
+    },
+  });
+  if (!row) return null;
+  const billingBase = process.env.BILLING_CHECKOUT_BASE_URL?.trim();
+  const usage = await buildOrgSeatSnapshot(
+    prisma,
+    row.companyId,
+    billingBase && billingBase.length > 0 ? billingBase : null
+  );
+  const { company, ...user } = row;
+  return { user, company, usage };
+}
+
+/** Admin de empresa (`org_admin`): el rol debe coincidir con la **base de datos**, no solo con el JWT. */
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
   try {
     const header = req.header("authorization") ?? "";
@@ -49,7 +76,7 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
       res.status(401).json({ error: "invalid_token" });
       return;
     }
-    if (user.role !== "admin") {
+    if (user.role !== "org_admin") {
       res.status(403).json({ error: "forbidden" });
       return;
     }
@@ -79,6 +106,7 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 
 mountOAuthRoutes(app, prisma);
+registerB2BRoutes(app, prisma);
 
 /** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
 app.get("/", (_req, res) => {
@@ -118,9 +146,9 @@ app.post("/auth/signup", async (req, res) => {
   }
 
   const company = await prisma.company.upsert({
-    where: { name: "DemoCompany" },
+    where: { slug: "demo" },
     update: {},
-    create: { name: "DemoCompany" },
+    create: { name: "DemoCompany", slug: "demo", seatLimit: 100 },
   });
 
   const passwordHash = await hashPassword(password);
@@ -130,14 +158,19 @@ app.post("/auth/signup", async (req, res) => {
       passwordHash,
       fullName,
       companyId: company.id,
-      role: "employee",
+      role: "member",
       status: "active",
     },
     select: { id: true, email: true, fullName: true, role: true, companyId: true },
   });
 
   const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
-  res.status(201).json({ token, user });
+  const me = await buildMeResponse(user.id);
+  if (!me) {
+    res.status(500).json({ error: "server_error" });
+    return;
+  }
+  res.status(201).json({ token, ...me });
 });
 
 app.post("/auth/login", async (req, res) => {
@@ -181,10 +214,12 @@ app.post("/auth/login", async (req, res) => {
     });
 
     const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
-    res.status(200).json({
-      token,
-      user: { id: user.id, email: user.email, fullName: user.fullName, role: user.role, companyId: user.companyId },
-    });
+    const me = await buildMeResponse(user.id);
+    if (!me) {
+      res.status(500).json({ error: "server_error" });
+      return;
+    }
+    res.status(200).json({ token, ...me });
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("POST /auth/login:", err);
@@ -1237,13 +1272,30 @@ app.post("/admin/users", requireAdmin, async (req, res) => {
     return;
   }
 
+  if (!isPlatformCompanySlug(company.slug)) {
+    const active = await prisma.user.count({
+      where: {
+        companyId,
+        status: "active",
+        role: { in: ["org_admin", "member"] },
+      },
+    });
+    const pending = await prisma.invitation.count({
+      where: { companyId, acceptedAt: null, expiresAt: { gt: new Date() } },
+    });
+    if (active + pending >= company.seatLimit) {
+      res.status(400).json({ error: "insufficient_seats", message: "No hay cupos disponibles." });
+      return;
+    }
+  }
+
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
     data: {
       email,
       passwordHash,
       fullName,
-      role: role ?? "employee",
+      role: role ?? "member",
       companyId,
       status: "active",
     },
@@ -1537,15 +1589,12 @@ app.get("/admin/exports/users.csv", requireAdmin, async (req, res) => {
 
 app.get("/me", requireAuth, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, email: true, fullName: true, role: true, status: true, companyId: true, createdAt: true },
-  });
-  if (!user) {
+  const me = await buildMeResponse(userId);
+  if (!me) {
     res.status(404).json({ error: "not_found" });
     return;
   }
-  res.status(200).json({ user });
+  res.status(200).json(me);
 });
 
 app.patch("/me", requireAuth, async (req, res) => {
@@ -1567,12 +1616,16 @@ app.patch("/me", requireAuth, async (req, res) => {
     return;
   }
 
-  const user = await prisma.user.update({
+  await prisma.user.update({
     where: { id: userId },
     data: updates,
-    select: { id: true, email: true, fullName: true, role: true, status: true, companyId: true, createdAt: true },
   });
-  res.status(200).json({ user });
+  const me = await buildMeResponse(userId);
+  if (!me) {
+    res.status(404).json({ error: "not_found" });
+    return;
+  }
+  res.status(200).json(me);
 });
 
 app.get("/me/prode-status", requireAuth, async (req, res) => {
