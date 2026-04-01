@@ -2565,3 +2565,18 @@ a:hover {
 .admin-invite-results li {
   margin-bottom: 0.5rem;
 }
+
+.platform-org-admin-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  max-width: 22rem;
+}
+
+.platform-org-admin-list li {
+  margin-bottom: 0.35rem;
+}
+
+.platform-org-admin-email {
+  font-size: 0.9rem;
+  word-break: break-all;
+}

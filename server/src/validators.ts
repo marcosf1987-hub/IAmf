@@ -50,6 +50,10 @@ export const platformPatchCompanySchema = z.object({
   seatLimit: z.number().int().min(1).max(100000),
 });
 
+export const platformResetOrgAdminPasswordSchema = z.object({
+  newPassword: z.string().min(6),
+});
+
 export const orgInviteSchema = z.object({
   emails: z.array(z.string().email()).min(1).max(100),
 });

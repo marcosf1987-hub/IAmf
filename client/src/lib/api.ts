@@ -303,6 +303,11 @@ export async function acceptInvite(
   return data;
 }
 
+export type PlatformOrgAdminRef = {
+  id: string;
+  email: string;
+};
+
 export type PlatformCompanyRow = {
   id: string;
   name: string;
@@ -312,6 +317,7 @@ export type PlatformCompanyRow = {
   userCount: number;
   invitationCount: number;
   stripeCustomerId: string | null;
+  orgAdmins: PlatformOrgAdminRef[];
 };
 
 export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {
@@ -343,6 +349,17 @@ export async function patchPlatformCompanySeat(
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ seatLimit }),
+  });
+}
+
+export async function resetPlatformOrgAdminPassword(
+  userId: string,
+  newPassword: string
+): Promise<{ ok: boolean }> {
+  return fetchAuth(`/platform/org-admins/${userId}/reset-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ newPassword }),
   });
 }
 

@@ -8,6 +8,7 @@ import {
   orgInviteSchema,
   platformCreateCompanySchema,
   platformPatchCompanySchema,
+  platformResetOrgAdminPasswordSchema,
 } from "./validators";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
@@ -117,6 +118,12 @@ function wrapOrg(prisma: PrismaClient) {
 
 function routeParamId(req: Request): string | undefined {
   const raw = req.params.id;
+  if (raw === undefined) return undefined;
+  return Array.isArray(raw) ? raw[0] : raw;
+}
+
+function routeParamUserId(req: Request): string | undefined {
+  const raw = req.params.userId;
   if (raw === undefined) return undefined;
   return Array.isArray(raw) ? raw[0] : raw;
 }
@@ -430,6 +437,25 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         },
       },
     });
+    const companyIds = companies.map((c) => c.id);
+    const orgAdminRows =
+      companyIds.length === 0
+        ? []
+        : await prisma.user.findMany({
+            where: {
+              companyId: { in: companyIds },
+              role: "org_admin",
+              status: "active",
+            },
+            select: { id: true, email: true, companyId: true },
+            orderBy: { createdAt: "asc" },
+          });
+    const orgAdminsByCompany = new Map<string, { id: string; email: string }[]>();
+    for (const u of orgAdminRows) {
+      const list = orgAdminsByCompany.get(u.companyId) ?? [];
+      list.push({ id: u.id, email: u.email });
+      orgAdminsByCompany.set(u.companyId, list);
+    }
     res.status(200).json({
       companies: companies.map((c) => ({
         id: c.id,
@@ -440,8 +466,42 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         userCount: c._count.users,
         invitationCount: c._count.invitations,
         stripeCustomerId: c.stripeCustomerId,
+        orgAdmins: orgAdminsByCompany.get(c.id) ?? [],
       })),
     });
+  });
+
+  /** Super admin: nueva contraseña para un usuario `org_admin` de una empresa (no plataforma). */
+  app.post("/platform/org-admins/:userId/reset-password", superAuth, async (req, res) => {
+    const userId = routeParamUserId(req);
+    if (!userId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const parsed = platformResetOrgAdminPasswordSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+    const target = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { company: { select: { id: true, slug: true } } },
+    });
+    if (
+      !target ||
+      target.role !== "org_admin" ||
+      !target.company ||
+      isPlatformCompanySlug(target.company.slug)
+    ) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+    const passwordHash = await hashPassword(parsed.data.newPassword);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+    res.status(200).json({ ok: true });
   });
 
   app.patch("/platform/companies/:id", superAuth, async (req, res) => {
