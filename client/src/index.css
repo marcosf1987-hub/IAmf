@@ -2566,17 +2566,78 @@ a:hover {
   margin-bottom: 0.5rem;
 }
 
-.platform-org-admin-list {
+/* Plataforma → tabla Empresas (no usar max-width 900px del admin genérico) */
+.platform-companies-wrap {
+  max-width: none;
+  width: 100%;
   margin: 0;
-  padding-left: 1.1rem;
-  max-width: 22rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-.platform-org-admin-list li {
-  margin-bottom: 0.35rem;
+.platform-companies-table {
+  min-width: 52rem;
+  width: 100%;
+  table-layout: auto;
+}
+
+.platform-companies-table th,
+.platform-companies-table td {
+  vertical-align: top;
+}
+
+.platform-companies-col-name {
+  white-space: nowrap;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.platform-companies-col-slug {
+  max-width: 10rem;
+}
+
+.platform-slug-code {
+  font-size: 0.8rem;
+  word-break: break-all;
+  line-height: 1.3;
+}
+
+.platform-companies-col-admins {
+  min-width: 16rem;
+  max-width: 24rem;
+}
+
+.platform-org-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+}
+
+.platform-org-admin-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
 }
 
 .platform-org-admin-email {
-  font-size: 0.9rem;
-  word-break: break-all;
+  flex: 1 1 10rem;
+  min-width: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.platform-org-admin-btn {
+  flex-shrink: 0;
+  align-self: flex-start;
+}
+
+.platform-companies-table .platform-companies-col-narrow {
+  text-align: center;
+  white-space: nowrap;
 }

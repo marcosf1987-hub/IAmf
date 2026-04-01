@@ -242,32 +242,34 @@ export default function PlatformAdminPage() {
         {loading ? (
           <p className="placeholder-text">Cargando…</p>
         ) : (
-          <div className="admin-table-wrap">
-            <table className="admin-table">
+          <div className="admin-table-wrap platform-companies-wrap">
+            <table className="admin-table platform-companies-table">
               <thead>
                 <tr>
                   <th>Nombre</th>
                   <th>Slug</th>
-                  <th>Admins (email)</th>
-                  <th>Usuarios</th>
-                  <th>Invitaciones</th>
+                  <th>Admins</th>
+                  <th className="platform-companies-col-narrow">Usuarios</th>
+                  <th className="platform-companies-col-narrow">Invitaciones</th>
                   <th>Cupos</th>
                 </tr>
               </thead>
               <tbody>
                 {companies.map((c) => (
                   <tr key={c.id}>
-                    <td>{c.name}</td>
-                    <td>{c.slug}</td>
-                    <td>
+                    <td className="platform-companies-col-name">{c.name}</td>
+                    <td className="platform-companies-col-slug">
+                      <code className="platform-slug-code">{c.slug}</code>
+                    </td>
+                    <td className="platform-companies-col-admins">
                       {c.orgAdmins?.length ? (
-                        <ul className="platform-org-admin-list">
+                        <div className="platform-org-admin-list">
                           {c.orgAdmins.map((a) => (
-                            <li key={a.id}>
-                              <span className="platform-org-admin-email">{a.email}</span>{" "}
+                            <div className="platform-org-admin-item" key={a.id}>
+                              <span className="platform-org-admin-email">{a.email}</span>
                               <button
                                 type="button"
-                                className="btn-secondary btn-sm"
+                                className="btn-secondary btn-sm platform-org-admin-btn"
                                 onClick={() => {
                                   setSuccessMsg("");
                                   setError("");
@@ -278,15 +280,15 @@ export default function PlatformAdminPage() {
                               >
                                 Restablecer
                               </button>
-                            </li>
+                            </div>
                           ))}
-                        </ul>
+                        </div>
                       ) : (
                         <span className="placeholder-text">—</span>
                       )}
                     </td>
-                    <td>{c.userCount}</td>
-                    <td>{c.invitationCount}</td>
+                    <td className="platform-companies-col-narrow">{c.userCount}</td>
+                    <td className="platform-companies-col-narrow">{c.invitationCount}</td>
                     <td>
                       <input
                         key={`${c.id}-${c.seatLimit}`}
