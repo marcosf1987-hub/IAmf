@@ -60,9 +60,17 @@ function EquipoTab({
   const [emailsText, setEmailsText] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [inviteErr, setInviteErr] = useState("");
-  const [lastResults, setLastResults] = useState<{ email: string; inviteUrl: string; error?: string }[] | null>(
-    null
-  );
+  const [lastResults, setLastResults] = useState<
+    | {
+        email: string;
+        inviteUrl: string;
+        error?: string;
+        emailSent?: boolean;
+        emailError?: string;
+      }[]
+    | null
+  >(null);
+  const [mailConfigured, setMailConfigured] = useState<boolean | null>(null);
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -77,8 +85,9 @@ function EquipoTab({
     }
     setSubmitting(true);
     try {
-      const { results } = await postOrgInvitations(emails);
+      const { results, mailConfigured: mc } = await postOrgInvitations(emails);
       setLastResults(results);
+      setMailConfigured(mc);
       setEmailsText("");
       await onReload();
     } catch (err) {
@@ -158,9 +167,16 @@ function EquipoTab({
         <button type="submit" className="btn-primary" disabled={submitting}>
           {submitting ? "Generando enlaces…" : "Generar invitaciones"}
         </button>
+        {mailConfigured === false && (
+          <p className="auth-error" style={{ marginTop: "0.75rem" }}>
+            El servidor no tiene SMTP configurado: no se envían correos automáticos. Configurá SMTP_HOST,
+            SMTP_USER y SMTP_PASS en Railway (backend). Igual podés copiar el enlace de cada invitación abajo.
+          </p>
+        )}
         <p className="admin-date-range-hint" style={{ marginTop: "0.75rem" }}>
-          Se genera un enlace por email. Copiá el enlace y enviáselo por tu canal corporativo hasta que integremos
-          envío automático de mails.
+          {mailConfigured
+            ? "Se envía un correo con el enlace a cada dirección. Si falla el envío, el enlace sigue disponible acá."
+            : "Con SMTP en el backend, se envían los mails automáticamente; si no, copiá el enlace manualmente."}
         </p>
       </form>
 
@@ -179,6 +195,16 @@ function EquipoTab({
                     <a href={r.inviteUrl} target="_blank" rel="noopener noreferrer">
                       abrir invitación
                     </a>
+                    {mailConfigured && r.emailSent === true && (
+                      <span className="auth-success" style={{ marginLeft: "0.5rem" }}>
+                        Correo enviado
+                      </span>
+                    )}
+                    {mailConfigured && r.emailSent === false && r.emailError && (
+                      <span className="auth-error" style={{ marginLeft: "0.5rem" }} title={r.emailError}>
+                        Mail no enviado (ver logs del servidor)
+                      </span>
+                    )}
                   </>
                 )}
               </li>

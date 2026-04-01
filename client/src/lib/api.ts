@@ -252,8 +252,17 @@ export async function fetchOrgInvitations(): Promise<{ invitations: OrgInvitatio
   return fetchAuth("/org/invitations");
 }
 
+export type OrgInviteResult = {
+  email: string;
+  inviteUrl: string;
+  error?: string;
+  emailSent?: boolean;
+  emailError?: string;
+};
+
 export async function postOrgInvitations(emails: string[]): Promise<{
-  results: { email: string; inviteUrl: string; error?: string }[];
+  results: OrgInviteResult[];
+  mailConfigured: boolean;
 }> {
   return fetchAuth("/org/invitations", {
     method: "POST",

@@ -10,6 +10,7 @@ import {
   platformPatchCompanySchema,
 } from "./validators";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { isMailConfigured, sendInvitationEmail } from "./mail";
 
 function frontendBase(): string {
   return (process.env.FRONTEND_URL?.trim() || "http://localhost:5173").replace(/\/+$/, "");
@@ -294,7 +295,13 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       return;
     }
 
-    const results: { email: string; inviteUrl: string; error?: string }[] = [];
+    const results: {
+      email: string;
+      inviteUrl: string;
+      error?: string;
+      emailSent?: boolean;
+      emailError?: string;
+    }[] = [];
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     for (const email of emails) {
@@ -332,10 +339,25 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         },
       });
       const inviteUrl = `${frontendBase()}/invite/accept?token=${encodeURIComponent(rawToken)}`;
-      results.push({ email, inviteUrl });
+
+      let emailSent = false;
+      let emailError: string | undefined;
+      if (isMailConfigured()) {
+        const sent = await sendInvitationEmail({
+          to: email,
+          companyName: company.name,
+          inviteUrl,
+        });
+        emailSent = sent.ok;
+        if (!sent.ok && sent.error && sent.error !== "mail_not_configured") {
+          emailError = sent.error;
+        }
+      }
+
+      results.push({ email, inviteUrl, emailSent, ...(emailError ? { emailError } : {}) });
     }
 
-    res.status(201).json({ results });
+    res.status(201).json({ results, mailConfigured: isMailConfigured() });
   });
 
   app.post("/platform/companies", superAuth, async (req, res) => {
