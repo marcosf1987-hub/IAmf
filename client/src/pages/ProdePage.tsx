@@ -356,54 +356,55 @@ npx prisma db seed`}
         </div>
       )}
 
+      {/* Fuera del stack de grupos/eliminatorias: siempre arriba de las tarjetas */}
+      {currentPhase ? (
+        <div className="prode-actions prode-actions-full prode-generate-above-cards">
+          {!hasLabGuidelinesForCurrentPhase && (
+            <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
+              Todavía <strong>no guardaste pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
+              Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribí el texto en el
+              Laboratorio (elegí la etapa arriba), pulsá <strong>Guardar pautas</strong> y volvé acá.{" "}
+              <Link to="/app/ia" className="prode-lab-required-link">
+                Ir al Laboratorio
+              </Link>
+            </p>
+          )}
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => handleGeneratePredictions(currentPhase.phase)}
+            disabled={generating || matches.length === 0 || !hasLabGuidelinesForCurrentPhase}
+            aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
+            title={
+              matches.length === 0
+                ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
+                : !hasLabGuidelinesForCurrentPhase
+                  ? `Guardá las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
+                  : undefined
+            }
+          >
+            {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
+          </button>
+          <p className="prode-deadline">
+            Podés generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
+            <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
+          </p>
+          <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
+        </div>
+      ) : (
+        <div className="prode-actions prode-actions-full prode-generate-above-cards">
+          <p className="prode-deadline prode-deadline-passed">
+            Ya no se pueden cargar predicciones. Todas las fases han cerrado.
+          </p>
+        </div>
+      )}
+
       <div className="prode-page-stack">
         {matches.length > 0 && groupSections.length === 0 && (
           <p className="prode-no-groups-hint" role="status">
             No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya corriste
             el seed, verificá que los partidos tengan etapa <code>group</code> y <code>groupCode</code> por partido.
           </p>
-        )}
-
-        {currentPhase ? (
-          <div className="prode-actions prode-actions-full">
-            {!hasLabGuidelinesForCurrentPhase && (
-              <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
-                Todavía <strong>no guardaste pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
-                Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribí el texto en el
-                Laboratorio (elegí la etapa arriba), pulsá <strong>Guardar pautas</strong> y volvé acá.{" "}
-                <Link to="/app/ia" className="prode-lab-required-link">
-                  Ir al Laboratorio
-                </Link>
-              </p>
-            )}
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => handleGeneratePredictions(currentPhase.phase)}
-              disabled={generating || matches.length === 0 || !hasLabGuidelinesForCurrentPhase}
-              aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
-              title={
-                matches.length === 0
-                  ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
-                  : !hasLabGuidelinesForCurrentPhase
-                    ? `Guardá las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
-                    : undefined
-              }
-            >
-              {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
-            </button>
-            <p className="prode-deadline">
-              Podés generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
-              <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
-            </p>
-            <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
-          </div>
-        ) : (
-          <div className="prode-actions prode-actions-full">
-            <p className="prode-deadline prode-deadline-passed">
-              Ya no se pueden cargar predicciones. Todas las fases han cerrado.
-            </p>
-          </div>
         )}
 
         {groupSections.length > 0 && (
