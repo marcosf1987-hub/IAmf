@@ -1078,11 +1078,16 @@ a:hover {
 }
 
 /* Prode: columna única (las tarjetas por grupo van en su propia rejilla) */
-/* Bloque “Generar predicciones”: hermano del stack, siempre encima de tarjetas y eliminatorias */
+/* Bloque “Generar predicciones”: si hay tarjetas de grupo, va entre cabecera y .prode-groups-grid; si no, antes del stack */
 .prode-generate-above-cards {
   width: 100%;
   max-width: 100%;
   margin-bottom: 0.5rem;
+}
+
+.prode-groups-stage .prode-generate-above-cards {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .prode-page-stack {
