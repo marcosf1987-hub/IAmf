@@ -1345,6 +1345,235 @@ a:hover {
   color: var(--text);
 }
 
+/* Prode: simulador por grupo (tabla + partidos) */
+.prode-simulator-block {
+  margin-top: 1.5rem;
+}
+
+.prode-simulator-heading {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  text-align: center;
+  margin: 0 0 0.5rem;
+}
+
+.prode-simulator-lead {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 auto 1.25rem;
+  max-width: 40rem;
+  line-height: 1.45;
+}
+
+.prode-groups-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+@media (min-width: 720px) {
+  .prode-groups-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1100px) {
+  .prode-groups-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.prode-group-card {
+  background: linear-gradient(180deg, rgba(0, 36, 22, 0.92) 0%, rgba(6, 18, 14, 0.98) 100%);
+  border: 1px solid rgba(201, 169, 98, 0.28);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.prode-group-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: rgba(0, 0, 0, 0.35);
+  border-bottom: 1px solid rgba(201, 169, 98, 0.2);
+}
+
+.prode-group-card-title {
+  margin: 0;
+  font-size: 1rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.prode-group-card-meta {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.prode-standings-wrap {
+  overflow-x: auto;
+}
+
+.prode-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.7rem;
+}
+
+.prode-standings-table th,
+.prode-standings-table td {
+  padding: 0.32rem 0.28rem;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.prode-standings-table th {
+  color: var(--text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.prode-standings-table .prode-stand-team {
+  text-align: left;
+  max-width: 8rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prode-stand-row--qual {
+  border-left: 3px solid #4ade80;
+  background: rgba(74, 222, 128, 0.07);
+}
+
+.prode-group-matches {
+  padding: 0.65rem 0.75rem 0.85rem;
+  border-top: 1px solid rgba(201, 169, 98, 0.18);
+}
+
+.prode-group-matches-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+.prode-group-match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.prode-group-match-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+}
+
+.prode-group-match-side {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.prode-group-match-side--right {
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.prode-group-match-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prode-group-match-scores {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.prode-group-score {
+  min-width: 1.35rem;
+  text-align: center;
+  padding: 0.12rem 0.32rem;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  font-size: 0.8rem;
+}
+
+.prode-group-score-sep {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.prode-best-thirds {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.prode-best-thirds-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  margin: 0 0 0.35rem;
+  text-align: center;
+}
+
+.prode-best-thirds-hint {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 0 auto 1rem;
+  max-width: 42rem;
+  line-height: 1.45;
+}
+
+.prode-best-thirds-wrap {
+  overflow-x: auto;
+}
+
+.prode-best-thirds-table {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.prode-best-thirds-table th,
+.prode-best-thirds-table td {
+  padding: 0.5rem 0.65rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.prode-best-thirds-table th {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.prode-best-thirds-table td:first-child,
+.prode-best-thirds-table th:first-child {
+  text-align: center;
+  width: 2.5rem;
+}
+
 /* Resultados */
 .resultados-list {
   display: grid;

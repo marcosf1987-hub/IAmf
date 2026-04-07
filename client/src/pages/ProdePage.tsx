@@ -11,6 +11,7 @@ import {
   generateProdePredictions,
 } from "../lib/api";
 import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
+import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Fase de grupos",
@@ -139,6 +140,22 @@ export default function ProdePage() {
 
   const sections = useMemo(() => buildProdeSections(matches), [matches]);
 
+  const groupSections = useMemo(
+    () => sections.filter((s) => s.id.startsWith("group-")),
+    [sections]
+  );
+  const knockoutSections = useMemo(
+    () => sections.filter((s) => !s.id.startsWith("group-")),
+    [sections]
+  );
+
+  const bestThirds = useMemo(() => {
+    const groups = groupSections
+      .filter((s) => s.id !== "group-unknown")
+      .map((s) => ({ label: s.title, matches: s.matches }));
+    return computeBestThirds(groups, predictions);
+  }, [groupSections, predictions]);
+
   const currentPhase = getCurrentPhase();
 
   const hasLabGuidelinesForCurrentPhase = currentPhase
@@ -147,11 +164,11 @@ export default function ProdePage() {
 
   useEffect(() => {
     const next: Record<string, boolean> = {};
-    sections.forEach((s, i) => {
+    knockoutSections.forEach((s, i) => {
       next[s.id] = i === 0;
     });
     setOpenSections(next);
-  }, [sections]);
+  }, [knockoutSections]);
 
   function toggleSection(id: string) {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -348,7 +365,27 @@ npx prisma db seed`}
           </div>
         )}
 
-        {sections.map((section) => {
+        {groupSections.length > 0 && (
+          <section className="prode-simulator-block prode-actions-full" aria-labelledby="prode-sim-groups-heading">
+            <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
+              Fase de grupos
+            </h2>
+            <p className="prode-simulator-lead">
+              Tus predicciones por partido actualizan la tabla de posiciones de cada grupo (3 pts ganar, 1 empate).
+              Los dos primeros lugares se destacan como clasificación ilustrativa.
+            </p>
+            <div className="prode-groups-grid">
+              {groupSections.map((section) => (
+                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+              ))}
+            </div>
+            {bestThirds.length > 0 && (
+              <BestThirdsTable candidates={bestThirds} />
+            )}
+          </section>
+        )}
+
+        {knockoutSections.map((section) => {
           const isOpen = openSections[section.id] ?? false;
           return (
             <section key={section.id} className="prode-accordion prode-actions-full">
@@ -403,6 +440,136 @@ npx prisma db seed`}
             </div>
           </>
         )}
+      </div>
+    </div>
+  );
+}
+
+function GroupSimulatorCard({
+  section,
+  predictions,
+}: {
+  section: ProdeSection;
+  predictions: Record<string, Prediction>;
+}) {
+  const standings = useMemo(
+    () => computeGroupStandings(section.matches, predictions),
+    [section.matches, predictions]
+  );
+  const predictedCount = section.matches.filter((m) => predictions[m.id]).length;
+
+  return (
+    <article className="prode-group-card">
+      <header className="prode-group-card-head">
+        <h3 className="prode-group-card-title">{section.title}</h3>
+        <span className="prode-group-card-meta">
+          {predictedCount}/{section.matches.length} predichos
+        </span>
+      </header>
+      <div className="prode-standings-wrap">
+        <table className="prode-standings-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Equipo</th>
+              <th>PTS</th>
+              <th>PJ</th>
+              <th>G</th>
+              <th>E</th>
+              <th>P</th>
+              <th>DG</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((row, idx) => (
+              <tr
+                key={row.team}
+                className={idx < 2 ? "prode-stand-row prode-stand-row--qual" : "prode-stand-row"}
+              >
+                <td>{idx + 1}</td>
+                <td className="prode-stand-team">
+                  <span className="prode-flag">{getFlag(row.team)}</span> {row.team}
+                </td>
+                <td>{row.pts}</td>
+                <td>{row.pj}</td>
+                <td>{row.g}</td>
+                <td>{row.e}</td>
+                <td>{row.p}</td>
+                <td>{row.dg > 0 ? `+${row.dg}` : row.dg}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="prode-group-matches">
+        <h4 className="prode-group-matches-title">Partidos</h4>
+        <ul className="prode-group-match-list">
+          {section.matches.map((m) => (
+            <li key={m.id}>
+              <GroupMatchRow match={m} prediction={predictions[m.id]} />
+            </li>
+          ))}
+        </ul>
+      </div>
+    </article>
+  );
+}
+
+function GroupMatchRow({ match, prediction }: { match: Match; prediction?: Prediction }) {
+  return (
+    <div className="prode-group-match-row">
+      <span className="prode-group-match-side">
+        <span className="prode-flag">{getFlag(match.teamA)}</span>
+        <span className="prode-group-match-name">{match.teamA}</span>
+      </span>
+      <span className="prode-group-match-scores">
+        <span className="prode-group-score">{prediction ? prediction.scoreA : "—"}</span>
+        <span className="prode-group-score-sep">-</span>
+        <span className="prode-group-score">{prediction ? prediction.scoreB : "—"}</span>
+      </span>
+      <span className="prode-group-match-side prode-group-match-side--right">
+        <span className="prode-group-match-name">{match.teamB}</span>
+        <span className="prode-flag">{getFlag(match.teamB)}</span>
+      </span>
+    </div>
+  );
+}
+
+function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) {
+  return (
+    <div className="prode-best-thirds">
+      <h3 className="prode-best-thirds-title">Mejores terceros</h3>
+      <p className="prode-best-thirds-hint">
+        Orden ilustrativo de los equipos que quedan 3.º en su grupo según tus predicciones. El Mundial 2026 usa
+        criterios adicionales para los cruces; esto sirve para ver el panorama en tu Prode.
+      </p>
+      <div className="prode-best-thirds-wrap">
+        <table className="prode-best-thirds-table">
+          <thead>
+            <tr>
+              <th>Pos</th>
+              <th>Equipo</th>
+              <th>Grupo</th>
+              <th>Pts</th>
+              <th>DG</th>
+              <th>GF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {candidates.map((c, i) => (
+              <tr key={`${c.team}-${c.groupLabel}`}>
+                <td>{i + 1}</td>
+                <td>
+                  <span className="prode-flag">{getFlag(c.team)}</span> {c.team}
+                </td>
+                <td>{c.groupLabel}</td>
+                <td>{c.pts}</td>
+                <td>{c.dg > 0 ? `+${c.dg}` : c.dg}</td>
+                <td>{c.gf}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
