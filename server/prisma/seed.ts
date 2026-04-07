@@ -31,12 +31,12 @@ const MATCHES_SEED = [
   { stage: "group" as const, groupCode: "C", teamA: "Scotland", teamB: "Brazil", kickoffAt: new Date("2026-06-24T22:00:00Z") },
   { stage: "group" as const, groupCode: "C", teamA: "Morocco", teamB: "Haiti", kickoffAt: new Date("2026-06-24T22:00:00Z") },
   // Group D
-  { stage: "group" as const, teamA: "United States", teamB: "Paraguay", kickoffAt: new Date("2026-06-13T01:00:00Z") },
-  { stage: "group" as const, teamA: "Australia", teamB: "TBD", kickoffAt: new Date("2026-06-13T04:00:00Z") },
-  { stage: "group" as const, teamA: "United States", teamB: "Australia", kickoffAt: new Date("2026-06-19T19:00:00Z") },
-  { stage: "group" as const, teamA: "TBD", teamB: "Paraguay", kickoffAt: new Date("2026-06-20T04:00:00Z") },
-  { stage: "group" as const, teamA: "TBD", teamB: "United States", kickoffAt: new Date("2026-06-26T02:00:00Z") },
-  { stage: "group" as const, teamA: "Paraguay", teamB: "Australia", kickoffAt: new Date("2026-06-26T02:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "United States", teamB: "Paraguay", kickoffAt: new Date("2026-06-13T01:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "Australia", teamB: "TBD", kickoffAt: new Date("2026-06-13T04:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "United States", teamB: "Australia", kickoffAt: new Date("2026-06-19T19:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "TBD", teamB: "Paraguay", kickoffAt: new Date("2026-06-20T04:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "TBD", teamB: "United States", kickoffAt: new Date("2026-06-26T02:00:00Z") },
+  { stage: "group" as const, groupCode: "D", teamA: "Paraguay", teamB: "Australia", kickoffAt: new Date("2026-06-26T02:00:00Z") },
   // Group E
   { stage: "group" as const, groupCode: "E", teamA: "Germany", teamB: "Curacao", kickoffAt: new Date("2026-06-14T17:00:00Z") },
   { stage: "group" as const, groupCode: "E", teamA: "Ivory Coast", teamB: "Ecuador", kickoffAt: new Date("2026-06-14T23:00:00Z") },
@@ -196,6 +196,21 @@ async function main() {
       await prisma.match.deleteMany({});
     }
     await prisma.match.createMany({ data: MATCHES_SEED });
+  }
+
+  // Actualizar groupCode en partidos ya guardados (BD vieja sin letra de grupo, p. ej. solo Grupo D faltante).
+  for (const m of MATCHES_SEED) {
+    if (m.stage !== "group") continue;
+    if (!("groupCode" in m) || !m.groupCode) continue;
+    await prisma.match.updateMany({
+      where: {
+        stage: "group",
+        teamA: m.teamA,
+        teamB: m.teamB,
+        kickoffAt: m.kickoffAt,
+      },
+      data: { groupCode: m.groupCode },
+    });
   }
 }
 

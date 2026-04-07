@@ -164,6 +164,8 @@ export default function ProdePage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+  /** Como el simulador de referencia: separar vista de grupos vs eliminatorias */
+  const [prodeTab, setProdeTab] = useState<"groups" | "knockout">("groups");
 
   const sections = useMemo(() => buildProdeSections(matches), [matches]);
 
@@ -175,6 +177,16 @@ export default function ProdePage() {
     () => sections.filter((s) => !s.id.startsWith("group-")),
     [sections]
   );
+
+  const showProdeTabs = groupSections.length > 0 && knockoutSections.length > 0;
+
+  useEffect(() => {
+    if (groupSections.length === 0 && knockoutSections.length > 0) setProdeTab("knockout");
+    if (groupSections.length > 0 && knockoutSections.length === 0) setProdeTab("groups");
+  }, [groupSections.length, knockoutSections.length]);
+
+  const showGroupsPanel = groupSections.length > 0 && (!showProdeTabs || prodeTab === "groups");
+  const showKnockoutPanel = knockoutSections.length > 0 && (!showProdeTabs || prodeTab === "knockout");
 
   const bestThirds = useMemo(() => {
     const groups = groupSections
@@ -357,14 +369,37 @@ npx prisma db seed`}
           </p>
         )}
 
-        {groupSections.length > 0 && (
+        {showProdeTabs && (
+          <div className="prode-stage-tabs prode-actions-full" role="tablist" aria-label="Vista del Prode">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={prodeTab === "groups"}
+              className={`prode-stage-tab ${prodeTab === "groups" ? "prode-stage-tab--active" : ""}`}
+              onClick={() => setProdeTab("groups")}
+            >
+              Fase de grupos
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={prodeTab === "knockout"}
+              className={`prode-stage-tab ${prodeTab === "knockout" ? "prode-stage-tab--active" : ""}`}
+              onClick={() => setProdeTab("knockout")}
+            >
+              Eliminatorias
+            </button>
+          </div>
+        )}
+
+        {showGroupsPanel && groupSections.length > 0 && (
           <section className="prode-simulator-block prode-actions-full" aria-labelledby="prode-sim-groups-heading">
             <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
               Fase de grupos — tus predicciones por grupo
             </h2>
             <p className="prode-simulator-lead">
-              Cada tarjeta muestra la tabla según los marcadores que ya cargaste (3 pts ganar, 1 empate) y, abajo, los
-              partidos del grupo. Los dos primeros lugares se destacan como clasificación ilustrativa.
+              Cada tarjeta es un grupo: arriba la tabla según tus marcadores (3 pts ganar, 1 empate); abajo, solo los
+              partidos de ese grupo. Los dos primeros lugares se destacan como clasificación ilustrativa.
             </p>
             <div className="prode-groups-grid">
               {groupSections.map((section) => (
@@ -419,7 +454,8 @@ npx prisma db seed`}
           </div>
         )}
 
-        {knockoutSections.map((section) => {
+        {showKnockoutPanel &&
+          knockoutSections.map((section) => {
           const isOpen = openSections[section.id] ?? false;
           return (
             <section key={section.id} className="prode-accordion prode-actions-full">
