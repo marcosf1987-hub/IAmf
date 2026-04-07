@@ -364,47 +364,6 @@ npx prisma db seed`}
           </p>
         )}
 
-        {groupSections.length > 0 && (
-          <section className="prode-groups-stage" aria-labelledby="prode-sim-groups-heading">
-            <div className="prode-groups-stage-head">
-              <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
-                Fase de grupos
-              </h2>
-              <p className="prode-simulator-lead">
-                Cada tarjeta es un grupo del Mundial: tabla de posiciones según tus predicciones y, debajo, los partidos de
-                ese grupo.
-              </p>
-              {groupStageStats.total > 0 && (
-                <div className="prode-progress-wrap" aria-label="Progreso de predicciones en grupos">
-                  <div className="prode-progress-label">
-                    Progreso: {groupStageStats.withPred}/{groupStageStats.total} partidos con predicción
-                  </div>
-                  <div
-                    className="prode-progress-bar"
-                    role="progressbar"
-                    aria-valuenow={groupStageStats.withPred}
-                    aria-valuemin={0}
-                    aria-valuemax={groupStageStats.total}
-                  >
-                    <div
-                      className="prode-progress-bar-fill"
-                      style={{
-                        width: `${Math.min(100, (100 * groupStageStats.withPred) / groupStageStats.total)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            <div className="prode-groups-grid">
-              {groupSections.map((section) => (
-                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
-              ))}
-            </div>
-            {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
-          </section>
-        )}
-
         {currentPhase ? (
           <div className="prode-actions prode-actions-full">
             {!hasLabGuidelinesForCurrentPhase && (
@@ -445,6 +404,47 @@ npx prisma db seed`}
               Ya no se pueden cargar predicciones. Todas las fases han cerrado.
             </p>
           </div>
+        )}
+
+        {groupSections.length > 0 && (
+          <section className="prode-groups-stage" aria-labelledby="prode-sim-groups-heading">
+            <div className="prode-groups-stage-head">
+              <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
+                Fase de grupos
+              </h2>
+              <p className="prode-simulator-lead">
+                Cada tarjeta es un grupo del Mundial: tabla de posiciones según tus predicciones y, debajo, los partidos de
+                ese grupo.
+              </p>
+              {groupStageStats.total > 0 && (
+                <div className="prode-progress-wrap" aria-label="Progreso de predicciones en grupos">
+                  <div className="prode-progress-label">
+                    Progreso: {groupStageStats.withPred}/{groupStageStats.total} partidos con predicción
+                  </div>
+                  <div
+                    className="prode-progress-bar"
+                    role="progressbar"
+                    aria-valuenow={groupStageStats.withPred}
+                    aria-valuemin={0}
+                    aria-valuemax={groupStageStats.total}
+                  >
+                    <div
+                      className="prode-progress-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (100 * groupStageStats.withPred) / groupStageStats.total)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="prode-groups-grid">
+              {groupSections.map((section) => (
+                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+              ))}
+            </div>
+            {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
+          </section>
         )}
 
         {knockoutSections.length > 0 && (
