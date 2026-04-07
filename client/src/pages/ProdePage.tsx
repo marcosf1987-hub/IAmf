@@ -442,11 +442,13 @@ npx prisma db seed`}
                 </div>
               )}
             </div>
-            {prodeGenerateBlock}
-            <div className="prode-groups-grid">
-              {groupSections.map((section) => (
-                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
-              ))}
+            <div className="prode-groups-main">
+              {prodeGenerateBlock}
+              <div className="prode-groups-grid">
+                {groupSections.map((section) => (
+                  <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+                ))}
+              </div>
             </div>
             {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
           </section>
