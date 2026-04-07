@@ -164,8 +164,6 @@ export default function ProdePage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  /** Como el simulador de referencia: separar vista de grupos vs eliminatorias */
-  const [prodeTab, setProdeTab] = useState<"groups" | "knockout">("groups");
 
   const sections = useMemo(() => buildProdeSections(matches), [matches]);
 
@@ -178,15 +176,11 @@ export default function ProdePage() {
     [sections]
   );
 
-  const showProdeTabs = groupSections.length > 0 && knockoutSections.length > 0;
-
-  useEffect(() => {
-    if (groupSections.length === 0 && knockoutSections.length > 0) setProdeTab("knockout");
-    if (groupSections.length > 0 && knockoutSections.length === 0) setProdeTab("groups");
-  }, [groupSections.length, knockoutSections.length]);
-
-  const showGroupsPanel = groupSections.length > 0 && (!showProdeTabs || prodeTab === "groups");
-  const showKnockoutPanel = knockoutSections.length > 0 && (!showProdeTabs || prodeTab === "knockout");
+  const groupStageStats = useMemo(() => {
+    const ids = groupSections.flatMap((s) => s.matches.map((m) => m.id));
+    const withPred = ids.filter((id) => predictions[id]).length;
+    return { total: ids.length, withPred };
+  }, [groupSections, predictions]);
 
   const bestThirds = useMemo(() => {
     const groups = groupSections
@@ -361,54 +355,52 @@ npx prisma db seed`}
         </div>
       )}
 
-      <div className="prode-grid">
+      <div className="prode-page-stack">
         {matches.length > 0 && groupSections.length === 0 && (
-          <p className="prode-no-groups-hint prode-actions-full" role="status">
+          <p className="prode-no-groups-hint" role="status">
             No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya corriste
-            el seed, verificá que los partidos tengan etapa <code>group</code>.
+            el seed, verificá que los partidos tengan etapa <code>group</code> y <code>groupCode</code> por partido.
           </p>
         )}
 
-        {showProdeTabs && (
-          <div className="prode-stage-tabs prode-actions-full" role="tablist" aria-label="Vista del Prode">
-            <button
-              type="button"
-              role="tab"
-              aria-selected={prodeTab === "groups"}
-              className={`prode-stage-tab ${prodeTab === "groups" ? "prode-stage-tab--active" : ""}`}
-              onClick={() => setProdeTab("groups")}
-            >
-              Fase de grupos
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={prodeTab === "knockout"}
-              className={`prode-stage-tab ${prodeTab === "knockout" ? "prode-stage-tab--active" : ""}`}
-              onClick={() => setProdeTab("knockout")}
-            >
-              Eliminatorias
-            </button>
-          </div>
-        )}
-
-        {showGroupsPanel && groupSections.length > 0 && (
-          <section className="prode-simulator-block prode-actions-full" aria-labelledby="prode-sim-groups-heading">
-            <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
-              Fase de grupos — tus predicciones por grupo
-            </h2>
-            <p className="prode-simulator-lead">
-              Cada tarjeta es un grupo: arriba la tabla según tus marcadores (3 pts ganar, 1 empate); abajo, solo los
-              partidos de ese grupo. Los dos primeros lugares se destacan como clasificación ilustrativa.
-            </p>
+        {groupSections.length > 0 && (
+          <section className="prode-groups-stage" aria-labelledby="prode-sim-groups-heading">
+            <div className="prode-groups-stage-head">
+              <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
+                Fase de grupos
+              </h2>
+              <p className="prode-simulator-lead">
+                Cada tarjeta es un grupo del Mundial: tabla de posiciones según tus predicciones y, debajo, los partidos de
+                ese grupo.
+              </p>
+              {groupStageStats.total > 0 && (
+                <div className="prode-progress-wrap" aria-label="Progreso de predicciones en grupos">
+                  <div className="prode-progress-label">
+                    Progreso: {groupStageStats.withPred}/{groupStageStats.total} partidos con predicción
+                  </div>
+                  <div
+                    className="prode-progress-bar"
+                    role="progressbar"
+                    aria-valuenow={groupStageStats.withPred}
+                    aria-valuemin={0}
+                    aria-valuemax={groupStageStats.total}
+                  >
+                    <div
+                      className="prode-progress-bar-fill"
+                      style={{
+                        width: `${Math.min(100, (100 * groupStageStats.withPred) / groupStageStats.total)}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
             <div className="prode-groups-grid">
               {groupSections.map((section) => (
                 <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
               ))}
             </div>
-            {bestThirds.length > 0 && (
-              <BestThirdsTable candidates={bestThirds} />
-            )}
+            {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
           </section>
         )}
 
@@ -454,8 +446,16 @@ npx prisma db seed`}
           </div>
         )}
 
-        {showKnockoutPanel &&
-          knockoutSections.map((section) => {
+        {knockoutSections.length > 0 && (
+          <div className="prode-knockout-region" id="prode-eliminatorias">
+            <h2 className="prode-knockout-region-title">Eliminatorias</h2>
+            <p className="prode-knockout-region-lead">
+              Cruces posteriores a la fase de grupos. Abrí cada fase para ver tus predicciones.
+            </p>
+          </div>
+        )}
+
+        {knockoutSections.map((section) => {
           const isOpen = openSections[section.id] ?? false;
           return (
             <section key={section.id} className="prode-accordion prode-actions-full">

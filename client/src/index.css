@@ -1077,9 +1077,16 @@ a:hover {
   font-size: 0.875rem;
 }
 
-/* Prode */
+/* Prode: columna única (las tarjetas por grupo van en su propia rejilla) */
+.prode-page-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  width: 100%;
+  align-items: stretch;
+}
+
 .prode-no-groups-hint {
-  grid-column: 1 / -1;
   margin: 0;
   padding: 1rem 1.25rem;
   text-align: center;
@@ -1092,61 +1099,6 @@ a:hover {
 
 .prode-no-groups-hint code {
   font-size: 0.85em;
-}
-
-.prode-stage-tabs {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border: 1px solid rgba(201, 169, 98, 0.35);
-  background: rgba(0, 43, 27, 0.45);
-}
-
-.prode-stage-tab {
-  font: inherit;
-  font-weight: 600;
-  font-size: 0.95rem;
-  padding: 0.55rem 1.35rem;
-  border-radius: 999px;
-  border: 1px solid rgba(201, 169, 98, 0.35);
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
-}
-
-.prode-stage-tab:hover {
-  color: var(--text);
-  border-color: rgba(201, 169, 98, 0.55);
-}
-
-.prode-stage-tab--active {
-  color: var(--text);
-  background: rgba(74, 222, 128, 0.12);
-  border-color: rgba(74, 222, 128, 0.45);
-}
-
-.prode-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 1rem;
-  max-width: 100%;
-  width: 100%;
-}
-
-@media (min-width: 768px) {
-  .prode-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (min-width: 1200px) {
-  .prode-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
 }
 
 /* Acordeón Mis Predicciones (grupos A–L + fases) */
@@ -1402,8 +1354,69 @@ a:hover {
 }
 
 /* Prode: simulador por grupo (tabla + partidos) */
-.prode-simulator-block {
-  margin-top: 1.5rem;
+.prode-groups-stage {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 1.25rem;
+}
+
+.prode-groups-stage-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.35rem;
+}
+
+.prode-progress-wrap {
+  width: 100%;
+  max-width: 28rem;
+  margin-top: 0.35rem;
+}
+
+.prode-progress-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.prode-progress-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(201, 169, 98, 0.25);
+  overflow: hidden;
+}
+
+.prode-progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #15803d, #4ade80);
+  transition: width 0.25s ease;
+}
+
+.prode-knockout-region {
+  text-align: center;
+  padding: 0.25rem 0 0;
+}
+
+.prode-knockout-region-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.prode-knockout-region-lead {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+  max-width: 36rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .prode-simulator-heading {
@@ -1442,10 +1455,13 @@ a:hover {
 
 .prode-group-card {
   background: linear-gradient(180deg, rgba(0, 36, 22, 0.92) 0%, rgba(6, 18, 14, 0.98) 100%);
-  border: 1px solid rgba(201, 169, 98, 0.28);
+  border: 1px solid rgba(201, 169, 98, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
   display: flex;
   flex-direction: column;
   min-width: 0;
+  overflow: hidden;
 }
 
 .prode-group-card-head {
