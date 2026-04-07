@@ -324,7 +324,7 @@ export default function ProdePage() {
 
   const prodeGenerateBlock =
     currentPhase ? (
-      <div className="prode-actions prode-actions-full prode-generate-above-cards">
+      <div className="prode-generate-panel prode-generate-above-cards">
         {!hasLabGuidelinesForCurrentPhase && (
           <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
             Todavía <strong>no guardaste pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
@@ -358,7 +358,7 @@ export default function ProdePage() {
         <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
       </div>
     ) : (
-      <div className="prode-actions prode-actions-full prode-generate-above-cards">
+      <div className="prode-generate-panel prode-generate-above-cards">
         <p className="prode-deadline prode-deadline-passed">
           Ya no se pueden cargar predicciones. Todas las fases han cerrado.
         </p>
@@ -442,13 +442,11 @@ npx prisma db seed`}
                 </div>
               )}
             </div>
-            <div className="prode-groups-main">
-              {prodeGenerateBlock}
-              <div className="prode-groups-grid">
-                {groupSections.map((section) => (
-                  <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
-                ))}
-              </div>
+            {prodeGenerateBlock}
+            <div className="prode-groups-grid">
+              {groupSections.map((section) => (
+                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+              ))}
             </div>
             {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
           </section>
