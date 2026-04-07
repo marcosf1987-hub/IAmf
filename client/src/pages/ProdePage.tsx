@@ -34,27 +34,54 @@ function sortByKickoff(a: Match, b: Match) {
 
 type ProdeSection = { id: string; title: string; matches: Match[] };
 
+function normalizeGroupCode(raw: string): string {
+  const t = raw.trim();
+  if (t.length === 1) return t.toUpperCase();
+  return t;
+}
+
+function isGroupStage(m: Match): boolean {
+  return String(m.stage).toLowerCase() === "group";
+}
+
 function buildProdeSections(matches: Match[]): ProdeSection[] {
-  const groupMatches = matches.filter((m) => m.stage === "group");
-  const knockout = matches.filter((m) => m.stage !== "group");
+  const groupMatches = matches.filter(isGroupStage);
+  const knockout = matches.filter((m) => !isGroupStage(m));
 
   const withCode = groupMatches.filter((m) => m.groupCode);
   const withoutCode = groupMatches.filter((m) => !m.groupCode);
 
   const byGroup = new Map<string, Match[]>();
   for (const m of withCode) {
-    const c = m.groupCode!;
+    const c = normalizeGroupCode(m.groupCode!);
     if (!byGroup.has(c)) byGroup.set(c, []);
     byGroup.get(c)!.push(m);
   }
   for (const arr of byGroup.values()) arr.sort(sortByKickoff);
 
   const sections: ProdeSection[] = [];
+  const usedCodes = new Set<string>();
 
   for (const letter of GROUP_LETTERS) {
     const arr = byGroup.get(letter);
     if (arr?.length) {
       sections.push({ id: `group-${letter}`, title: `Grupo ${letter}`, matches: arr });
+      usedCodes.add(letter);
+    }
+  }
+
+  const extraCodes = Array.from(byGroup.keys())
+    .filter((k) => !usedCodes.has(k))
+    .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+  for (const code of extraCodes) {
+    const arr = byGroup.get(code);
+    if (arr?.length) {
+      const safeId = code.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9_-]/g, "");
+      sections.push({
+        id: `group-extra-${safeId || "x"}`,
+        title: `Grupo ${code}`,
+        matches: arr,
+      });
     }
   }
 
@@ -289,7 +316,7 @@ export default function ProdePage() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content page-content--prode">
       <h1>Prode FIFA 2026</h1>
       <p className="page-subtitle">
         Generá predicciones con IA usando las pautas por etapa que guardás en el Laboratorio (grupos, R32 y
@@ -323,6 +350,33 @@ npx prisma db seed`}
       )}
 
       <div className="prode-grid">
+        {matches.length > 0 && groupSections.length === 0 && (
+          <p className="prode-no-groups-hint prode-actions-full" role="status">
+            No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya corriste
+            el seed, verificá que los partidos tengan etapa <code>group</code>.
+          </p>
+        )}
+
+        {groupSections.length > 0 && (
+          <section className="prode-simulator-block prode-actions-full" aria-labelledby="prode-sim-groups-heading">
+            <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
+              Fase de grupos — tus predicciones por grupo
+            </h2>
+            <p className="prode-simulator-lead">
+              Cada tarjeta muestra la tabla según los marcadores que ya cargaste (3 pts ganar, 1 empate) y, abajo, los
+              partidos del grupo. Los dos primeros lugares se destacan como clasificación ilustrativa.
+            </p>
+            <div className="prode-groups-grid">
+              {groupSections.map((section) => (
+                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+              ))}
+            </div>
+            {bestThirds.length > 0 && (
+              <BestThirdsTable candidates={bestThirds} />
+            )}
+          </section>
+        )}
+
         {currentPhase ? (
           <div className="prode-actions prode-actions-full">
             {!hasLabGuidelinesForCurrentPhase && (
@@ -363,26 +417,6 @@ npx prisma db seed`}
               Ya no se pueden cargar predicciones. Todas las fases han cerrado.
             </p>
           </div>
-        )}
-
-        {groupSections.length > 0 && (
-          <section className="prode-simulator-block prode-actions-full" aria-labelledby="prode-sim-groups-heading">
-            <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
-              Fase de grupos
-            </h2>
-            <p className="prode-simulator-lead">
-              Tus predicciones por partido actualizan la tabla de posiciones de cada grupo (3 pts ganar, 1 empate).
-              Los dos primeros lugares se destacan como clasificación ilustrativa.
-            </p>
-            <div className="prode-groups-grid">
-              {groupSections.map((section) => (
-                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
-              ))}
-            </div>
-            {bestThirds.length > 0 && (
-              <BestThirdsTable candidates={bestThirds} />
-            )}
-          </section>
         )}
 
         {knockoutSections.map((section) => {
