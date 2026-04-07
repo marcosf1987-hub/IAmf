@@ -18,6 +18,7 @@ import { encrypt, decrypt } from "./crypto-util";
 import { mountOAuthRoutes } from "./oauth";
 import { registerB2BRoutes } from "./b2b-routes";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -233,7 +234,7 @@ app.post("/auth/login", async (req, res) => {
 
 app.get("/matches", requireAuth, async (_req, res) => {
   try {
-    const matches = await prisma.match.findMany({
+    const rows = await prisma.match.findMany({
       orderBy: { kickoffAt: "asc" },
       select: {
         id: true,
@@ -246,6 +247,7 @@ app.get("/matches", requireAuth, async (_req, res) => {
         resultScoreB: true,
       },
     });
+    const matches = rows.map(enrichMatchRowWithInferredGroupCode);
     res.status(200).json({ matches });
   } catch (err) {
     // eslint-disable-next-line no-console

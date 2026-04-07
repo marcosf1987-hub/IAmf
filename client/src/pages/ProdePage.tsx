@@ -12,6 +12,7 @@ import {
 } from "../lib/api";
 import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
+import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Fase de grupos",
@@ -216,7 +217,7 @@ export default function ProdePage() {
           fetchChampionPrediction(),
           fetchProdeGuidelines().catch(() => ({ guidelines: EMPTY_LAB })),
         ]);
-        setMatches(matchesRes.matches);
+        setMatches(enrichMatchesWithInferredGroupCodes(matchesRes.matches));
         const map: Record<string, Prediction> = {};
         for (const p of predsRes.predictions) {
           map[p.matchId] = p;
