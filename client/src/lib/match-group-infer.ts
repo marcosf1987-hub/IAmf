@@ -1,5 +1,5 @@
 import type { Match } from "./api";
-import { MATCHES_SEED } from "../../../server/src/matches-seed-data";
+import { MATCHES_SEED } from "./matches-seed-data";
 
 function findGroupFixtureLetter(teamA: string, teamB: string, kickoffAt: Date): string | null {
   const ms = kickoffAt.getTime();

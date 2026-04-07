@@ -1,8 +1,6 @@
 /**
- * Fixture oficial (misma fuente que prisma/seed.ts).
- * Exportado para inferir groupCode en GET /matches cuando la BD tiene null.
- *
- * Mantener alineado con client/src/lib/matches-seed-data.ts (build del front sin carpeta server).
+ * Copia del fixture en server/src/matches-seed-data.ts (misma lógica que prisma/seed).
+ * Debe mantenerse alineado: el cliente se construye sin la carpeta server (p. ej. Docker).
  */
 
 export const MATCHES_SEED = [
