@@ -31,6 +31,11 @@ const TEAM_NAME_MAP: Record<string, string> = {
   "Côte d'Ivoire": "Ivory Coast",
   "IR Iran": "Iran",
   "Cabo Verde": "Cape Verde",
+  Czechia: "Czech Republic",
+  Türkiye: "Turkey",
+  Turkiye: "Turkey",
+  "Congo DR": "DR Congo",
+  "Democratic Republic of Congo": "DR Congo",
 };
 
 function normalizeTeamName(name: string): string {
@@ -80,6 +85,68 @@ export function findMatchingOurMatch(
       (m.teamA === home && m.teamB === away) || (m.teamA === away && m.teamB === home);
     if (aMatch) return m;
   }
+  return null;
+}
+
+const PLACEHOLDER_TBD = "TBD";
+
+/** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
+export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
+
+export type ResolvedOurMatch =
+  | { kind: "exact"; ourMatch: OurMatch }
+  | { kind: "fill_tbd"; ourMatch: OurMatch; teamA: string; teamB: string };
+
+/**
+ * Igual que findMatchingOurMatch pero:
+ * - tolera diferencia de hora entre nuestro seed y la API;
+ * - si en BD hay "TBD" y la API ya trae los dos equipos, completa nombres (misma lógica que el fixture oficial).
+ */
+export function resolveOurMatchFromApi(
+  apiMatch: FootballDataMatch,
+  ourMatches: OurMatch[],
+  kickoffToleranceMs = FOOTBALL_DATA_KICKOFF_TOLERANCE_MS
+): ResolvedOurMatch | null {
+  const home = normalizeTeamName(apiMatch.homeTeam.name);
+  const away = normalizeTeamName(apiMatch.awayTeam.name);
+  if (home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
+
+  const apiTime = new Date(apiMatch.utcDate).getTime();
+  const inTol = (m: OurMatch) =>
+    Math.abs(new Date(m.kickoffAt).getTime() - apiTime) <= kickoffToleranceMs;
+
+  const candidates = ourMatches.filter(inTol);
+  if (candidates.length === 0) return null;
+
+  for (const m of candidates) {
+    if ((m.teamA === home && m.teamB === away) || (m.teamA === away && m.teamB === home)) {
+      return { kind: "exact", ourMatch: m };
+    }
+  }
+
+  const tbdFills: ResolvedOurMatch[] = [];
+  for (const m of candidates) {
+    const a = m.teamA;
+    const b = m.teamB;
+
+    if (a !== PLACEHOLDER_TBD && b !== PLACEHOLDER_TBD) continue;
+
+    if (a === PLACEHOLDER_TBD && b === PLACEHOLDER_TBD) {
+      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: home, teamB: away });
+      continue;
+    }
+    if (a === home && b === PLACEHOLDER_TBD) {
+      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: a, teamB: away });
+    } else if (a === away && b === PLACEHOLDER_TBD) {
+      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: a, teamB: home });
+    } else if (a === PLACEHOLDER_TBD && b === home) {
+      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: away, teamB: b });
+    } else if (a === PLACEHOLDER_TBD && b === away) {
+      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: home, teamB: b });
+    }
+  }
+
+  if (tbdFills.length === 1) return tbdFills[0];
   return null;
 }
 

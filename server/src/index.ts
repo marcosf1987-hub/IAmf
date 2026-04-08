@@ -7,11 +7,7 @@ import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } f
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp } from "./ai-parse";
-import {
-  fetchWorldCupMatches,
-  findMatchingOurMatch,
-  mapScoreToOurMatch,
-} from "./football-data";
+import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } from "./sync-match-results";
 import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
@@ -1020,33 +1016,17 @@ app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {
   }
 
   try {
-    const [apiMatches, ourMatches] = await Promise.all([
-      fetchWorldCupMatches(apiKey),
-      prisma.match.findMany({
-        select: { id: true, teamA: true, teamB: true, kickoffAt: true },
-      }),
-    ]);
-
-    let updated = 0;
-    for (const apiMatch of apiMatches) {
-      const ourMatch = findMatchingOurMatch(apiMatch, ourMatches);
-      if (!ourMatch) continue;
-
-      const scores = mapScoreToOurMatch(apiMatch, ourMatch);
-      if (!scores) continue;
-
-      await prisma.match.update({
-        where: { id: ourMatch.id },
-        data: { resultScoreA: scores.scoreA, resultScoreB: scores.scoreB },
-      });
-      updated++;
-    }
+    const { updated, totalApi, teamsResolved } = await syncMatchResultsFromFootballData(
+      prisma,
+      apiKey
+    );
 
     res.status(200).json({
       ok: true,
       updated,
-      totalApi: apiMatches.length,
-      message: `Se actualizaron ${updated} resultados desde football-data.org`,
+      totalApi,
+      teamsResolved,
+      message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD), ${totalApi} partidos en API`,
     });
   } catch (err) {
     // eslint-disable-next-line no-console
@@ -1721,5 +1701,6 @@ const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
+  startFootballDataResultAutoSync(prisma);
 });
 
