@@ -17,7 +17,7 @@ export default function SocialLoginButtons() {
   return (
     <div className="auth-oauth">
       <div className="auth-oauth-divider">
-        <span>o continuá con</span>
+        <span>o continúa con</span>
       </div>
       {cfg === null ? (
         <p className="auth-oauth-hint">Cargando opciones de acceso social…</p>
@@ -30,7 +30,7 @@ export default function SocialLoginButtons() {
                   <span
                     key={p.id}
                     className={`btn-oauth ${p.className} btn-oauth-disabled`}
-                    title="Configurá las variables OAUTH_* de este proveedor en el servidor (API)."
+                    title="Configura las variables OAUTH_* de este proveedor en el servidor (API)."
                   >
                     {p.label}
                   </span>
@@ -45,9 +45,9 @@ export default function SocialLoginButtons() {
           </div>
           {!cfg.google && !cfg.facebook && !cfg.microsoft && (
             <p className="auth-oauth-hint">
-              Ningún proveedor OAuth está configurado en el backend. Agregá{" "}
+              Ningún proveedor OAuth está configurado en el backend. Agrega{" "}
               <code>OAUTH_GOOGLE_*</code>, <code>OAUTH_FACEBOOK_*</code> y/o <code>OAUTH_MICROSOFT_*</code> en
-              las variables del servidor y reiniciá el API.
+              las variables del servidor y reinicia el API.
             </p>
           )}
         </>

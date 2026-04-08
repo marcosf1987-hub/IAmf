@@ -80,7 +80,7 @@ function EquipoTab({
       .map((s) => s.trim().toLowerCase())
       .filter(Boolean);
     if (!emails.length) {
-      setInviteErr("Ingresá al menos un email.");
+      setInviteErr("Ingresa al menos un email.");
       return;
     }
     setSubmitting(true);
@@ -169,14 +169,14 @@ function EquipoTab({
         </button>
         {mailConfigured === false && (
           <p className="auth-error" style={{ marginTop: "0.75rem" }}>
-            El servidor no tiene SMTP configurado: no se envían correos automáticos. Configurá SMTP_HOST,
-            SMTP_USER y SMTP_PASS en Railway (backend). Igual podés copiar el enlace de cada invitación abajo.
+            El servidor no tiene SMTP configurado: no se envían correos automáticos. Configura SMTP_HOST,
+            SMTP_USER y SMTP_PASS en Railway (backend). Igual puedes copiar el enlace de cada invitación abajo.
           </p>
         )}
         <p className="admin-date-range-hint" style={{ marginTop: "0.75rem" }}>
           {mailConfigured
-            ? "Se envía un correo con el enlace a cada dirección. Si falla el envío, el enlace sigue disponible acá."
-            : "Con SMTP en el backend, se envían los mails automáticamente; si no, copiá el enlace manualmente."}
+            ? "Se envía un correo con el enlace a cada dirección. Si falla el envío, el enlace sigue disponible aquí."
+            : "Con SMTP en el backend, se envían los mails automáticamente; si no, copia el enlace manualmente."}
         </p>
       </form>
 
@@ -992,7 +992,7 @@ function ConfigTab({
     <div className="admin-section">
       <h2>Configuración de la plataforma</h2>
       <p className="page-subtitle">
-        Definí cómo se muestran los datos en rankings y resultados.
+        Define cómo se muestran los datos en rankings y resultados.
       </p>
       {err && <div className="auth-error">{err}</div>}
       {ok && <div className="auth-success">{ok}</div>}
@@ -1125,7 +1125,7 @@ function AiConfigTab({
     <div className="admin-section">
       <h2>Configuración de IA</h2>
       <p className="page-subtitle">
-        Elegí el proveedor y configurá la API key para que el chat funcione con esta IA.
+        Elige el proveedor y configura la API key para que el chat funcione con esta IA.
       </p>
       {err && <div className="auth-error">{err}</div>}
       {ok && <div className="auth-success">{ok}</div>}
@@ -1213,19 +1213,19 @@ function AiConfigTab({
               autoComplete="off"
             />
             {provider === "gemini" && (
-              <small className="form-hint">Obtené la clave en Google AI Studio (aistudio.google.com)</small>
+              <small className="form-hint">Obtén la clave en Google AI Studio (aistudio.google.com)</small>
             )}
             {provider === "grok" && (
-              <small className="form-hint">Obtené la clave en console.x.ai</small>
+              <small className="form-hint">Obtén la clave en console.x.ai</small>
             )}
             {provider === "groq" && (
-              <small className="form-hint">Obtené la clave gratis en console.groq.com (tier gratuito)</small>
+              <small className="form-hint">Obtén la clave gratis en console.groq.com (tier gratuito)</small>
             )}
           </label>
         )}
         {provider === "ollama" && (
           <p className="form-hint" style={{ marginTop: 0 }}>
-            Sin API key. Instalá Ollama (ollama.com), ejecutá <code>ollama run llama2</code> y usá el chat.
+            Sin API key. Instala Ollama (ollama.com), ejecuta <code>ollama run llama2</code> y usa el chat.
           </p>
         )}
         <button type="submit" disabled={submitting} className="btn-primary">

@@ -13,7 +13,7 @@ const PHASE_EDITOR: {
   {
     key: "groups",
     label: "Fase de grupos",
-    hint: "Se usa cuando en el Prode podés generar predicciones de la ventana de grupos.",
+    hint: "Se usa cuando en el Prode puedes generar predicciones de la ventana de grupos.",
     placeholder: "Ej. criterios para partidos de grupo, equipos fuertes en zona, etc.",
   },
   {
@@ -318,7 +318,7 @@ export default function IAPage() {
                   className="btn-primary btn-sm"
                   title={
                     guidelinesSaved
-                      ? "Pautas guardadas. Editá el texto para volver a guardar."
+                      ? "Pautas guardadas. Edita el texto para volver a guardar."
                       : undefined
                   }
                 >
@@ -336,8 +336,8 @@ export default function IAPage() {
                     className="btn-secondary btn-sm guidelines-prode-link guidelines-prode-link-disabled"
                     title={
                       guidelinesSaving
-                        ? "Esperá a que termine el guardado."
-                        : "Guardá las pautas antes de ir al Prode a generar predicciones."
+                        ? "Espera a que termine el guardado."
+                        : "Guarda las pautas antes de ir al Prode a generar predicciones."
                     }
                   >
                     Generar predicción
@@ -346,7 +346,7 @@ export default function IAPage() {
               </div>
             </form>
             <p className="ia-console-legend">
-              Hay <strong>tres bloques</strong> (uno por etapa); elegí la etapa arriba y editá cada una en la misma
+              Hay <strong>tres bloques</strong> (uno por etapa); elige la etapa arriba y edita cada una en la misma
               caja. Al guardar se persisten los tres. Si falta el texto de una etapa, no podrás generar en el Prode
               cuando esa ventana esté activa.
             </p>
@@ -382,7 +382,7 @@ export default function IAPage() {
       <section className="ia-versions" aria-labelledby="ia-versions-heading">
         <h2 id="ia-versions-heading">Control de versiones (log)</h2>
         <p className="ia-prediction-history-note">
-          Historial de <strong>tus predicciones</strong> (marcadores y campeón/subcampeón). Solo vos podés verlo:
+          Historial de <strong>tus predicciones</strong> (marcadores y campeón/subcampeón). Solo tú puedes verlo:
           está guardado en tu cuenta y <strong>no se comparte</strong> con otros usuarios.
         </p>
 

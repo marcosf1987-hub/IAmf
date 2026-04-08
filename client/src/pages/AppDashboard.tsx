@@ -8,11 +8,11 @@ import { getCurrentPhase, formatDaysLeft } from "../lib/prode-phases";
 const WORLD_CUP_START = new Date("2026-06-11T19:00:00Z");
 
 const TIPS = [
-  "¿Sabías que un buen prompt debe incluir un ROL? Probá empezando con: 'Actuá como un experto en estadísticas...'",
-  "Dale ejemplos a la IA: Si querés un formato específico, incluí un caso previo en tu prompt. Por ejemplo: 'Basate en el resultado de la final 2022 (Arg 3 - Fra 3) para entender cómo ponderar el tiempo extra'. La IA aprende mejor con referencias.",
-  "Controlá la creatividad: ¿Querés un análisis lógico o una sorpresa mundialista? Si usás una Temperatura baja (0.2), la IA será conservadora y estadística. Con una Temperatura alta (0.8), buscará resultados más disruptivos.",
-  "Pedile que razone: Antes del resultado final, escribí: 'Explicá tu razonamiento paso a paso antes de dar el marcador'. Esto obliga a la IA a analizar variables lógicas antes de 'arriesgar' un número.",
-  "Evitá alucinaciones: Sé específico con lo que NO querés. Por ejemplo: 'No consideres partidos amistosos de hace más de 5 años'. Poner límites claros ayuda a que la IA no se pierda en datos irrelevantes.",
+  "¿Sabías que un buen prompt debe incluir un rol? Prueba empezando con: «Actúa como un experto en estadísticas...»",
+  "Da ejemplos a la IA: si quieres un formato específico, incluye un caso previo en tu prompt. Por ejemplo: «Básate en el resultado de la final 2022 (Arg 3 - Fra 3) para entender cómo ponderar el tiempo extra». La IA aprende mejor con referencias.",
+  "Controla la creatividad: ¿quieres un análisis lógico o una sorpresa mundialista? Si usas una temperatura baja (0.2), la IA será conservadora y estadística. Con una temperatura alta (0.8), buscará resultados más disruptivos.",
+  "Pídele que razone: antes del resultado final, escribe: «Explica tu razonamiento paso a paso antes de dar el marcador». Esto obliga a la IA a analizar variables lógicas antes de «arriesgar» un número.",
+  "Evita alucinaciones: sé específico con lo que no quieres. Por ejemplo: «No consideres partidos amistosos de hace más de 5 años». Poner límites claros ayuda a que la IA no se pierda en datos irrelevantes.",
 ];
 
 function WaveIcon() {
@@ -97,7 +97,7 @@ export default function AppDashboard() {
 
   function getModelStatusText(): string {
     if (!prodeStatus) return "";
-    if (!prodeStatus.hasGuidelines) return "Tu IA aún no tiene instrucciones. ¡Empezá ahora!";
+    if (!prodeStatus.hasGuidelines) return "Tu IA aún no tiene instrucciones. ¡Empieza ahora!";
     if (!prodeStatus.hasPredictions) return `Modelo 'DataExpert_v${prodeStatus.guidelinesVersion}' generado.`;
     return "Predicciones ya generadas.";
   }
@@ -116,7 +116,7 @@ export default function AppDashboard() {
       <section className="dashboard-hero">
         <h2 className="dashboard-hero-title">Laboratorio de Prompts</h2>
         <p className="dashboard-hero-desc">
-          Diseñá la lógica de tu IA para generar tus predicciones del Mundial.
+          Diseña la lógica de tu IA para generar tus predicciones del Mundial.
         </p>
         <Link to="/app/ia" className="btn-primary btn-large">
           Entrar a Prompting

@@ -130,7 +130,7 @@ async function fetchFacebookProfile(
   const r = await fetch(url.toString());
   if (!r.ok) throw new Error(`Facebook me: ${r.status}`);
   const j = (await r.json()) as { id: string; name?: string; email?: string };
-  if (!j.email) throw new Error("Facebook no devolvió email (revisá permisos de la app)");
+  if (!j.email) throw new Error("Facebook no devolvió email (revisa permisos de la app)");
   return { id: j.id, email: j.email, name: j.name };
 }
 

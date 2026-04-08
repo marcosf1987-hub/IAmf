@@ -70,7 +70,7 @@ function networkHint(err: unknown): Error {
   // fetch() lanza TypeError ante fallos de red / CORS
   if (err instanceof TypeError) {
     return new Error(
-      "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agregá la variable VITE_API_URL con la URL https del backend (sin barra al final) y volvé a desplegar el frontend."
+      "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agrega la variable VITE_API_URL con la URL https del backend (sin barra al final) y vuelve a desplegar el frontend."
     );
   }
   return err instanceof Error ? err : new Error(String(err));

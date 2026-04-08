@@ -44,10 +44,10 @@ export async function chat(prompt: string, override?: ChatConfig | null): Promis
     case "ollama":
       return chatOllama(prompt, model, baseURL);
     case "gemini":
-      if (!apiKey) throw new Error("API key requerida para Gemini. Configurá en Admin > Configuración IA.");
+      if (!apiKey) throw new Error("API key requerida para Gemini. Configura en Admin > Configuración IA.");
       return chatGemini(prompt, apiKey, model);
     case "grok":
-      if (!apiKey) throw new Error("API key requerida para Grok. Configurá en Admin > Configuración IA.");
+      if (!apiKey) throw new Error("API key requerida para Grok. Configura en Admin > Configuración IA.");
       return chatGrok(prompt, apiKey, model);
     case "groq":
       if (!apiKey) throw new Error("API key requerida para Groq. Obtenela gratis en console.groq.com");
@@ -57,7 +57,7 @@ export async function chat(prompt: string, override?: ChatConfig | null): Promis
     default:
       if (!apiKey) {
         throw new Error(
-          "API key no configurada. Configurá la IA en Admin > Configuración IA o agregá OPENAI_API_KEY en server/.env"
+          "API key no configurada. Configura la IA en Admin > Configuración IA o agrega OPENAI_API_KEY en server/.env"
         );
       }
       return chatOpenAI(prompt, apiKey, model, baseURL);
@@ -164,7 +164,7 @@ async function chatOllama(
     const err = await res.text();
     throw new Error(
       err ||
-        `Ollama error: ${res.status}. ¿Está corriendo? Ejecutá "ollama run llama2" en otra terminal.`
+        `Ollama error: ${res.status}. ¿Está corriendo? Ejecuta "ollama run llama2" en otra terminal.`
     );
   }
 

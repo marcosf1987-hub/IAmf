@@ -42,11 +42,11 @@ export default function PricingPage() {
               <strong>Hasta 100</strong> — departamentos o filiales medianas.
             </li>
             <li>
-              <strong>100+</strong> — contactanos para facturación y SLA.
+              <strong>100+</strong> — contáctanos para facturación y SLA.
             </li>
           </ul>
           <p className="admin-date-range-hint">
-            El precio final se define en el checkout (Stripe u otro gateway). Configurá{" "}
+            El precio final se define en el checkout (Stripe u otro gateway). Configura{" "}
             <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en el frontend y{" "}
             <code>BILLING_CHECKOUT_BASE_URL</code> en el backend para enlazar el mismo portal de pago.
           </p>
@@ -73,7 +73,7 @@ export default function PricingPage() {
             </div>
           ) : (
             <p className="auth-error">
-              Todavía no está configurada la URL de checkout. Definí <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en
+              Todavía no está configurada la URL de checkout. Define <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en
               el build del frontend (URL base del payment link o Stripe Checkout).
             </p>
           )}

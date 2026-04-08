@@ -27,7 +27,7 @@ export default function OAuthCallbackPage() {
     }
 
     if (!token) {
-      setErr("No se recibió el token de acceso. Volvé a intentar desde el inicio de sesión.");
+      setErr("No se recibió el token de acceso. Vuelve a intentar desde el inicio de sesión.");
       return;
     }
 

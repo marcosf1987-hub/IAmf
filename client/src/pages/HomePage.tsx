@@ -59,7 +59,7 @@ export default function HomePage() {
         </p>
         <p className="home-lead">
           Lleva tu capacidad de análisis al siguiente nivel. Entrena tus habilidades de prompting
-          diseñando la estrategia ganadora para el Mundial y demostra qué puedes generar la IA más
+          diseñando la estrategia ganadora para el Mundial y demuestra que puedes lograr la IA más
           precisa de todo tu equipo.
         </p>
         <div className="home-cta">

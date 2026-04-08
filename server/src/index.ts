@@ -110,7 +110,7 @@ app.get("/", (_req, res) => {
   res.status(200).json({
     ok: true,
     service: "Promptplay API",
-    message: "Usá el frontend para la app web. Probar estado: GET /health",
+    message: "Usa el frontend para la app web. Probar estado: GET /health",
     health: "/health",
   });
 });
@@ -288,7 +288,7 @@ app.post("/predictions", requireAuth, async (req, res) => {
     });
   } catch (histErr) {
     // eslint-disable-next-line no-console
-    console.error("PredictionHistory (manual) no se pudo guardar. ¿Corriste prisma migrate deploy?", histErr);
+    console.error("PredictionHistory (manual) no se pudo guardar. ¿Ejecutaste prisma migrate deploy?", histErr);
   }
   res.status(200).json({ prediction });
 });
@@ -443,14 +443,14 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
   if (phase === "roundOf32" && needGroup > 0 && haveGroup < needGroup) {
     res.status(400).json({
       error: "complete_groups_first",
-      message: `Primero tenés que generar predicciones para todos los partidos de fase de grupos (${haveGroup}/${needGroup}).`,
+      message: `Primero tienes que generar predicciones para todos los partidos de fase de grupos (${haveGroup}/${needGroup}).`,
     });
     return;
   }
   if (phase === "knockout" && needR32 > 0 && haveR32 < needR32) {
     res.status(400).json({
       error: "complete_roundof32_first",
-      message: `Primero completá predicciones para todos los partidos de la fase anterior (16avos / R32: ${haveR32}/${needR32}).`,
+      message: `Primero completa predicciones para todos los partidos de la fase anterior (16avos / R32: ${haveR32}/${needR32}).`,
     });
     return;
   }
@@ -499,7 +499,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
           : "Eliminatorias";
     res.status(400).json({
       error: "guidelines_required",
-      message: `No hay pautas guardadas para ${phaseLabel}. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`,
+      message: `No hay pautas guardadas para ${phaseLabel}. Escribe y guarda ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`,
     });
     return;
   }
@@ -1010,7 +1010,7 @@ app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {
   if (!apiKey) {
     res.status(400).json({
       error: "missing_config",
-      message: "Agregá FOOTBALL_DATA_API_KEY en server/.env. Obtené una gratis en https://www.football-data.org/",
+      message: "Agrega FOOTBALL_DATA_API_KEY en server/.env. Obtén una gratis en https://www.football-data.org/",
     });
     return;
   }

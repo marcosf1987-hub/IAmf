@@ -116,9 +116,10 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
 const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
   groups:
     "Esta acción solo genera marcadores con IA para los partidos de fase de grupos (no para cruces ni final).",
-  roundOf32: "Solo partidos de la ronda de 32 (R32). Antes tenés que tener predicción en todos los partidos de grupos.",
+  roundOf32:
+    "Solo partidos de la ronda de 32 (R32). Antes debes tener predicción en todos los partidos de grupos.",
   knockout:
-    "Incluye octavos, cuartos, semis, tercer puesto y final, más campeón/subcampeón. Antes completá todos los partidos de la fase de 16avos (R32).",
+    "Incluye octavos, cuartos, semis, tercer puesto y final, más campeón/subcampeón. Antes completa todos los partidos de la fase de 16avos (R32).",
 };
 
 const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
@@ -176,12 +177,6 @@ export default function ProdePage() {
     () => sections.filter((s) => !s.id.startsWith("group-")),
     [sections]
   );
-
-  const groupStageStats = useMemo(() => {
-    const ids = groupSections.flatMap((s) => s.matches.map((m) => m.id));
-    const withPred = ids.filter((id) => predictions[id]).length;
-    return { total: ids.length, withPred };
-  }, [groupSections, predictions]);
 
   const bestThirds = useMemo(() => {
     const groups = groupSections
@@ -249,7 +244,7 @@ export default function ProdePage() {
     async (phase: ProdePhaseId) => {
       if (!pautasForPhase(phase, labGuidelines).trim()) {
         setError(
-          `No tenés pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribí y guardá ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
+          `No tienes pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribe y guarda ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
         );
         return;
       }
@@ -292,12 +287,12 @@ export default function ProdePage() {
     }
     if (!pautasForPhase(currentPhase.phase, labGuidelines).trim()) {
       setError(
-        `No tenés pautas guardadas para ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio. Escribí y guardá ese bloque antes de generar.`
+        `No tienes pautas guardadas para ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio. Escribe y guarda ese bloque antes de generar.`
       );
       return;
     }
     if (matches.length === 0) {
-      setError("No hay partidos cargados en la base. Ejecutá el seed antes de generar.");
+      setError("No hay partidos cargados en la base. Ejecuta el seed antes de generar.");
       return;
     }
     void handleGeneratePredictions(currentPhase.phase);
@@ -327,9 +322,9 @@ export default function ProdePage() {
       <div className="prode-generate-panel prode-generate-above-cards">
         {!hasLabGuidelinesForCurrentPhase && (
           <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
-            Todavía <strong>no guardaste pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
-            Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribí el texto en el
-            Laboratorio (elegí la etapa arriba), pulsá <strong>Guardar pautas</strong> y volvé acá.{" "}
+            Aún <strong>no has guardado pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
+            Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribe el texto en el
+            Laboratorio (elige la etapa arriba), pulsa <strong>Guardar pautas</strong> y vuelve aquí.{" "}
             <Link to="/app/ia" className="prode-lab-required-link">
               Ir al Laboratorio
             </Link>
@@ -345,14 +340,14 @@ export default function ProdePage() {
             matches.length === 0
               ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
               : !hasLabGuidelinesForCurrentPhase
-                ? `Guardá las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
+                ? `Guarda las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
                 : undefined
           }
         >
           {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
         </button>
         <p className="prode-deadline">
-          Podés generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
+          Puedes generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
           <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
         </p>
         <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
@@ -369,8 +364,8 @@ export default function ProdePage() {
     <div className="page-content page-content--prode">
       <h1>Prode FIFA 2026</h1>
       <p className="page-subtitle">
-        Generá predicciones con IA usando las pautas por etapa que guardás en el Laboratorio (grupos, R32 y
-        eliminatorias). Para cada ventana activa hace falta el bloque correspondiente.
+        Genera predicciones con IA usando las pautas por etapa que guardas en el Laboratorio. Recuerda que tienes
+        tiempo hasta una hora antes de que comience cada etapa para ajustar tu prompt.
       </p>
 
       {error && <div className="auth-error">{error}</div>}
@@ -384,16 +379,16 @@ export default function ProdePage() {
             misma base que usa el backend.
           </p>
           <p className="prode-seed-steps">
-            <strong>Desde tu PC</strong> (PowerShell), con la <code>DATABASE_URL</code> que copiás del
+            <strong>Desde tu PC</strong> (PowerShell), con la <code>DATABASE_URL</code> que copias del
             servicio PostgreSQL en Railway:
           </p>
           <pre className="prode-seed-code">
             {`cd server
-$env:DATABASE_URL="postgresql://..."   # pegá la URL completa
+$env:DATABASE_URL="postgresql://..."   # pega la URL completa
 npx prisma db seed`}
           </pre>
           <p className="prode-seed-note">
-            Cuando termine sin error, <strong>recargá esta página</strong>. Deberías ver el listado de partidos
+            Cuando termine sin error, <strong>recarga esta página</strong>. Deberías ver el listado de partidos
             y el botón se habilitará.
           </p>
         </div>
@@ -405,8 +400,9 @@ npx prisma db seed`}
       <div className="prode-page-stack">
         {matches.length > 0 && groupSections.length === 0 && (
           <p className="prode-no-groups-hint" role="status">
-            No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya corriste
-            el seed, verificá que los partidos tengan etapa <code>group</code> y <code>groupCode</code> por partido.
+            No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya
+            ejecutaste el seed, verifica que los partidos tengan etapa <code>group</code> y <code>groupCode</code> por
+            partido.
           </p>
         )}
 
@@ -416,31 +412,6 @@ npx prisma db seed`}
               <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
                 Fase de grupos
               </h2>
-              <p className="prode-simulator-lead">
-                Cada tarjeta es un grupo del Mundial: tabla de posiciones según tus predicciones y, debajo, los partidos de
-                ese grupo.
-              </p>
-              {groupStageStats.total > 0 && (
-                <div className="prode-progress-wrap" aria-label="Progreso de predicciones en grupos">
-                  <div className="prode-progress-label">
-                    Progreso: {groupStageStats.withPred}/{groupStageStats.total} partidos con predicción
-                  </div>
-                  <div
-                    className="prode-progress-bar"
-                    role="progressbar"
-                    aria-valuenow={groupStageStats.withPred}
-                    aria-valuemin={0}
-                    aria-valuemax={groupStageStats.total}
-                  >
-                    <div
-                      className="prode-progress-bar-fill"
-                      style={{
-                        width: `${Math.min(100, (100 * groupStageStats.withPred) / groupStageStats.total)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
             </div>
             {prodeGenerateBlock}
             <div className="prode-groups-grid">
@@ -456,7 +427,7 @@ npx prisma db seed`}
           <div className="prode-knockout-region" id="prode-eliminatorias">
             <h2 className="prode-knockout-region-title">Eliminatorias</h2>
             <p className="prode-knockout-region-lead">
-              Cruces posteriores a la fase de grupos. Abrí cada fase para ver tus predicciones.
+              Cruces posteriores a la fase de grupos. Abre cada fase para ver tus predicciones.
             </p>
           </div>
         )}
@@ -564,7 +535,10 @@ function GroupSimulatorCard({
               >
                 <td>{idx + 1}</td>
                 <td className="prode-stand-team">
-                  <span className="prode-flag">{getFlag(row.team)}</span> {row.team}
+                  <span className="prode-flag" aria-hidden>
+                    {getFlag(row.team)}
+                  </span>
+                  <span className="prode-stand-team-name">{row.team}</span>
                 </td>
                 <td>{row.pts}</td>
                 <td>{row.pj}</td>
@@ -616,8 +590,7 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
     <div className="prode-best-thirds">
       <h3 className="prode-best-thirds-title">Mejores terceros</h3>
       <p className="prode-best-thirds-hint">
-        Orden ilustrativo de los equipos que quedan 3.º en su grupo según tus predicciones. El Mundial 2026 usa
-        criterios adicionales para los cruces; esto sirve para ver el panorama en tu Prode.
+        Orden ilustrativo de los equipos que quedan 3.º en su grupo según tus predicciones.
       </p>
       <div className="prode-best-thirds-wrap">
         <table className="prode-best-thirds-table">

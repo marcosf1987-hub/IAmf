@@ -56,12 +56,12 @@ export async function sendInvitationEmail(opts: {
         `Aceptá la invitación (vence en 7 días):`,
         opts.inviteUrl,
         "",
-        "Si no esperabas este correo, podés ignorarlo.",
+        "Si no esperabas este correo, puedes ignorarlo.",
       ].join("\n"),
       html: `<p>Hola,</p>
 <p>Te invitaron a unirte a <strong>${escapeHtml(opts.companyName)}</strong> en PromptPlay.</p>
 <p><a href="${opts.inviteUrl.replace(/"/g, "&quot;")}">Aceptar invitación</a> (vence en 7 días)</p>
-<p>Si no esperabas este correo, podés ignorarlo.</p>`,
+<p>Si no esperabas este correo, puedes ignorarlo.</p>`,
     });
     return { ok: true };
   } catch (e) {

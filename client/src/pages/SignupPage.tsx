@@ -32,7 +32,7 @@ export default function SignupPage() {
     <div className="auth-page">
       <div className="auth-card">
         <h1>Crear cuenta</h1>
-        <p className="auth-subtitle">Unite al programa de IA y Prode FIFA 2026</p>
+        <p className="auth-subtitle">Únete al programa de IA y Prode FIFA 2026</p>
         <form onSubmit={handleSubmit} className="auth-form">
           {isProductionApiUrlMissing && (
             <div className="auth-error" role="alert">
@@ -79,7 +79,7 @@ export default function SignupPage() {
         </form>
         <SocialLoginButtons />
         <p className="auth-footer">
-          ¿Ya tenés cuenta? <Link to="/login">Iniciar sesión</Link>
+          ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
         </p>
       </div>
     </div>
