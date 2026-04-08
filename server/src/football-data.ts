@@ -27,6 +27,7 @@ export type FootballDataMatchesResponse = {
 
 /** Mapeo de nombres API -> nuestros nombres en BD (para diferencias) */
 const TEAM_NAME_MAP: Record<string, string> = {
+  "Bosnia and Herzegovina": "Bosnia",
   "Korea Republic": "South Korea",
   "Côte d'Ivoire": "Ivory Coast",
   "IR Iran": "Iran",
@@ -104,8 +105,45 @@ export function isBracketSlotPlaceholder(name: string): boolean {
   return false;
 }
 
-function needsNameFromApi(name: string): boolean {
+const GROUP_LETTERS = "ABCDEFGHIJKL";
+
+/** Códigos 1A…3L (misma convención que `isBracketSlotPlaceholder`). */
+export const GROUP_STAGE_SLOT_CODES: readonly string[] = [1, 2, 3].flatMap((n) =>
+  [...GROUP_LETTERS].map((l) => `${n}${l}`)
+);
+
+export function needsNameFromApi(name: string): boolean {
   return name === PLACEHOLDER_TBD || isBracketSlotPlaceholder(name);
+}
+
+/** Fila que aún debe intentar alinearse con football-data.org (marcadores o nombres placeholder). */
+export function matchRowNeedsFootballDataSync(row: {
+  teamA: string;
+  teamB: string;
+  resultScoreA: number | null;
+  resultScoreB: number | null;
+}): boolean {
+  if (row.resultScoreA == null || row.resultScoreB == null) return true;
+  return needsNameFromApi(row.teamA) || needsNameFromApi(row.teamB);
+}
+
+/**
+ * Reduce partidos API a una ventana temporal alrededor de nuestros kickoffs pendientes
+ * (misma tolerancia que el emparejamiento). Si no hay filas, devuelve [].
+ */
+export function filterApiMatchesNearOurMatches(
+  apiMatches: FootballDataMatch[],
+  ourMatches: { kickoffAt: Date }[],
+  padMs = FOOTBALL_DATA_KICKOFF_TOLERANCE_MS
+): FootballDataMatch[] {
+  if (ourMatches.length === 0) return [];
+  const ts = ourMatches.map((m) => new Date(m.kickoffAt).getTime());
+  const lo = Math.min(...ts) - padMs;
+  const hi = Math.max(...ts) + padMs;
+  return apiMatches.filter((am) => {
+    const t = new Date(am.utcDate).getTime();
+    return t >= lo && t <= hi;
+  });
 }
 
 export type ResolvedOurMatch =

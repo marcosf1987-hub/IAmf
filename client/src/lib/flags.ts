@@ -69,6 +69,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
   Haiti: "🇭🇹",
   Norway: "🇳🇴",
   "Czech Republic": "🇨🇿",
+  Bosnia: "🇧🇦",
   "Bosnia and Herzegovina": "🇧🇦",
   Turkey: "🇹🇷",
   Sweden: "🇸🇪",

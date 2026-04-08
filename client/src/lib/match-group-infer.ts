@@ -1,12 +1,19 @@
 import type { Match } from "./api";
 import { MATCHES_SEED } from "./matches-seed-data";
+import { canonicalTeamNameForFixture } from "./team-name-fixture";
 
 function findGroupFixtureLetter(teamA: string, teamB: string, kickoffAt: Date): string | null {
+  const a = canonicalTeamNameForFixture(teamA);
+  const b = canonicalTeamNameForFixture(teamB);
   const ms = kickoffAt.getTime();
   for (const row of MATCHES_SEED) {
     if (row.stage !== "group") continue;
     if (!("groupCode" in row) || !row.groupCode) continue;
-    if (row.teamA !== teamA || row.teamB !== teamB) continue;
+    if (
+      canonicalTeamNameForFixture(row.teamA) !== a ||
+      canonicalTeamNameForFixture(row.teamB) !== b
+    )
+      continue;
     if (Math.abs(row.kickoffAt.getTime() - ms) <= 60_000) return row.groupCode;
   }
   return null;

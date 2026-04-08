@@ -1016,17 +1016,29 @@ app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {
   }
 
   try {
-    const { updated, totalApi, teamsResolved } = await syncMatchResultsFromFootballData(
-      prisma,
-      apiKey
-    );
+    const result = await syncMatchResultsFromFootballData(prisma, apiKey);
+    const {
+      updated,
+      totalApi,
+      apiMatchesConsidered,
+      teamsResolved,
+      pendingInDb,
+      skippedFetch,
+    } = result;
+
+    const detail = skippedFetch
+      ? "Sin filas pendientes; no se llamó a la API."
+      : `${pendingInDb} fila(s) pendiente(s) en BD, ${apiMatchesConsidered}/${totalApi} partido(s) API en ventana.`;
 
     res.status(200).json({
       ok: true,
       updated,
       totalApi,
+      apiMatchesConsidered,
       teamsResolved,
-      message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD), ${totalApi} partidos en API`,
+      pendingInDb,
+      skippedFetch,
+      message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
     });
   } catch (err) {
     // eslint-disable-next-line no-console

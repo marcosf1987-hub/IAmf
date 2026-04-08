@@ -14,12 +14,12 @@ export const MATCHES_SEED = [
   { stage: "group" as const, groupCode: "A", teamA: "Czech Republic", teamB: "Mexico", kickoffAt: new Date("2026-06-25T01:00:00Z") },
   { stage: "group" as const, groupCode: "A", teamA: "South Africa", teamB: "South Korea", kickoffAt: new Date("2026-06-25T01:00:00Z") },
   // Group B
-  { stage: "group" as const, groupCode: "B", teamA: "Canada", teamB: "Bosnia and Herzegovina", kickoffAt: new Date("2026-06-12T19:00:00Z") },
+  { stage: "group" as const, groupCode: "B", teamA: "Canada", teamB: "Bosnia", kickoffAt: new Date("2026-06-12T19:00:00Z") },
   { stage: "group" as const, groupCode: "B", teamA: "Qatar", teamB: "Switzerland", kickoffAt: new Date("2026-06-13T19:00:00Z") },
-  { stage: "group" as const, groupCode: "B", teamA: "Bosnia and Herzegovina", teamB: "Switzerland", kickoffAt: new Date("2026-06-18T19:00:00Z") },
+  { stage: "group" as const, groupCode: "B", teamA: "Bosnia", teamB: "Switzerland", kickoffAt: new Date("2026-06-18T19:00:00Z") },
   { stage: "group" as const, groupCode: "B", teamA: "Canada", teamB: "Qatar", kickoffAt: new Date("2026-06-18T22:00:00Z") },
   { stage: "group" as const, groupCode: "B", teamA: "Switzerland", teamB: "Canada", kickoffAt: new Date("2026-06-24T19:00:00Z") },
-  { stage: "group" as const, groupCode: "B", teamA: "Bosnia and Herzegovina", teamB: "Qatar", kickoffAt: new Date("2026-06-24T19:00:00Z") },
+  { stage: "group" as const, groupCode: "B", teamA: "Bosnia", teamB: "Qatar", kickoffAt: new Date("2026-06-24T19:00:00Z") },
   // Group C
   { stage: "group" as const, groupCode: "C", teamA: "Brazil", teamB: "Morocco", kickoffAt: new Date("2026-06-13T22:00:00Z") },
   { stage: "group" as const, groupCode: "C", teamA: "Haiti", teamB: "Scotland", kickoffAt: new Date("2026-06-14T01:00:00Z") },

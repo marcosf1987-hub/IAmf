@@ -1,26 +1,113 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import {
+  GROUP_STAGE_SLOT_CODES,
   fetchWorldCupMatches,
+  filterApiMatchesNearOurMatches,
   mapScoreToOurMatch,
   resolveOurMatchFromApi,
 } from "./football-data";
+
+function pendingMatchWhere(): Prisma.MatchWhereInput {
+  const bracketPrefixes = ["R32-", "R16-", "QF-", "SF-"] as const;
+  return {
+    OR: [
+      { resultScoreA: null },
+      { resultScoreB: null },
+      { teamA: "TBD" },
+      { teamB: "TBD" },
+      { teamA: { in: [...GROUP_STAGE_SLOT_CODES] } },
+      { teamB: { in: [...GROUP_STAGE_SLOT_CODES] } },
+      ...bracketPrefixes.flatMap((p) => [{ teamA: { startsWith: p } }, { teamB: { startsWith: p } }]),
+    ],
+  };
+}
+
+function isFullScanSync(): boolean {
+  const v = process.env.FOOTBALL_DATA_SYNC_FULL_SCAN?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+export type SyncMatchResultsResult = {
+  updated: number;
+  /** Partidos devueltos por la API (siempre tras `fetch`). */
+  totalApi: number;
+  /** Partidos de la API considerados en el bucle (tras filtro por ventana en modo acotado). */
+  apiMatchesConsidered: number;
+  teamsResolved: number;
+  pendingInDb: number;
+  /** No hubo filas pendientes: no se llamó a la API. */
+  skippedFetch: boolean;
+};
 
 /** Una pasada: nombres reales (TBD + slots 1A/R32-1/… del seed) + marcadores finalizados desde football-data.org → BD. */
 export async function syncMatchResultsFromFootballData(
   prisma: PrismaClient,
   apiKey: string
-): Promise<{ updated: number; totalApi: number; teamsResolved: number }> {
-  const [apiMatches, ourMatches] = await Promise.all([
-    fetchWorldCupMatches(apiKey),
-    prisma.match.findMany({
-      select: { id: true, teamA: true, teamB: true, kickoffAt: true },
-    }),
-  ]);
+): Promise<SyncMatchResultsResult> {
+  const fullScan = isFullScanSync();
+
+  let ourMatches: {
+    id: string;
+    teamA: string;
+    teamB: string;
+    kickoffAt: Date;
+    resultScoreA: number | null;
+    resultScoreB: number | null;
+  }[];
+
+  if (fullScan) {
+    ourMatches = await prisma.match.findMany({
+      select: {
+        id: true,
+        teamA: true,
+        teamB: true,
+        kickoffAt: true,
+        resultScoreA: true,
+        resultScoreB: true,
+      },
+    });
+  } else {
+    ourMatches = await prisma.match.findMany({
+      where: pendingMatchWhere(),
+      select: {
+        id: true,
+        teamA: true,
+        teamB: true,
+        kickoffAt: true,
+        resultScoreA: true,
+        resultScoreB: true,
+      },
+    });
+  }
+
+  if (!fullScan && ourMatches.length === 0) {
+    return {
+      updated: 0,
+      totalApi: 0,
+      apiMatchesConsidered: 0,
+      teamsResolved: 0,
+      pendingInDb: 0,
+      skippedFetch: true,
+    };
+  }
+
+  const apiMatchesRaw = await fetchWorldCupMatches(apiKey);
+  let apiMatches = apiMatchesRaw;
+  if (!fullScan) {
+    apiMatches = filterApiMatchesNearOurMatches(apiMatchesRaw, ourMatches);
+  }
+
+  const workingOur = ourMatches.map((m) => ({
+    id: m.id,
+    teamA: m.teamA,
+    teamB: m.teamB,
+    kickoffAt: m.kickoffAt,
+  }));
 
   let updated = 0;
   let teamsResolved = 0;
   for (const apiMatch of apiMatches) {
-    const resolved = resolveOurMatchFromApi(apiMatch, ourMatches);
+    const resolved = resolveOurMatchFromApi(apiMatch, workingOur);
     if (!resolved) continue;
 
     const teams =
@@ -49,14 +136,21 @@ export async function syncMatchResultsFromFootballData(
     });
     updated++;
 
-    const row = ourMatches.find((m) => m.id === resolved.ourMatch.id);
+    const row = workingOur.find((m) => m.id === resolved.ourMatch.id);
     if (row) {
       row.teamA = teams.teamA;
       row.teamB = teams.teamB;
     }
   }
 
-  return { updated, totalApi: apiMatches.length, teamsResolved };
+  return {
+    updated,
+    totalApi: apiMatchesRaw.length,
+    apiMatchesConsidered: apiMatches.length,
+    teamsResolved,
+    pendingInDb: ourMatches.length,
+    skippedFetch: false,
+  };
 }
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
@@ -94,14 +188,11 @@ export function startFootballDataResultAutoSync(prisma: PrismaClient): void {
     if (running) return;
     running = true;
     try {
-      const { updated, totalApi, teamsResolved } = await syncMatchResultsFromFootballData(
-        prisma,
-        apiKey
-      );
-      if (updated > 0) {
+      const r = await syncMatchResultsFromFootballData(prisma, apiKey);
+      if (r.updated > 0) {
         // eslint-disable-next-line no-console
         console.log(
-          `[football-data] Auto-sync: ${updated} fila(s), ${teamsResolved} nombres actualizados (TBD/bracket) (${totalApi} en API).`
+          `[football-data] Auto-sync: ${r.updated} fila(s), ${r.teamsResolved} nombres (TBD/bracket) — API ${r.apiMatchesConsidered}/${r.totalApi} pendientes BD ${r.pendingInDb}.`
         );
       }
     } catch (err) {
