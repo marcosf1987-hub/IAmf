@@ -93,14 +93,30 @@ const PLACEHOLDER_TBD = "TBD";
 /** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
 export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
 
+/** Slots tipo 1A/2B, R32-1, R16-1… (seed de eliminatorias hasta que la API asigna rivales reales). */
+export function isBracketSlotPlaceholder(name: string): boolean {
+  if (name === PLACEHOLDER_TBD) return false;
+  if (/^[123][A-L]$/.test(name)) return true;
+  if (/^R32-\d+$/.test(name)) return true;
+  if (/^R16-\d+$/.test(name)) return true;
+  if (/^QF-\d+$/.test(name)) return true;
+  if (/^SF-\d+$/.test(name)) return true;
+  return false;
+}
+
+function needsNameFromApi(name: string): boolean {
+  return name === PLACEHOLDER_TBD || isBracketSlotPlaceholder(name);
+}
+
 export type ResolvedOurMatch =
   | { kind: "exact"; ourMatch: OurMatch }
-  | { kind: "fill_tbd"; ourMatch: OurMatch; teamA: string; teamB: string };
+  /** Sustituye TBD y/o slots de bracket por los nombres que devuelve football-data.org (grupos + R32, octavos, etc.). */
+  | { kind: "fill_teams"; ourMatch: OurMatch; teamA: string; teamB: string };
 
 /**
- * Igual que findMatchingOurMatch pero:
- * - tolera diferencia de hora entre nuestro seed y la API;
- * - si en BD hay "TBD" y la API ya trae los dos equipos, completa nombres (misma lógica que el fixture oficial).
+ * Empareja un partido de la API con nuestra fila por fecha/hora y equipos:
+ * - coincidencia exacta de nombres;
+ * - o completar TBD / placeholders de cruces (1A, R32-1…) cuando la API ya trae selecciones reales.
  */
 export function resolveOurMatchFromApi(
   apiMatch: FootballDataMatch,
@@ -124,29 +140,28 @@ export function resolveOurMatchFromApi(
     }
   }
 
-  const tbdFills: ResolvedOurMatch[] = [];
+  const fills: ResolvedOurMatch[] = [];
   for (const m of candidates) {
     const a = m.teamA;
     const b = m.teamB;
+    const na = needsNameFromApi(a);
+    const nb = needsNameFromApi(b);
+    if (!na && !nb) continue;
 
-    if (a !== PLACEHOLDER_TBD && b !== PLACEHOLDER_TBD) continue;
-
-    if (a === PLACEHOLDER_TBD && b === PLACEHOLDER_TBD) {
-      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: home, teamB: away });
+    if (na && nb) {
+      fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
       continue;
     }
-    if (a === home && b === PLACEHOLDER_TBD) {
-      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: a, teamB: away });
-    } else if (a === away && b === PLACEHOLDER_TBD) {
-      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: a, teamB: home });
-    } else if (a === PLACEHOLDER_TBD && b === home) {
-      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: away, teamB: b });
-    } else if (a === PLACEHOLDER_TBD && b === away) {
-      tbdFills.push({ kind: "fill_tbd", ourMatch: m, teamA: home, teamB: b });
+    if (!na && nb) {
+      if (a === home) fills.push({ kind: "fill_teams", ourMatch: m, teamA: a, teamB: away });
+      else if (a === away) fills.push({ kind: "fill_teams", ourMatch: m, teamA: a, teamB: home });
+    } else if (na && !nb) {
+      if (b === home) fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: b });
+      else if (b === away) fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: b });
     }
   }
 
-  if (tbdFills.length === 1) return tbdFills[0];
+  if (fills.length === 1) return fills[0];
   return null;
 }
 

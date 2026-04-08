@@ -5,7 +5,7 @@ import {
   resolveOurMatchFromApi,
 } from "./football-data";
 
-/** Una pasada: nombres reales (sustituye TBD del seed) + resultados finalizados desde football-data.org → BD. */
+/** Una pasada: nombres reales (TBD + slots 1A/R32-1/… del seed) + marcadores finalizados desde football-data.org → BD. */
 export async function syncMatchResultsFromFootballData(
   prisma: PrismaClient,
   apiKey: string
@@ -31,7 +31,7 @@ export async function syncMatchResultsFromFootballData(
     const scores = mapScoreToOurMatch(apiMatch, teams);
     const data: { teamA?: string; teamB?: string; resultScoreA?: number; resultScoreB?: number } = {};
 
-    if (resolved.kind === "fill_tbd") {
+    if (resolved.kind === "fill_teams") {
       data.teamA = teams.teamA;
       data.teamB = teams.teamB;
       teamsResolved++;
@@ -101,7 +101,7 @@ export function startFootballDataResultAutoSync(prisma: PrismaClient): void {
       if (updated > 0) {
         // eslint-disable-next-line no-console
         console.log(
-          `[football-data] Auto-sync: ${updated} fila(s) tocada(s), ${teamsResolved} con TBD→equipos (${totalApi} en API).`
+          `[football-data] Auto-sync: ${updated} fila(s), ${teamsResolved} nombres actualizados (TBD/bracket) (${totalApi} en API).`
         );
       }
     } catch (err) {
