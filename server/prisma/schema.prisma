@@ -30,6 +30,8 @@ model Company {
   slug      String   @unique
   /// Cupos contratados (empleados + admin de la org; no aplica a la org interna de plataforma)
   seatLimit Int      @default(50)
+  /// Máx. competencias/ligas que la empresa puede crear (null = sin tope extra; super admin)
+  competitionLimit Int?
   stripeCustomerId     String?
   stripeSubscriptionId String?
   createdAt DateTime @default(now())
@@ -38,6 +40,7 @@ model Company {
   invitations   Invitation[]
   aiConfig      AiConfig?
   companyConfig CompanyConfig?
+  competitions  Competition[]
 }
 
 model CompanyConfig {
@@ -80,8 +83,45 @@ model User {
   prodeChampionPrediction ProdeChampionPrediction?
   prodeGuidelines         ProdeGuidelines?
   invitationsSent         Invitation[] @relation("InvitationInviter")
+  competitionsCreated     Competition[] @relation("CompetitionCreator")
+  competitionMemberships  CompetitionMember[]
 
   @@index([companyId])
+}
+
+enum CompetitionMemberRole {
+  competition_admin
+  member
+}
+
+/// Liga / competencia: mismas predicciones globales; ranking acotado a miembros.
+model Competition {
+  id          String   @id @default(cuid())
+  name        String
+  slug        String   @unique
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById String
+  createdBy   User     @relation("CompetitionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  maxMembers  Int      @default(10)
+  createdAt   DateTime @default(now())
+
+  members CompetitionMember[]
+
+  @@index([companyId])
+  @@index([createdById])
+}
+
+model CompetitionMember {
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          CompetitionMemberRole @default(member)
+  joinedAt      DateTime @default(now())
+
+  @@id([competitionId, userId])
+  @@index([userId])
 }
 
 /// Invitación por email a una empresa (B2B). El token en el enlace es distinto del hash guardado.

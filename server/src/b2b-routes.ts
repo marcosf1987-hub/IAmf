@@ -522,8 +522,13 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
     const updated = await prisma.company.update({
       where: { id },
-      data: { seatLimit: parsed.data.seatLimit },
-      select: { id: true, name: true, slug: true, seatLimit: true },
+      data: {
+        seatLimit: parsed.data.seatLimit,
+        ...(parsed.data.competitionLimit !== undefined
+          ? { competitionLimit: parsed.data.competitionLimit }
+          : {}),
+      },
+      select: { id: true, name: true, slug: true, seatLimit: true, competitionLimit: true },
     });
     res.status(200).json({ company: updated });
   });

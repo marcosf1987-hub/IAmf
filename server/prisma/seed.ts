@@ -17,6 +17,12 @@ async function main() {
     create: { name: "Plataforma", slug: "platform-internal", seatLimit: 99999 },
   });
 
+  await prisma.companyConfig.upsert({
+    where: { companyId: platformCompany.id },
+    update: { anonymizationEnabled: false },
+    create: { companyId: platformCompany.id, anonymizationEnabled: false },
+  });
+
   const email = "admin@demo.com";
   const passwordHash = await hashPassword("Admin1234");
 

@@ -15,3 +15,111 @@ export function isExactHit(
   if (resultA == null || resultB == null) return false;
   return scoreA === resultA && scoreB === resultB;
 }
+
+export type DashboardUserRow = { id: string; fullName: string | null; email: string };
+
+export type LeaderboardRowOut = {
+  userId: string;
+  alias: string;
+  hits: number;
+  rank: number;
+  rankChange: number;
+};
+
+/**
+ * Ranking por conjunto de usuarios (empresa o liga) con la misma lógica de aciertos que el dashboard global.
+ */
+export function computeLeaderboardForUsers(
+  matchesWithResult: Array<{
+    id: string;
+    kickoffAt: Date;
+    resultScoreA: number | null;
+    resultScoreB: number | null;
+  }>,
+  predictions: Array<{
+    userId: string;
+    matchId: string;
+    scoreA: number;
+    scoreB: number;
+    match: { resultScoreA: number | null; resultScoreB: number | null };
+  }>,
+  companyUsers: DashboardUserRow[],
+  anonymize: boolean,
+  companyIdForAnonymization: string,
+  currentUserId: string
+): {
+  leaderboard: LeaderboardRowOut[];
+  myRank: number | null;
+  totalParticipants: number;
+  rankChange: number;
+} {
+  const companyUserIds = companyUsers.map((u) => u.id);
+  const userById = new Map(companyUsers.map((u) => [u.id, u]));
+
+  const hitsByUserByMatchIdx = new Map<string, number[]>();
+  for (const uid of companyUserIds) {
+    hitsByUserByMatchIdx.set(uid, []);
+  }
+
+  for (let i = 0; i < matchesWithResult.length; i++) {
+    const m = matchesWithResult[i];
+    for (const uid of companyUserIds) {
+      const pred = predictions.find((p) => p.userId === uid && p.matchId === m.id);
+      const prevHits = i === 0 ? 0 : (hitsByUserByMatchIdx.get(uid) ?? [])[i - 1] ?? 0;
+      const isHit =
+        pred &&
+        isExactHit(pred.scoreA, pred.scoreB, m.resultScoreA, m.resultScoreB);
+      const cum = prevHits + (isHit ? 1 : 0);
+      hitsByUserByMatchIdx.get(uid)!.push(cum);
+    }
+  }
+
+  const hitsByUser = new Map<string, number>();
+  for (const uid of companyUserIds) {
+    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
+    hitsByUser.set(uid, arr[arr.length - 1] ?? 0);
+  }
+
+  const leaderboard = companyUserIds
+    .map((uid) => {
+      const u = userById.get(uid);
+      const displayName = anonymize
+        ? anonymizeUserId(uid, companyIdForAnonymization)
+        : u?.fullName?.trim() || u?.email || "Usuario";
+      return {
+        userId: uid,
+        alias: displayName,
+        hits: hitsByUser.get(uid) ?? 0,
+      };
+    })
+    .sort((a, b) => b.hits - a.hits)
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+
+  const prevHitsByUser = new Map<string, number>();
+  for (const uid of companyUserIds) {
+    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
+    prevHitsByUser.set(uid, arr.length > 1 ? arr[arr.length - 2]! : 0);
+  }
+  const prevLeaderboard = companyUserIds
+    .map((uid) => ({ userId: uid, hits: prevHitsByUser.get(uid) ?? 0 }))
+    .sort((a, b) => b.hits - a.hits)
+    .map((r, i) => ({ ...r, prevRank: i + 1 }));
+
+  const prevRankByUser = new Map(prevLeaderboard.map((r) => [r.userId, r.prevRank]));
+  const leaderboardWithChange = leaderboard.map((e) => {
+    const prevRank = prevRankByUser.get(e.userId);
+    const rankChange = prevRank != null ? prevRank - e.rank : 0;
+    return { ...e, rankChange };
+  });
+
+  const myEntry = leaderboardWithChange.find((r) => r.userId === currentUserId);
+  const myRank = myEntry ? myEntry.rank : null;
+  const myRankChange = leaderboardWithChange.find((r) => r.userId === currentUserId)?.rankChange ?? 0;
+
+  return {
+    leaderboard: leaderboardWithChange,
+    myRank,
+    totalParticipants: companyUserIds.length,
+    rankChange: myRankChange,
+  };
+}

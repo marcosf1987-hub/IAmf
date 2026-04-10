@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { LeaderboardEntry } from "../lib/api";
+import type { CompetitionLeaderboardBlock, LeaderboardEntry } from "../lib/api";
 import { fetchResultsDashboard } from "../lib/api";
 
 function RankArrow({ change }: { change: number }) {
@@ -45,6 +45,7 @@ export default function ResultadosPage() {
     totalParticipants: 0,
     rankChange: 0,
     pointsOverTime: [] as { date: string; points: number }[],
+    competitionLeaderboards: [] as CompetitionLeaderboardBlock[],
   };
 
   useEffect(() => {
@@ -73,7 +74,16 @@ export default function ResultadosPage() {
     );
   }
 
-  const { totalHits, precision, leaderboard, myRank, totalParticipants, rankChange, pointsOverTime } = data ?? EMPTY_DATA;
+  const {
+    totalHits,
+    precision,
+    leaderboard,
+    myRank,
+    totalParticipants,
+    rankChange,
+    pointsOverTime,
+  } = data ?? EMPTY_DATA;
+  const competitionLeaderboards = data?.competitionLeaderboards ?? [];
 
   // Tabla: top 5, mi posición, últimos 5 (orden: 1,2,3,4,5, yo, n-4,n-3,n-2,n-1,n)
   const n = totalParticipants;
@@ -185,6 +195,73 @@ export default function ResultadosPage() {
           </table>
         </div>
       </section>
+
+      {competitionLeaderboards.length > 0 && (
+        <section className="resultados-table-section resultados-competitions">
+          <h2 className="resultados-competitions-title">Rankings por liga</h2>
+          <p className="resultados-competitions-lead">
+            Mismas predicciones que en el ranking global; aquí comparás solo con quienes están en cada competencia.
+          </p>
+          {competitionLeaderboards.map((block) => {
+            const nBlock = block.totalParticipants;
+            const rankMap = new Map(block.leaderboard.map((e) => [e.rank, e]));
+            const order = [
+              1, 2, 3, 4, 5,
+              ...(block.myRank != null && block.myRank > 5 && block.myRank < nBlock - 4 ? [block.myRank] : []),
+              ...(nBlock >= 5 ? [nBlock - 4, nBlock - 3, nBlock - 2, nBlock - 1, nBlock] : []),
+            ];
+            const seenB = new Set<number>();
+            const rows: (LeaderboardEntry & { isMe?: boolean })[] = [];
+            for (const r of order) {
+              if (seenB.has(r)) continue;
+              seenB.add(r);
+              const e = rankMap.get(r);
+              if (e) rows.push({ ...e, isMe: e.rank === block.myRank });
+            }
+            return (
+              <div key={block.id} className="resultados-competition-block">
+                <h3 className="resultados-competition-name">{block.name}</h3>
+                <p className="resultados-competition-meta">
+                  Tu posición: <strong>#{block.myRank ?? "—"}</strong> de {block.totalParticipants}
+                  {block.myRank != null && <RankArrow change={block.rankChange} />}
+                </p>
+                <div className="resultados-table-wrapper">
+                  <table className="resultados-table">
+                    <thead>
+                      <tr>
+                        <th>Pos</th>
+                        <th>Usuario</th>
+                        <th>Puntos</th>
+                        <th></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.length > 0 ? (
+                        rows.map((e) => (
+                          <tr key={e.userId} className={e.isMe ? "resultados-row-me" : ""}>
+                            <td>{e.rank}</td>
+                            <td>{e.alias}</td>
+                            <td>{e.hits}</td>
+                            <td>
+                              <RankArrow change={e.rankChange ?? 0} />
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={4} className="resultados-table-empty">
+                            Sin datos de ranking para esta liga.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       <Link to="/app/ia" className="resultados-fab">
         Ajustar mi Prompt para la próxima fecha

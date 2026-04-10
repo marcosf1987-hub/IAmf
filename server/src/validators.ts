@@ -48,6 +48,16 @@ export const platformCreateCompanySchema = z.object({
 
 export const platformPatchCompanySchema = z.object({
   seatLimit: z.number().int().min(1).max(100000),
+  competitionLimit: z.number().int().min(1).max(10000).nullable().optional(),
+});
+
+export const createCompetitionSchema = z.object({
+  name: z.string().min(2).max(120),
+  maxMembers: z.number().int().min(2).max(500),
+});
+
+export const inviteCompetitionMemberSchema = z.object({
+  email: z.string().email(),
 });
 
 export const platformResetOrgAdminPasswordSchema = z.object({

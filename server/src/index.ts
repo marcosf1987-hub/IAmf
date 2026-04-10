@@ -15,6 +15,8 @@ import { mountOAuthRoutes } from "./oauth";
 import { registerB2BRoutes } from "./b2b-routes";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
+import { buildResultsDashboardPayload } from "./results-dashboard";
+import { registerCompetitionRoutes } from "./competitions-routes";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -104,6 +106,7 @@ app.use(express.json({ limit: "1mb" }));
 
 mountOAuthRoutes(app, prisma);
 registerB2BRoutes(app, prisma);
+registerCompetitionRoutes(app, prisma);
 
 /** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
 app.get("/", (_req, res) => {
@@ -142,11 +145,17 @@ app.post("/auth/signup", async (req, res) => {
     return;
   }
 
-  const company = await prisma.company.upsert({
-    where: { slug: "demo" },
-    update: {},
-    create: { name: "DemoCompany", slug: "demo", seatLimit: 100 },
+  const platformCompany = await prisma.company.findUnique({
+    where: { slug: "platform-internal" },
   });
+  if (!platformCompany) {
+    res.status(503).json({
+      error: "platform_not_configured",
+      message:
+        "Falta la compañía plataforma en la base. Ejecutá prisma db seed (PLATFORM_SUPER_ADMIN_EMAIL opcional).",
+    });
+    return;
+  }
 
   const passwordHash = await hashPassword(password);
   const user = await prisma.user.create({
@@ -154,7 +163,7 @@ app.post("/auth/signup", async (req, res) => {
       email,
       passwordHash,
       fullName,
-      companyId: company.id,
+      companyId: platformCompany.id,
       role: "member",
       status: "active",
     },
@@ -871,138 +880,14 @@ app.get("/leaderboard", requireAuth, async (req, res) => {
 
 app.get("/results/dashboard", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
-
-  const matchesWithResult = await prisma.match.findMany({
-    where: {
-      resultScoreA: { not: null },
-      resultScoreB: { not: null },
-    },
-    select: { id: true, kickoffAt: true, resultScoreA: true, resultScoreB: true },
-    orderBy: { kickoffAt: "asc" },
-  });
-
-  if (matchesWithResult.length === 0) {
-    res.status(200).json({
-      totalHits: 0,
-      totalWithResult: 0,
-      precision: 0,
-      leaderboard: [],
-      myRank: null,
-      totalParticipants: 0,
-      rankChange: 0,
-      pointsOverTime: [],
-    });
-    return;
+  try {
+    const payload = await buildResultsDashboardPayload(prisma, userId, companyId);
+    res.status(200).json(payload);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("GET /results/dashboard:", err);
+    res.status(500).json({ error: "server_error" });
   }
-
-  const matchIds = matchesWithResult.map((m) => m.id);
-  const [companyUsers, companyConfig] = await Promise.all([
-    prisma.user.findMany({
-      where: { companyId, status: "active" },
-      select: { id: true, fullName: true, email: true },
-    }),
-    prisma.companyConfig.findUnique({
-      where: { companyId },
-      select: { anonymizationEnabled: true },
-    }),
-  ]);
-  const companyUserIds = companyUsers.map((u) => u.id);
-  const userById = new Map(companyUsers.map((u) => [u.id, u]));
-  const anonymized = companyConfig?.anonymizationEnabled ?? true;
-
-  const predictions = await prisma.prediction.findMany({
-    where: {
-      userId: { in: companyUserIds },
-      matchId: { in: matchIds },
-    },
-    include: {
-      match: { select: { id: true, resultScoreA: true, resultScoreB: true, kickoffAt: true } },
-    },
-  });
-
-  // Puntos acumulados por usuario por fecha (después de cada partido)
-  const hitsByUserByMatchIdx = new Map<string, number[]>();
-  for (const uid of companyUserIds) {
-    hitsByUserByMatchIdx.set(uid, []);
-  }
-
-  for (let i = 0; i < matchesWithResult.length; i++) {
-    const m = matchesWithResult[i];
-    for (const uid of companyUserIds) {
-      const pred = predictions.find((p) => p.userId === uid && p.matchId === m.id);
-      const prevHits = i === 0 ? 0 : (hitsByUserByMatchIdx.get(uid) ?? [])[i - 1] ?? 0;
-      const isHit = pred && isExactHit(pred.scoreA, pred.scoreB, m.resultScoreA, m.resultScoreB);
-      const cum = prevHits + (isHit ? 1 : 0);
-      const arr = hitsByUserByMatchIdx.get(uid)!;
-      arr.push(cum);
-    }
-  }
-
-  // Evolución de puntos para el usuario actual
-  const myHitsOverTime = hitsByUserByMatchIdx.get(userId) ?? [];
-  const pointsOverTime = matchesWithResult.map((m, i) => ({
-    date: m.kickoffAt.toISOString().slice(0, 10),
-    points: myHitsOverTime[i] ?? 0,
-  }));
-
-  // Leaderboard actual
-  const hitsByUser = new Map<string, number>();
-  for (const uid of companyUserIds) {
-    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
-    hitsByUser.set(uid, arr[arr.length - 1] ?? 0);
-  }
-
-  const leaderboard = companyUserIds
-    .map((uid) => {
-      const u = userById.get(uid);
-      const displayName = anonymized
-        ? anonymizeUserId(uid, companyId)
-        : (u?.fullName?.trim() || u?.email || "Usuario");
-      return {
-        userId: uid,
-        alias: displayName,
-        hits: hitsByUser.get(uid) ?? 0,
-      };
-    })
-    .sort((a, b) => b.hits - a.hits)
-    .map((r, i) => ({ ...r, rank: i + 1 }));
-
-  const myEntry = leaderboard.find((r) => r.userId === userId);
-  const myRank = myEntry ? myEntry.rank : null;
-  const totalHits = myEntry?.hits ?? 0;
-  const totalWithResult = matchesWithResult.length;
-  const precision = totalWithResult > 0 ? Math.round((totalHits / totalWithResult) * 100) : 0;
-
-  // Rank change por usuario: comparar con estado anterior (antes del último partido)
-  const prevHitsByUser = new Map<string, number>();
-  for (const uid of companyUserIds) {
-    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
-    prevHitsByUser.set(uid, arr.length > 1 ? arr[arr.length - 2] : 0);
-  }
-  const prevLeaderboard = companyUserIds
-    .map((uid) => ({ userId: uid, hits: prevHitsByUser.get(uid) ?? 0 }))
-    .sort((a, b) => b.hits - a.hits)
-    .map((r, i) => ({ ...r, prevRank: i + 1 }));
-
-  const prevRankByUser = new Map(prevLeaderboard.map((r) => [r.userId, r.prevRank]));
-  const leaderboardWithChange = leaderboard.map((e) => {
-    const prevRank = prevRankByUser.get(e.userId);
-    const rankChange = prevRank != null ? prevRank - e.rank : 0;
-    return { ...e, rankChange };
-  });
-
-  const myRankChange = leaderboardWithChange.find((r) => r.userId === userId)?.rankChange ?? 0;
-
-  res.status(200).json({
-    totalHits,
-    totalWithResult,
-    precision,
-    leaderboard: leaderboardWithChange,
-    myRank,
-    totalParticipants: companyUserIds.length,
-    rankChange: myRankChange,
-    pointsOverTime,
-  });
 });
 
 app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {

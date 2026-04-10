@@ -427,6 +427,16 @@ export async function fetchLeaderboard(): Promise<{
   return fetchAuth("/leaderboard");
 }
 
+export type CompetitionLeaderboardBlock = {
+  id: string;
+  name: string;
+  slug: string;
+  leaderboard: LeaderboardEntry[];
+  myRank: number | null;
+  totalParticipants: number;
+  rankChange: number;
+};
+
 export type ResultsDashboard = {
   totalHits: number;
   totalWithResult: number;
@@ -436,6 +446,8 @@ export type ResultsDashboard = {
   totalParticipants: number;
   rankChange: number;
   pointsOverTime: { date: string; points: number }[];
+  /** Tablas por liga; mismas predicciones globales, ranking acotado a miembros. */
+  competitionLeaderboards: CompetitionLeaderboardBlock[];
 };
 
 export async function fetchResultsDashboard(): Promise<ResultsDashboard> {
