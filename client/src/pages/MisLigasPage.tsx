@@ -245,7 +245,6 @@ function CreateLigaModal({
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setFormError("");
-    setInviteReport(null);
     const trimmed = name.trim();
     if (trimmed.length < 2) {
       setFormError("El nombre debe tener al menos 2 caracteres.");
