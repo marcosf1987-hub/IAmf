@@ -59,6 +59,7 @@ export default function AppLayout() {
             <Link to="/app/prode" onClick={() => setMenuOpen(false)}>Mis Predicciones</Link>
             <Link to="/app/ia" onClick={() => setMenuOpen(false)}>Laboratorio</Link>
             <Link to="/app/resultados" onClick={() => setMenuOpen(false)}>Mis resultados</Link>
+            <Link to="/app/ligas" onClick={() => setMenuOpen(false)}>Mis ligas</Link>
             <Link to="/app/perfil" onClick={() => setMenuOpen(false)}>Mi usuario</Link>
           </nav>
           <div className="app-header-right">

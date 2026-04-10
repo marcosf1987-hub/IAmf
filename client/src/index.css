@@ -2019,6 +2019,268 @@ a:hover {
   transform: translateY(-2px);
 }
 
+/* Mis ligas */
+.ligas-page {
+  max-width: 44rem;
+}
+
+.ligas-lead {
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 1.75rem;
+}
+
+.ligas-section {
+  margin-bottom: 2.25rem;
+}
+
+.ligas-section-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin: 0 0 1rem;
+  font-weight: 600;
+}
+
+.ligas-create-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.25rem;
+}
+
+.ligas-quota {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.ligas-hint-muted {
+  margin: 0.75rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.ligas-empty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.ligas-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ligas-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.ligas-list-item:last-child {
+  border-bottom: none;
+}
+
+.ligas-list-main {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 1rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ligas-list-main:hover {
+  background: var(--accent-dim);
+}
+
+.ligas-list-name {
+  display: block;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.ligas-list-meta {
+  display: block;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.ligas-list-actions {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+}
+
+.ligas-leave-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-text-danger {
+  background: none;
+  border: none;
+  color: var(--error);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.25rem 0;
+}
+
+.btn-text-danger:hover {
+  color: var(--text);
+}
+
+.ligas-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+
+.ligas-modal {
+  width: 100%;
+  max-width: 26rem;
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 1.5rem 1.5rem 1.25rem;
+}
+
+.ligas-modal-title {
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  margin: 0 0 0.5rem;
+}
+
+.ligas-modal-lead {
+  margin: 0 0 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ligas-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ligas-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.88rem;
+}
+
+.ligas-field span {
+  color: var(--text-muted);
+}
+
+.ligas-field input,
+.ligas-emails-textarea {
+  font: inherit;
+  padding: 0.6rem 0.75rem;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 2px;
+}
+
+.ligas-emails-textarea {
+  resize: vertical;
+  min-height: 6rem;
+}
+
+.ligas-form-error {
+  color: var(--error);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.ligas-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.ligas-breadcrumb {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.ligas-breadcrumb a {
+  color: var(--accent);
+}
+
+.ligas-detail-meta {
+  margin: 0 0 1.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.ligas-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.ligas-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+}
+
+.ligas-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.ligas-table th,
+.ligas-table td {
+  padding: 0.65rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.ligas-table th {
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.ligas-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.ligas-back-link {
+  display: inline-block;
+  margin-top: 1rem;
+}
+
 /* IA / Laboratorio */
 .ia-layout {
   display: flex;

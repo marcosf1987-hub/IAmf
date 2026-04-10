@@ -454,6 +454,90 @@ export async function fetchResultsDashboard(): Promise<ResultsDashboard> {
   return fetchAuth("/results/dashboard");
 }
 
+export type CompetitionQuota = {
+  scope: "user" | "company";
+  createdByMe: number;
+  maxCreatedByMe: number | null;
+  companyTotal: number | null;
+  maxCompany: number | null;
+};
+
+export type MyCompetitionSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  maxMembers: number;
+  createdAt: string;
+  createdById: string;
+  memberCount: number;
+  myRole: "competition_admin" | "member";
+  isCreator: boolean;
+};
+
+export type MineCompetitionsResponse = {
+  competitions: MyCompetitionSummary[];
+  quota: CompetitionQuota;
+};
+
+export async function fetchMyCompetitions(): Promise<MineCompetitionsResponse> {
+  return fetchAuth("/competitions/mine");
+}
+
+export async function createCompetition(body: {
+  name: string;
+  maxMembers: number;
+}): Promise<{
+  competition: { id: string; name: string; slug: string; maxMembers: number; createdAt: string };
+}> {
+  return fetchAuth("/competitions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function inviteToCompetition(
+  competitionId: string,
+  email: string
+): Promise<{ ok: true }> {
+  return fetchAuth(`/competitions/${encodeURIComponent(competitionId)}/invite`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email }),
+  });
+}
+
+export type CompetitionDetailResponse = {
+  competition: {
+    id: string;
+    name: string;
+    slug: string;
+    maxMembers: number;
+    createdAt: string;
+    createdById: string;
+    memberCount: number;
+  };
+  myRole: "competition_admin" | "member";
+  members: {
+    userId: string;
+    email: string;
+    fullName: string | null;
+    role: "competition_admin" | "member";
+  }[];
+};
+
+export async function fetchCompetitionDetail(
+  competitionId: string
+): Promise<CompetitionDetailResponse> {
+  return fetchAuth(`/competitions/${encodeURIComponent(competitionId)}`);
+}
+
+export async function leaveCompetition(competitionId: string): Promise<{ ok: boolean }> {
+  return fetchAuth(`/competitions/${encodeURIComponent(competitionId)}/membership`, {
+    method: "DELETE",
+  });
+}
+
 export async function submitPrediction(
   matchId: string,
   scoreA: number,

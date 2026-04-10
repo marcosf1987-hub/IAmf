@@ -13,6 +13,7 @@ import AdminPage from "./pages/AdminPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
 import PricingPage from "./pages/PricingPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import MisLigasPage from "./pages/MisLigasPage";
 
 export default function App() {
   return (
@@ -28,6 +29,8 @@ export default function App() {
         <Route path="prode" element={<ProdePage />} />
         <Route path="ia" element={<IAPage />} />
         <Route path="resultados" element={<ResultadosPage />} />
+        <Route path="ligas" element={<MisLigasPage />} />
+        <Route path="ligas/:id" element={<MisLigasPage />} />
         <Route path="perfil" element={<PerfilPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="platform" element={<PlatformAdminPage />} />

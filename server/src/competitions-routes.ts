@@ -31,7 +31,7 @@ function slugifyName(name: string): string {
 
 export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/competitions/mine", requireAuth, async (req, res) => {
-    const { userId } = (req as AuthedRequest).auth;
+    const { userId, companyId } = (req as AuthedRequest).auth;
     const rows = await prisma.competitionMember.findMany({
       where: { userId },
       include: {
@@ -49,6 +49,47 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       },
       orderBy: { joinedAt: "desc" },
     });
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, competitionLimit: true },
+    });
+    if (!company) {
+      res.status(400).json({ error: "no_company" });
+      return;
+    }
+
+    const platform = isPlatformCompanySlug(company.slug);
+    let quota: {
+      scope: "user" | "company";
+      createdByMe: number;
+      maxCreatedByMe: number | null;
+      companyTotal: number | null;
+      maxCompany: number | null;
+    };
+    if (platform) {
+      const createdByMe = await prisma.competition.count({
+        where: { createdById: userId },
+      });
+      quota = {
+        scope: "user",
+        createdByMe,
+        maxCreatedByMe: FREE_MAX_COMPETITIONS_PER_USER,
+        companyTotal: null,
+        maxCompany: null,
+      };
+    } else {
+      const companyTotal = await prisma.competition.count({
+        where: { companyId },
+      });
+      quota = {
+        scope: "company",
+        createdByMe: await prisma.competition.count({ where: { createdById: userId } }),
+        maxCreatedByMe: null,
+        companyTotal,
+        maxCompany: company.competitionLimit,
+      };
+    }
+
     res.status(200).json({
       competitions: rows.map((r) => ({
         ...r.competition,
@@ -56,6 +97,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         myRole: r.role,
         isCreator: r.competition.createdById === userId,
       })),
+      quota,
     });
   });
 
@@ -204,5 +246,90 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     });
 
     res.status(201).json({ ok: true });
+  });
+
+  app.get("/competitions/:id", requireAuth, async (req, res) => {
+    const competitionId = routeParamId(req);
+    if (!competitionId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const { userId } = (req as AuthedRequest).auth;
+
+    const membership = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId, userId } },
+    });
+    if (!membership) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+
+    const comp = await prisma.competition.findUnique({
+      where: { id: competitionId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: { id: true, email: true, fullName: true },
+            },
+          },
+          orderBy: { joinedAt: "asc" },
+        },
+      },
+    });
+    if (!comp) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+
+    res.status(200).json({
+      competition: {
+        id: comp.id,
+        name: comp.name,
+        slug: comp.slug,
+        maxMembers: comp.maxMembers,
+        createdAt: comp.createdAt,
+        createdById: comp.createdById,
+        memberCount: comp.members.length,
+      },
+      myRole: membership.role,
+      members: comp.members.map((m) => ({
+        userId: m.userId,
+        email: m.user.email,
+        fullName: m.user.fullName,
+        role: m.role,
+      })),
+    });
+  });
+
+  app.delete("/competitions/:id/membership", requireAuth, async (req, res) => {
+    const competitionId = routeParamId(req);
+    if (!competitionId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const { userId } = (req as AuthedRequest).auth;
+
+    const membership = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId, userId } },
+    });
+    if (!membership) {
+      res.status(404).json({ error: "not_member" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.competitionMember.delete({
+        where: { competitionId_userId: { competitionId, userId } },
+      });
+      const remaining = await tx.competitionMember.count({
+        where: { competitionId },
+      });
+      if (remaining === 0) {
+        await tx.competition.delete({ where: { id: competitionId } });
+      }
+    });
+
+    res.status(200).json({ ok: true });
   });
 }
