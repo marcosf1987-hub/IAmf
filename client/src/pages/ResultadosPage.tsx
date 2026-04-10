@@ -9,7 +9,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { CompetitionLeaderboardBlock, LeaderboardEntry } from "../lib/api";
+import type { LeaderboardEntry, ResultsDashboard } from "../lib/api";
 import { fetchResultsDashboard } from "../lib/api";
 
 function RankArrow({ change }: { change: number }) {
@@ -22,31 +22,22 @@ function RankArrow({ change }: { change: number }) {
   return <span className="rank-arrow rank-same">—</span>;
 }
 
+const EMPTY_DATA: ResultsDashboard = {
+  totalHits: 0,
+  totalWithResult: 0,
+  precision: 0,
+  leaderboard: [],
+  myRank: null,
+  totalParticipants: 0,
+  rankChange: 0,
+  pointsOverTime: [],
+  competitionLeaderboards: [],
+};
+
 export default function ResultadosPage() {
-  const [data, setData] = useState<{
-    totalHits: number;
-    totalWithResult: number;
-    precision: number;
-    leaderboard: LeaderboardEntry[];
-    myRank: number | null;
-    totalParticipants: number;
-    rankChange: number;
-    pointsOverTime: { date: string; points: number }[];
-  } | null>(null);
+  const [data, setData] = useState<ResultsDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-
-  const EMPTY_DATA = {
-    totalHits: 0,
-    totalWithResult: 0,
-    precision: 0,
-    leaderboard: [] as LeaderboardEntry[],
-    myRank: null as number | null,
-    totalParticipants: 0,
-    rankChange: 0,
-    pointsOverTime: [] as { date: string; points: number }[],
-    competitionLeaderboards: [] as CompetitionLeaderboardBlock[],
-  };
 
   useEffect(() => {
     async function load() {
