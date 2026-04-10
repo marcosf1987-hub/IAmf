@@ -462,16 +462,26 @@ export type CompetitionQuota = {
   maxCompany: number | null;
 };
 
+export type CompetitionCardSnapshot = {
+  myRank: number | null;
+  totalParticipants: number;
+  topThree: Array<{ userId: string; displayLabel: string; rank: number }>;
+};
+
 export type MyCompetitionSummary = {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
+  emoji: string | null;
+  coverImageUrl: string | null;
   maxMembers: number;
   createdAt: string;
   createdById: string;
   memberCount: number;
   myRole: "competition_admin" | "member";
   isCreator: boolean;
+  card: CompetitionCardSnapshot;
 };
 
 export type MineCompetitionsResponse = {
@@ -486,14 +496,102 @@ export async function fetchMyCompetitions(): Promise<MineCompetitionsResponse> {
 export async function createCompetition(body: {
   name: string;
   maxMembers: number;
+  description?: string | null;
+  emoji?: string | null;
+  coverImageUrl?: string | null;
 }): Promise<{
-  competition: { id: string; name: string; slug: string; maxMembers: number; createdAt: string };
+  competition: {
+    id: string;
+    name: string;
+    slug: string;
+    inviteCode: string;
+    description: string | null;
+    emoji: string | null;
+    coverImageUrl: string | null;
+    maxMembers: number;
+    createdAt: string;
+  };
 }> {
   return fetchAuth("/competitions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/** Unirse por código; si ya eras miembro devuelve alreadyMember con competitionId. */
+export async function joinCompetitionByCode(
+  code: string
+): Promise<{ ok: true; competitionId: string } | { alreadyMember: true; competitionId: string }> {
+  const token = getToken();
+  if (!token) throw new Error("Unauthorized");
+  const url = `${API_BASE}/competitions/join`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ code: code.trim() }),
+  });
+  const text = await res.text();
+  let data: { ok?: boolean; competitionId?: string; error?: string; message?: string } = {};
+  if (text && !text.startsWith("<")) {
+    try {
+      data = JSON.parse(text) as typeof data;
+    } catch {
+      throw new Error("Respuesta inválida de la API");
+    }
+  }
+  if (res.status === 201 && data.competitionId) {
+    return { ok: true, competitionId: data.competitionId };
+  }
+  if (res.status === 409 && data.competitionId) {
+    return { alreadyMember: true, competitionId: data.competitionId };
+  }
+  if (!res.ok) {
+    throw new Error(data.message ?? data.error ?? "No se pudo unir a la liga");
+  }
+  throw new Error("Respuesta inesperada del servidor");
+}
+
+export async function patchCompetition(
+  competitionId: string,
+  body: {
+    name?: string;
+    description?: string | null;
+    emoji?: string | null;
+    coverImageUrl?: string | null;
+    maxMembers?: number;
+  }
+): Promise<{
+  competition: {
+    id: string;
+    name: string;
+    slug: string;
+    inviteCode: string;
+    description: string | null;
+    emoji: string | null;
+    coverImageUrl: string | null;
+    maxMembers: number;
+    createdAt: string;
+  };
+}> {
+  return fetchAuth(`/competitions/${encodeURIComponent(competitionId)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export async function removeCompetitionMember(
+  competitionId: string,
+  memberUserId: string
+): Promise<{ ok: boolean }> {
+  return fetchAuth(
+    `/competitions/${encodeURIComponent(competitionId)}/members/${encodeURIComponent(memberUserId)}`,
+    { method: "DELETE" }
+  );
 }
 
 export async function inviteToCompetition(
@@ -512,10 +610,14 @@ export type CompetitionDetailResponse = {
     id: string;
     name: string;
     slug: string;
+    description: string | null;
+    emoji: string | null;
+    coverImageUrl: string | null;
     maxMembers: number;
     createdAt: string;
     createdById: string;
     memberCount: number;
+    inviteCode?: string;
   };
   myRole: "competition_admin" | "member";
   members: {

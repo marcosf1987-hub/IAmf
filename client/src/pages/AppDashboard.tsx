@@ -167,8 +167,8 @@ export default function AppDashboard() {
         </Link>
         <Link to="/app/ligas" className="dashboard-card">
           <UsersLeagueIcon />
-          <h3>Mis ligas</h3>
-          <p>Crear ligas, invitar participantes y ver el ranking por grupo</p>
+          <h3>Ligas &amp; Comunidad</h3>
+          <p>Crear o unirte por código, invitar y ver el ranking por grupo</p>
         </Link>
       </div>
     </div>

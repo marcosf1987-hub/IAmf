@@ -10,12 +10,30 @@ import {
   FREE_MIN_MEMBERS,
 } from "./competition-constants";
 import { isPlatformCompanySlug } from "./org-seat";
-import { createCompetitionSchema, inviteCompetitionMemberSchema } from "./validators";
+import { getCompetitionCardSnapshot } from "./competition-snapshot";
+import {
+  createCompetitionSchema,
+  inviteCompetitionMemberSchema,
+  joinCompetitionCodeSchema,
+  patchCompetitionSchema,
+} from "./validators";
 
 function routeParamId(req: Request): string | undefined {
   const raw = req.params.id;
   if (raw === undefined) return undefined;
   return Array.isArray(raw) ? raw[0] : raw;
+}
+
+async function allocateInviteCode(prisma: PrismaClient): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const code = `MUNDIAL-IA-${randomBytes(3).toString("hex").toUpperCase()}`;
+    const clash = await prisma.competition.findUnique({
+      where: { inviteCode: code },
+      select: { id: true },
+    });
+    if (!clash) return code;
+  }
+  throw new Error("invite_code_exhausted");
 }
 
 function slugifyName(name: string): string {
@@ -40,6 +58,9 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
             id: true,
             name: true,
             slug: true,
+            description: true,
+            emoji: true,
+            coverImageUrl: true,
             maxMembers: true,
             createdAt: true,
             createdById: true,
@@ -90,13 +111,21 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       };
     }
 
+    const competitionsWithCards = await Promise.all(
+      rows.map(async (r) => {
+        const card = await getCompetitionCardSnapshot(prisma, r.competition.id, userId);
+        return {
+          ...r.competition,
+          memberCount: r.competition._count.members,
+          myRole: r.role,
+          isCreator: r.competition.createdById === userId,
+          card,
+        };
+      })
+    );
+
     res.status(200).json({
-      competitions: rows.map((r) => ({
-        ...r.competition,
-        memberCount: r.competition._count.members,
-        myRole: r.role,
-        isCreator: r.competition.createdById === userId,
-      })),
+      competitions: competitionsWithCards,
       quota,
     });
   });
@@ -109,7 +138,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     }
 
     const { userId, companyId } = (req as AuthedRequest).auth;
-    const { name, maxMembers } = parsed.data;
+    const { name, maxMembers, description, emoji, coverImageUrl } = parsed.data;
 
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -164,10 +193,16 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       slug = `${slugifyName(name)}-${randomBytes(4).toString("hex")}`;
     }
 
+    const inviteCode = await allocateInviteCode(prisma);
+
     const comp = await prisma.competition.create({
       data: {
         name: name.trim(),
         slug,
+        inviteCode,
+        description: description?.trim() ? description.trim() : null,
+        emoji: emoji?.trim() ? emoji.trim() : null,
+        coverImageUrl: coverImageUrl?.trim() ? coverImageUrl.trim() : null,
         companyId,
         createdById: userId,
         maxMembers,
@@ -178,10 +213,201 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
           },
         },
       },
-      select: { id: true, name: true, slug: true, maxMembers: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        inviteCode: true,
+        description: true,
+        emoji: true,
+        coverImageUrl: true,
+        maxMembers: true,
+        createdAt: true,
+      },
     });
 
     res.status(201).json({ competition: comp });
+  });
+
+  app.post("/competitions/join", requireAuth, async (req, res) => {
+    const parsed = joinCompetitionCodeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+    const raw = parsed.data.code.trim().replace(/\s+/g, "").toUpperCase();
+    const { userId } = (req as AuthedRequest).auth;
+
+    const competition = await prisma.competition.findFirst({
+      where: { inviteCode: raw },
+    });
+    if (!competition) {
+      res.status(404).json({ error: "code_not_found", message: "No hay una liga con ese código." });
+      return;
+    }
+
+    const existing = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId: competition.id, userId } },
+    });
+    if (existing) {
+      res.status(409).json({ error: "already_member", competitionId: competition.id });
+      return;
+    }
+
+    const count = await prisma.competitionMember.count({
+      where: { competitionId: competition.id },
+    });
+    if (count >= competition.maxMembers) {
+      res.status(400).json({ error: "competition_full" });
+      return;
+    }
+
+    await prisma.competitionMember.create({
+      data: {
+        competitionId: competition.id,
+        userId,
+        role: CompetitionMemberRole.member,
+      },
+    });
+
+    res.status(201).json({ ok: true, competitionId: competition.id });
+  });
+
+  app.patch("/competitions/:id", requireAuth, async (req, res) => {
+    const competitionId = routeParamId(req);
+    if (!competitionId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const parsed = patchCompetitionSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+    const { userId, companyId } = (req as AuthedRequest).auth;
+
+    const membership = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId, userId } },
+      include: { competition: true },
+    });
+    if (!membership || membership.role !== CompetitionMemberRole.competition_admin) {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+
+    const body = parsed.data;
+    if (Object.keys(body).length === 0) {
+      res.status(400).json({ error: "empty_patch" });
+      return;
+    }
+
+    if (body.maxMembers != null) {
+      const n = await prisma.competitionMember.count({ where: { competitionId } });
+      if (body.maxMembers < n) {
+        res.status(400).json({
+          error: "max_members_below_current",
+          message: `Hay ${n} miembros; el cupo no puede ser menor.`,
+        });
+        return;
+      }
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { slug: true },
+      });
+      const platform = company && isPlatformCompanySlug(company.slug);
+      if (platform) {
+        if (
+          body.maxMembers > FREE_MAX_MEMBERS_PER_COMPETITION ||
+          body.maxMembers < FREE_MIN_MEMBERS
+        ) {
+          res.status(400).json({ error: "invalid_max_members" });
+          return;
+        }
+      } else if (body.maxMembers > 500 || body.maxMembers < FREE_MIN_MEMBERS) {
+        res.status(400).json({ error: "invalid_max_members" });
+        return;
+      }
+    }
+
+    const updated = await prisma.competition.update({
+      where: { id: competitionId },
+      data: {
+        ...(body.name != null ? { name: body.name.trim() } : {}),
+        ...(body.description !== undefined
+          ? { description: body.description === null || body.description === "" ? null : body.description.trim() }
+          : {}),
+        ...(body.emoji !== undefined
+          ? { emoji: body.emoji === null || body.emoji === "" ? null : body.emoji.trim() }
+          : {}),
+        ...(body.coverImageUrl !== undefined
+          ? {
+              coverImageUrl:
+                body.coverImageUrl === null || body.coverImageUrl === ""
+                  ? null
+                  : body.coverImageUrl.trim(),
+            }
+          : {}),
+        ...(body.maxMembers != null ? { maxMembers: body.maxMembers } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        inviteCode: true,
+        description: true,
+        emoji: true,
+        coverImageUrl: true,
+        maxMembers: true,
+        createdAt: true,
+      },
+    });
+
+    res.status(200).json({ competition: updated });
+  });
+
+  app.delete("/competitions/:id/members/:userId", requireAuth, async (req, res) => {
+    const competitionId = routeParamId(req);
+    const memberParam = req.params.userId;
+    const memberUserId = Array.isArray(memberParam) ? memberParam[0] : memberParam;
+    if (!competitionId || !memberUserId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const { userId } = (req as AuthedRequest).auth;
+
+    if (memberUserId === userId) {
+      res.status(400).json({ error: "use_leave", message: "Para salir vos usá «Abandonar liga»." });
+      return;
+    }
+
+    const adminShip = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId, userId } },
+      include: { competition: true },
+    });
+    if (!adminShip || adminShip.role !== CompetitionMemberRole.competition_admin) {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+
+    const target = await prisma.competitionMember.findUnique({
+      where: { competitionId_userId: { competitionId, userId: memberUserId } },
+    });
+    if (!target) {
+      res.status(404).json({ error: "not_member" });
+      return;
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.competitionMember.delete({
+        where: { competitionId_userId: { competitionId, userId: memberUserId } },
+      });
+      const remaining = await tx.competitionMember.count({ where: { competitionId } });
+      if (remaining === 0) {
+        await tx.competition.delete({ where: { id: competitionId } });
+      }
+    });
+
+    res.status(200).json({ ok: true });
   });
 
   app.post("/competitions/:id/invite", requireAuth, async (req, res) => {
@@ -282,15 +508,20 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       return;
     }
 
+    const isAdmin = membership.role === CompetitionMemberRole.competition_admin;
     res.status(200).json({
       competition: {
         id: comp.id,
         name: comp.name,
         slug: comp.slug,
+        description: comp.description,
+        emoji: comp.emoji,
+        coverImageUrl: comp.coverImageUrl,
         maxMembers: comp.maxMembers,
         createdAt: comp.createdAt,
         createdById: comp.createdById,
         memberCount: comp.members.length,
+        ...(isAdmin ? { inviteCode: comp.inviteCode } : {}),
       },
       myRole: membership.role,
       members: comp.members.map((m) => ({

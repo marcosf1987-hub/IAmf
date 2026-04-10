@@ -96,15 +96,23 @@ enum CompetitionMemberRole {
 
 /// Liga / competencia: mismas predicciones globales; ranking acotado a miembros.
 model Competition {
-  id          String   @id @default(cuid())
-  name        String
-  slug        String   @unique
-  companyId   String
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  createdById String
-  createdBy   User     @relation("CompetitionCreator", fields: [createdById], references: [id], onDelete: Cascade)
-  maxMembers  Int      @default(10)
-  createdAt   DateTime @default(now())
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  /// Código alfanumérico para unirse (ej. MUNDIAL-IA-A1B2C3); único en toda la plataforma.
+  inviteCode    String   @unique
+  /// Reglas o contexto visible para miembros (ej. «Solo equipo Ventas»).
+  description   String?
+  /// Emoji o marcador visual corto (opcional).
+  emoji         String?
+  /// URL de imagen de cabecera (opcional; sin hosting propio, pegá un enlace público).
+  coverImageUrl String?
+  companyId     String
+  company       Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdById   String
+  createdBy     User     @relation("CompetitionCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  maxMembers    Int      @default(10)
+  createdAt     DateTime @default(now())
 
   members CompetitionMember[]
 
