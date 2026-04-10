@@ -543,7 +543,7 @@ function AdminLigaConfig({
   initial: CompetitionDetailResponse["competition"];
   members: CompetitionDetailResponse["members"];
   currentUserId: string;
-  onPatched: (c: CompetitionDetailResponse["competition"]) => void;
+  onPatched: (c: Partial<CompetitionDetailResponse["competition"]>) => void;
   onMemberRemoved: () => void;
 }) {
   const [name, setName] = useState(initial.name);
