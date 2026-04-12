@@ -10,8 +10,16 @@
   --accent-dim: rgba(201, 169, 98, 0.12);
   --accent-border: rgba(201, 169, 98, 0.35);
   --error: #e07a7a;
+  --success: #7a9e7a;
   --font-body: "DM Sans", system-ui, sans-serif;
   --font-display: "Syne", system-ui, sans-serif;
+  /* Ritmo transversal entre secciones dentro de una pantalla */
+  --page-padding-x: clamp(1rem, 4vw, 2rem);
+  --page-padding-y: clamp(1.5rem, 4vw, 3rem);
+  --section-gap: clamp(1.5rem, 3vw, 2.25rem);
+  --content-max-width: 1100px;
+  --focus-ring: 2px solid var(--accent);
+  --focus-offset: 2px;
 }
 
 * {
@@ -57,6 +65,162 @@ a {
 }
 a:hover {
   text-decoration: underline;
+}
+
+/* Teclado / lectores: foco visible (no duplicar con clic del mouse) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+a:focus:not(:focus-visible),
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  z-index: 9999;
+  padding: 0.75rem 1.25rem;
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+/* Flash global (avisos no intrusivos) */
+.flash-banner {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 400;
+  max-width: min(36rem, calc(100vw - 2rem));
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem 0.85rem 1.15rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+
+.flash-banner-text {
+  margin: 0;
+  flex: 1;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.flash-banner--error {
+  border-color: rgba(224, 122, 122, 0.45);
+}
+
+.flash-banner--error .flash-banner-text {
+  color: #f0c4c4;
+}
+
+.flash-banner--success {
+  border-color: rgba(122, 158, 122, 0.45);
+}
+
+.flash-banner--success .flash-banner-text {
+  color: #d4ead4;
+}
+
+.flash-banner--info .flash-banner-text {
+  color: var(--text);
+}
+
+.flash-banner-close {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.15rem;
+}
+
+.flash-banner-close:hover {
+  color: var(--text);
+}
+
+/* Estados vacíos reutilizables */
+.empty-state {
+  text-align: center;
+  padding: var(--section-gap) var(--page-padding-x);
+  border: 1px dashed var(--border);
+  background: rgba(20, 20, 20, 0.5);
+  max-width: 28rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.empty-state-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+.empty-state-desc {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.empty-state-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+/* Skeleton (carga de contenido pesado) */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-input) 0%,
+    rgba(201, 169, 98, 0.08) 50%,
+    var(--bg-input) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.2s ease-in-out infinite;
+  border-radius: 4px;
+}
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.skeleton-line {
+  height: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.skeleton-block {
+  min-height: 4rem;
 }
 
 /* Home - Estilo UNStudio */
@@ -669,6 +833,11 @@ a:hover {
   text-decoration: none;
 }
 
+.app-nav a.app-nav-link--current {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .app-header-right {
   display: flex;
   align-items: center;
@@ -780,7 +949,7 @@ a:hover {
 
 .app-main {
   flex: 1;
-  padding: 3rem 2rem;
+  padding: var(--page-padding-y) var(--page-padding-x);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -984,7 +1153,10 @@ a:hover {
 /* Page content */
 .page-content {
   width: 100%;
-  max-width: 1100px;
+  max-width: var(--content-max-width);
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
 }
 
 /* Prode: más ancho para el grid de grupos (12 tarjetas) */

@@ -1,3 +1,7 @@
+import { formatApiError } from "./user-friendly-error";
+
+export { formatApiError };
+
 /**
  * URL base del backend (sin barra final).
  * Si VITE_API_URL no tiene `https://`, el navegador lo interpreta como RUTA del sitio actual
@@ -67,13 +71,14 @@ export const isProductionApiUrlMissing =
 const TOKEN_KEY = "rrhhia_token";
 
 function networkHint(err: unknown): Error {
-  // fetch() lanza TypeError ante fallos de red / CORS
   if (err instanceof TypeError) {
     return new Error(
-      "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agrega la variable VITE_API_URL con la URL https del backend (sin barra al final) y vuelve a desplegar el frontend."
+      import.meta.env.PROD
+        ? "No se pudo conectar con el servidor. Revisá tu conexión o la configuración de la app."
+        : "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agrega la variable VITE_API_URL con la URL https del backend (sin barra al final) y vuelve a desplegar el frontend."
     );
   }
-  return err instanceof Error ? err : new Error(String(err));
+  return new Error(formatApiError(err instanceof Error ? err : new Error(String(err))));
 }
 
 function getToken(): string | null {
@@ -86,18 +91,18 @@ async function parseJson<T>(res: Response, url?: string): Promise<T> {
     const hint = url
       ? `La API en ${url} devolvió HTML. ¿El backend está corriendo?`
       : "La API devolvió HTML en lugar de JSON. ¿El backend está corriendo en http://localhost:4000?";
-    throw new Error(hint);
+    throw new Error(formatApiError(new Error(hint)));
   }
   try {
     return text ? JSON.parse(text) : ({} as T);
   } catch {
-    throw new Error("Respuesta inválida de la API");
+    throw new Error(formatApiError(new Error("Respuesta inválida de la API")));
   }
 }
 
 async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
   const token = getToken();
-  if (!token) throw new Error("Unauthorized");
+  if (!token) throw new Error(formatApiError(new Error("Unauthorized")));
   const url = `${API_BASE}${path}`;
   const res = await fetch(url, {
     ...init,
@@ -111,7 +116,7 @@ async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
     const msg = (data as { message?: string; error?: string }).message
       ?? (data as { error?: string }).error
       ?? "Request failed";
-    throw new Error(msg);
+    throw new Error(formatApiError(new Error(msg)));
   }
   return data;
 }

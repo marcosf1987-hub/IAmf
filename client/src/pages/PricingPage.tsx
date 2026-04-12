@@ -45,11 +45,13 @@ export default function PricingPage() {
               <strong>100+</strong> — contáctanos para facturación y SLA.
             </li>
           </ul>
-          <p className="admin-date-range-hint">
-            El precio final se define en el checkout (Stripe u otro gateway). Configura{" "}
-            <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en el frontend y{" "}
-            <code>BILLING_CHECKOUT_BASE_URL</code> en el backend para enlazar el mismo portal de pago.
-          </p>
+          {import.meta.env.DEV && (
+            <p className="admin-date-range-hint">
+              El precio final se define en el checkout (Stripe u otro gateway). Configura{" "}
+              <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en el frontend y{" "}
+              <code>BILLING_CHECKOUT_BASE_URL</code> en el backend para enlazar el mismo portal de pago.
+            </p>
+          )}
         </section>
 
         <section style={{ marginTop: "2rem" }}>
@@ -72,9 +74,15 @@ export default function PricingPage() {
               </a>
             </div>
           ) : (
-            <p className="auth-error">
-              Todavía no está configurada la URL de checkout. Define <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en
-              el build del frontend (URL base del payment link o Stripe Checkout).
+            <p className="placeholder-text">
+              {import.meta.env.DEV ? (
+                <>
+                  Todavía no está configurada la URL de checkout. Definí{" "}
+                  <code>VITE_BILLING_CHECKOUT_BASE_URL</code> en el build del frontend.
+                </>
+              ) : (
+                "El checkout online no está habilitado en este entorno. Para contratar cupos, contactá al equipo comercial o al administrador de tu organización."
+              )}
             </p>
           )}
         </section>

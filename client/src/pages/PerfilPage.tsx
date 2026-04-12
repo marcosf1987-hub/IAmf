@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "../contexts/AuthContext";
-import { updateMe } from "../lib/api";
+import { formatApiError, updateMe } from "../lib/api";
 
 function roleLabel(role: string): string {
   if (role === "super_admin") return "Super administrador (plataforma)";
@@ -52,7 +52,7 @@ export default function PerfilPage() {
       setConfirmPassword("");
       setSuccess("Datos actualizados correctamente");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al actualizar");
+      setError(formatApiError(err));
     } finally {
       setLoading(false);
     }
@@ -66,7 +66,11 @@ export default function PerfilPage() {
       <p className="page-subtitle">Ver y editar tus datos de perfil</p>
 
       {error && <div className="auth-error">{error}</div>}
-      {success && <div className="auth-success">{success}</div>}
+      {success && (
+        <div className="auth-success" role="status">
+          {success}
+        </div>
+      )}
 
       <div className="perfil-info">
         <p><strong>Email:</strong> {user.email}</p>

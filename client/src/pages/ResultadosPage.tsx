@@ -10,7 +10,8 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import type { LeaderboardEntry, ResultsDashboard } from "../lib/api";
-import { fetchResultsDashboard } from "../lib/api";
+import { fetchResultsDashboard, formatApiError } from "../lib/api";
+import { EmptyState } from "../components/EmptyState";
 
 function RankArrow({ change }: { change: number }) {
   if (change > 0) {
@@ -45,7 +46,7 @@ export default function ResultadosPage() {
         const res = await fetchResultsDashboard();
         setData(res);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar");
+        setError(formatApiError(err));
         setData(EMPTY_DATA);
       } finally {
         setLoading(false);
@@ -155,36 +156,36 @@ export default function ResultadosPage() {
 
       <section className="resultados-table-section">
         <h2>Ranking</h2>
-        <div className="resultados-table-wrapper">
-          <table className="resultados-table">
-            <thead>
-              <tr>
-                <th>Pos</th>
-                <th>Usuario</th>
-                <th>Puntos</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {tableRows.length > 0 ? (
-                tableRows.map((e) => (
+        {tableRows.length > 0 ? (
+          <div className="resultados-table-wrapper">
+            <table className="resultados-table">
+              <thead>
+                <tr>
+                  <th>Pos</th>
+                  <th>Usuario</th>
+                  <th>Puntos</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {tableRows.map((e) => (
                   <tr key={e.userId} className={e.isMe ? "resultados-row-me" : ""}>
                     <td>{e.rank}</td>
                     <td>{e.alias}</td>
                     <td>{e.hits}</td>
                     <td><RankArrow change={e.rankChange ?? 0} /></td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan={4} className="resultados-table-empty">
-                    Aún no hay partidos con resultado cargado. El ranking aparecerá cuando se definan los resultados.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <EmptyState
+            title="Todavía no hay ranking"
+            description="Cuando haya partidos con resultado cargado, tu posición y la de tu empresa aparecerán aquí."
+            action={<Link to="/app/prode" className="btn-primary">Ir a Mis predicciones</Link>}
+          />
+        )}
       </section>
 
       {competitionLeaderboards.length > 0 && (

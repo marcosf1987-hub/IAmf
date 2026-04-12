@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useFlash } from "../contexts/FlashContext";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 import type {
   CompetitionDetailResponse,
   CompetitionQuota,
@@ -13,6 +15,7 @@ import {
   fetchCompetitionDetail,
   fetchMyCompetitions,
   fetchResultsDashboard,
+  formatApiError,
   inviteToCompetition,
   joinCompetitionByCode,
   leaveCompetition,
@@ -92,7 +95,7 @@ function LigasCommunityHome() {
       const res = await fetchMyCompetitions();
       setData(res);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "No se pudieron cargar las ligas");
+      setError(formatApiError(e));
     } finally {
       setLoading(false);
     }
@@ -130,7 +133,7 @@ function LigasCommunityHome() {
       await load();
       navigate(`/app/ligas/${cid}`);
     } catch (err) {
-      setJoinMsg(err instanceof Error ? err.message : "No se pudo unir");
+      setJoinMsg(formatApiError(err));
     } finally {
       setJoinBusy(false);
     }
@@ -236,6 +239,7 @@ function LigasCommunityHome() {
 
 function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => void }) {
   const navigate = useNavigate();
+  const { showFlash } = useFlash();
   const [confirmLeave, setConfirmLeave] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const { card } = row;
@@ -254,7 +258,7 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
       setConfirmLeave(false);
       onLeft();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "No se pudo salir");
+      showFlash(formatApiError(e), "error");
     } finally {
       setLeaving(false);
     }
@@ -329,6 +333,7 @@ const EMPTY_DATA: ResultsDashboard = {
 
 function CompetitionDetailSection({ competitionId }: { competitionId: string }) {
   const navigate = useNavigate();
+  const { showFlash } = useFlash();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "config" ? "config" : "ranking";
   const { user } = useAuth();
@@ -353,7 +358,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
           setDash(r);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "Error");
+        if (!cancelled) setError(formatApiError(e));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -377,7 +382,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       await leaveCompetition(competitionId);
       navigate("/app/ligas", { replace: true });
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Error");
+      showFlash(formatApiError(e), "error");
     } finally {
       setLeaving(false);
     }
@@ -546,6 +551,7 @@ function AdminLigaConfig({
   onPatched: (c: Partial<CompetitionDetailResponse["competition"]>) => void;
   onMemberRemoved: () => void;
 }) {
+  const { showFlash } = useFlash();
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description ?? "");
   const [emoji, setEmoji] = useState(initial.emoji ?? "");
@@ -572,16 +578,18 @@ function AdminLigaConfig({
   async function copyCode() {
     try {
       await navigator.clipboard.writeText(inviteCode);
+      showFlash("Código copiado al portapapeles", "success");
     } catch {
-      alert(inviteCode);
+      showFlash(`No se pudo copiar automáticamente. Código: ${inviteCode}`, "info");
     }
   }
 
   async function copyLink() {
     try {
       await navigator.clipboard.writeText(inviteLink);
+      showFlash("Link de invitación copiado", "success");
     } catch {
-      alert(inviteLink);
+      showFlash("No se pudo copiar el link. Copiá la URL desde la barra de direcciones tras abrir la liga.", "info");
     }
   }
 
@@ -599,7 +607,7 @@ function AdminLigaConfig({
       });
       onPatched(competition);
     } catch (err) {
-      setSaveErr(err instanceof Error ? err.message : "Error al guardar");
+      setSaveErr(formatApiError(err));
     } finally {
       setSaving(false);
     }
@@ -612,7 +620,7 @@ function AdminLigaConfig({
       await removeCompetitionMember(competitionId, uid);
       onMemberRemoved();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Error");
+      showFlash(formatApiError(err), "error");
     } finally {
       setRemoving(null);
     }
@@ -718,6 +726,7 @@ function CreateLigaModal({
   onCreated: () => void;
 }) {
   const { user } = useAuth();
+  const { showFlash } = useFlash();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [emoji, setEmoji] = useState("⚽");
@@ -728,6 +737,8 @@ function CreateLigaModal({
   const [formError, setFormError] = useState("");
 
   const bounds = maxMembersBounds(quota);
+
+  useEscapeKey(true, onClose);
 
   useEffect(() => {
     setMaxMembers((m) => Math.min(Math.max(m, bounds.min), bounds.max));
@@ -770,13 +781,14 @@ function CreateLigaModal({
       }
 
       if (failures.length > 0) {
-        alert(
-          `Liga creada. Algunas invitaciones por email fallaron:\n${failures.slice(0, 8).join("\n")}${failures.length > 8 ? "\n…" : ""}`
+        showFlash(
+          `Liga creada. Algunas invitaciones por email fallaron: ${failures.slice(0, 5).join("; ")}${failures.length > 5 ? "…" : ""}`,
+          "info"
         );
       }
       onCreated();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : "No se pudo crear la liga");
+      setFormError(formatApiError(err));
     } finally {
       setSubmitting(false);
     }

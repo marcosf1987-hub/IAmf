@@ -1,9 +1,20 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate, Outlet } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+
+function appNavLinkClass(pathname: string, to: string): string {
+  if (to === "/app") {
+    return pathname === "/app" || pathname === "/app/" ? "app-nav-link--current" : "";
+  }
+  if (to === "/app/ligas") {
+    return pathname.startsWith("/app/ligas") ? "app-nav-link--current" : "";
+  }
+  return pathname === to || pathname.startsWith(`${to}/`) ? "app-nav-link--current" : "";
+}
 
 export default function AppLayout() {
   const { user, loading, logout } = useAuth();
+  const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -32,6 +43,9 @@ export default function AppLayout() {
 
   return (
     <div className="app-layout">
+      <a href="#main-content" className="skip-link">
+        Saltar al contenido
+      </a>
       <header className="app-header">
         <Link to="/app" className="app-logo" onClick={() => setMenuOpen(false)}>
           <span className="app-logo-brand">Promptplay</span>
@@ -54,13 +68,55 @@ export default function AppLayout() {
           />
         )}
         <div className={`app-header-menu ${menuOpen ? "app-header-menu-open" : ""}`}>
-          <nav className="app-nav">
-            <Link to="/app" onClick={() => setMenuOpen(false)}>Inicio</Link>
-            <Link to="/app/prode" onClick={() => setMenuOpen(false)}>Mis Predicciones</Link>
-            <Link to="/app/ia" onClick={() => setMenuOpen(false)}>Laboratorio</Link>
-            <Link to="/app/resultados" onClick={() => setMenuOpen(false)}>Mis resultados</Link>
-            <Link to="/app/ligas" onClick={() => setMenuOpen(false)}>Ligas &amp; Comunidad</Link>
-            <Link to="/app/perfil" onClick={() => setMenuOpen(false)}>Mi usuario</Link>
+          <nav className="app-nav" aria-label="Secciones principales">
+            <Link
+              to="/app"
+              className={appNavLinkClass(pathname, "/app")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname === "/app" || pathname === "/app/" ? "page" : undefined}
+            >
+              Inicio
+            </Link>
+            <Link
+              to="/app/prode"
+              className={appNavLinkClass(pathname, "/app/prode")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith("/app/prode") ? "page" : undefined}
+            >
+              Mis Predicciones
+            </Link>
+            <Link
+              to="/app/ia"
+              className={appNavLinkClass(pathname, "/app/ia")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith("/app/ia") ? "page" : undefined}
+            >
+              Laboratorio
+            </Link>
+            <Link
+              to="/app/resultados"
+              className={appNavLinkClass(pathname, "/app/resultados")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith("/app/resultados") ? "page" : undefined}
+            >
+              Mis resultados
+            </Link>
+            <Link
+              to="/app/ligas"
+              className={appNavLinkClass(pathname, "/app/ligas")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith("/app/ligas") ? "page" : undefined}
+            >
+              Ligas &amp; Comunidad
+            </Link>
+            <Link
+              to="/app/perfil"
+              className={appNavLinkClass(pathname, "/app/perfil")}
+              onClick={() => setMenuOpen(false)}
+              aria-current={pathname.startsWith("/app/perfil") ? "page" : undefined}
+            >
+              Mi usuario
+            </Link>
           </nav>
           <div className="app-header-right">
             {user.role === "org_admin" && (
@@ -82,7 +138,7 @@ export default function AppLayout() {
           </div>
         </div>
       </header>
-      <main className="app-main">
+      <main id="main-content" className="app-main" tabIndex={-1}>
         <Outlet />
       </main>
     </div>
