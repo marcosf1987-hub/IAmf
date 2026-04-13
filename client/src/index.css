@@ -1268,8 +1268,11 @@ button:focus:not(:focus-visible) {
 }
 
 /* Prode: más ancho para el grid de grupos (12 tarjetas) */
-.page-content--prode {
+.page-content.page-content--prode {
   max-width: 1320px;
+  /* app-main usa align-items:center y encoge el bloque: sin esto el subtítulo no queda centrado en desktop */
+  align-self: stretch;
+  width: 100%;
 }
 
 .prode-page-header {
@@ -1284,67 +1287,6 @@ button:focus:not(:focus-visible) {
   margin-right: auto;
   text-align: center;
   width: 100%;
-}
-
-.prode-progress-summary {
-  margin: 0.75rem auto 1rem;
-  font-size: 0.92rem;
-  color: var(--text-muted);
-  text-align: center;
-  max-width: 36rem;
-  line-height: 1.45;
-}
-
-.prode-progress-summary--toolbar {
-  margin: 0 0 0.5rem;
-  max-width: none;
-  width: 100%;
-}
-
-.prode-progress-summary strong {
-  color: var(--accent);
-  font-variant-numeric: tabular-nums;
-}
-
-.prode-progress-hint {
-  font-weight: 400;
-  color: var(--text-muted);
-  opacity: 0.95;
-}
-
-.prode-toolbar {
-  display: flex;
-  flex-direction: column;
-  flex-wrap: nowrap;
-  align-items: stretch;
-  justify-content: center;
-  gap: 0.65rem;
-  margin: 0.75rem 0 1.25rem;
-  padding: 0.85rem 1rem;
-  border: 1px dashed var(--border);
-  background: rgba(0, 0, 0, 0.15);
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-.prode-toolbar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
-  justify-content: center;
-}
-
-.prode-toolbar-list a {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.prode-toolbar-list a:hover {
-  color: var(--text);
 }
 
 .prode-champion-block {
@@ -1737,13 +1679,27 @@ button:focus:not(:focus-visible) {
   flex-wrap: wrap;
 }
 
-/* Banderas emoji: Syne/DM Sans no pintan secuencias regionales; en Windows desktop hace falta pila emoji explícita */
+/* Banderas: PNG (flagcdn) en desktop; fallback emoji con pila Segoe */
 .prode-flag {
   margin-right: 0.35rem;
-  font-size: 1.15em;
-  line-height: 1;
   display: inline-block;
   vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.prode-flag-img {
+  width: 1.35em;
+  height: auto;
+  min-height: 14px;
+  aspect-ratio: 5 / 3;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-sizing: border-box;
+}
+
+.prode-flag-emoji {
+  font-size: 1.15em;
+  line-height: 1;
   font-family: "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla",
     emoji, sans-serif;
   font-variant-emoji: emoji;
@@ -1922,8 +1878,12 @@ button:focus:not(:focus-visible) {
   flex-shrink: 0;
   line-height: 1;
   min-width: 1.35em;
-  font-size: 1.2em;
   text-align: center;
+}
+
+.prode-standings-table .prode-flag-img {
+  width: 1.25em;
+  min-width: 18px;
 }
 
 .prode-standings-table .prode-stand-team-name {

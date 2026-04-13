@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Match, Prediction, ChampionPrediction } from "../lib/api";
-import { getFlag } from "../lib/flags";
+import { getFlag, getFlagImageUrl } from "../lib/flags";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
 import { useFlash } from "../contexts/FlashContext";
 import {
@@ -132,6 +132,28 @@ const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
 
 const EMPTY_LAB: ProdeGuidelinesByPhase = { groups: "", roundOf32: "", knockout: "" };
 
+function ProdeFlag({ country }: { country: string }) {
+  const src = getFlagImageUrl(country);
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt=""
+        className="prode-flag prode-flag-img"
+        width={22}
+        height={16}
+        loading="lazy"
+        decoding="async"
+      />
+    );
+  }
+  return (
+    <span className="prode-flag prode-flag-emoji" aria-hidden>
+      {getFlag(country)}
+    </span>
+  );
+}
+
 function normalizeGuidelinesResponse(res: { guidelines: unknown }): ProdeGuidelinesByPhase {
   const raw = res.guidelines;
   if (typeof raw === "string") {
@@ -195,15 +217,6 @@ export default function ProdePage() {
     () => sections.filter((s) => !s.id.startsWith("group-")),
     [sections]
   );
-
-  const predictionStats = useMemo(() => {
-    if (matches.length === 0) return null;
-    let predicted = 0;
-    for (const m of matches) {
-      if (predictions[m.id]) predicted++;
-    }
-    return { predicted, total: matches.length };
-  }, [matches, predictions]);
 
   const bestThirds = useMemo(() => {
     const groups = groupSections
@@ -389,36 +402,6 @@ export default function ProdePage() {
           Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
           del primer partido de cada fase para generar o regenerar.
         </p>
-        {matches.length > 0 && (
-          <nav className="prode-toolbar" aria-label="Resumen y accesos a secciones">
-            {predictionStats && (
-              <p className="prode-progress-summary prode-progress-summary--toolbar" role="status">
-                <strong>
-                  {predictionStats.predicted}/{predictionStats.total}
-                </strong>{" "}
-                partidos con predicción guardada
-                {predictionStats.predicted < predictionStats.total && (
-                  <span className="prode-progress-hint">
-                    {" "}
-                    — completa el resto generando por fase o cuando publiquen más partidos.
-                  </span>
-                )}
-              </p>
-            )}
-            <ul className="prode-toolbar-list">
-              {groupSections.length > 0 && (
-                <li>
-                  <a href="#prode-sim-groups-heading">Fase de grupos</a>
-                </li>
-              )}
-              {knockoutSections.map((section) => (
-                <li key={section.id}>
-                  <a href={`#prode-${section.id}`}>{section.title}</a>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        )}
       </header>
 
       {error ? (
@@ -533,13 +516,13 @@ npx prisma db seed`}
             <div className="prode-champion-card prode-actions-full prode-champion-card-gold">
               <h3 className="prode-champion-title"><span className="prode-emoji">🏆</span> Campeón</h3>
               <div className="prode-champion-team">
-                <span className="prode-flag">{getFlag(championPrediction.champion)}</span> {championPrediction.champion}
+                <ProdeFlag country={championPrediction.champion} /> {championPrediction.champion}
               </div>
             </div>
             <div className="prode-champion-card prode-actions-full prode-champion-card-silver">
               <h3 className="prode-champion-title"><span className="prode-emoji">🥈</span> Subcampeón</h3>
               <div className="prode-champion-team">
-                <span className="prode-flag">{getFlag(championPrediction.runnerUp)}</span> {championPrediction.runnerUp}
+                <ProdeFlag country={championPrediction.runnerUp} /> {championPrediction.runnerUp}
               </div>
             </div>
           </div>
@@ -592,8 +575,8 @@ function GroupSimulatorCard({
               >
                 <td>{idx + 1}</td>
                 <td className="prode-stand-team">
-                  <span className="prode-flag" aria-hidden>
-                    {getFlag(row.team)}
+                  <span aria-hidden>
+                    <ProdeFlag country={row.team} />
                   </span>
                   <span className="prode-stand-team-name">{row.team}</span>
                 </td>
@@ -626,7 +609,7 @@ function GroupMatchRow({ match, prediction }: { match: Match; prediction?: Predi
   return (
     <div className="prode-group-match-row">
       <span className="prode-group-match-side">
-        <span className="prode-flag">{getFlag(match.teamA)}</span>
+        <ProdeFlag country={match.teamA} />
         <span className="prode-group-match-name">{match.teamA}</span>
       </span>
       <span className="prode-group-match-scores">
@@ -636,7 +619,7 @@ function GroupMatchRow({ match, prediction }: { match: Match; prediction?: Predi
       </span>
       <span className="prode-group-match-side prode-group-match-side--right">
         <span className="prode-group-match-name">{match.teamB}</span>
-        <span className="prode-flag">{getFlag(match.teamB)}</span>
+        <ProdeFlag country={match.teamB} />
       </span>
     </div>
   );
@@ -666,7 +649,7 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
               <tr key={`${c.team}-${c.groupLabel}`}>
                 <td>{i + 1}</td>
                 <td>
-                  <span className="prode-flag">{getFlag(c.team)}</span> {c.team}
+                  <ProdeFlag country={c.team} /> {c.team}
                 </td>
                 <td>{c.groupLabel}</td>
                 <td>{c.pts}</td>
@@ -701,9 +684,13 @@ function MatchCard({ match, prediction }: { match: Match; prediction?: Predictio
         <span className="prode-date">{date}</span>
       </div>
       <div className="prode-teams">
-        <span><span className="prode-flag">{getFlag(match.teamA)}</span> {match.teamA}</span>
+        <span>
+          <ProdeFlag country={match.teamA} /> {match.teamA}
+        </span>
         <span className="prode-vs">vs</span>
-        <span><span className="prode-flag">{getFlag(match.teamB)}</span> {match.teamB}</span>
+        <span>
+          <ProdeFlag country={match.teamB} /> {match.teamB}
+        </span>
       </div>
       <div className="prode-form prode-form-readonly">
         <span className="prode-score">

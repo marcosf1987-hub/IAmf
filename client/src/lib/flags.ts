@@ -89,8 +89,98 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "Finalista 2": "🥈",
 };
 
+/** ISO 3166-1 o códigos que usa flagcdn.com (p. ej. gb-eng, gb-sct). */
+const COUNTRY_TO_FLAGCDN: Record<string, string> = {
+  Argentina: "ar",
+  Canadá: "ca",
+  Canada: "ca",
+  Brasil: "br",
+  Brazil: "br",
+  México: "mx",
+  Mexico: "mx",
+  España: "es",
+  Spain: "es",
+  Alemania: "de",
+  Germany: "de",
+  Francia: "fr",
+  France: "fr",
+  Italia: "it",
+  Uruguay: "uy",
+  Colombia: "co",
+  Chile: "cl",
+  Perú: "pe",
+  Ecuador: "ec",
+  Paraguay: "py",
+  Bolivia: "bo",
+  Venezuela: "ve",
+  Portugal: "pt",
+  Inglaterra: "gb-eng",
+  England: "gb-eng",
+  Holanda: "nl",
+  Netherlands: "nl",
+  Bélgica: "be",
+  Belgium: "be",
+  Croacia: "hr",
+  Croatia: "hr",
+  Suiza: "ch",
+  Switzerland: "ch",
+  Japón: "jp",
+  Japan: "jp",
+  Corea: "kr",
+  "South Korea": "kr",
+  "Estados Unidos": "us",
+  "United States": "us",
+  Marruecos: "ma",
+  Morocco: "ma",
+  Senegal: "sn",
+  Nigeria: "ng",
+  Ghana: "gh",
+  Camerún: "cm",
+  "Costa Rica": "cr",
+  Panamá: "pa",
+  Panama: "pa",
+  Honduras: "hn",
+  Australia: "au",
+  Qatar: "qa",
+  Egypt: "eg",
+  Iran: "ir",
+  "New Zealand": "nz",
+  "Saudi Arabia": "sa",
+  "Cape Verde": "cv",
+  "Ivory Coast": "ci",
+  Curacao: "cw",
+  Curaçao: "cw",
+  Tunisia: "tn",
+  Algeria: "dz",
+  Austria: "at",
+  Jordan: "jo",
+  Uzbekistan: "uz",
+  "South Africa": "za",
+  Scotland: "gb-sct",
+  Haiti: "ht",
+  Norway: "no",
+  "Czech Republic": "cz",
+  Bosnia: "ba",
+  "Bosnia and Herzegovina": "ba",
+  "Bosnia y Herzegovina": "ba",
+  "Bosnia-Herzegovina": "ba",
+  "Bosnia Herzegovina": "ba",
+  Turkey: "tr",
+  Sweden: "se",
+  Iraq: "iq",
+  "DR Congo": "cd",
+};
+
 function normalizeCountryKey(name: string): string {
   return name.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
+/** URL de bandera PNG (visible en Windows con cualquier fuente). Sin entrada → null y usar getFlag (emoji). */
+export function getFlagImageUrl(countryName: string): string | null {
+  const key = normalizeCountryKey(countryName);
+  const code = COUNTRY_TO_FLAGCDN[key];
+  if (!code) return null;
+  return `https://flagcdn.com/w40/${code.toLowerCase()}.png`;
 }
 
 export function getFlag(countryName: string): string {
