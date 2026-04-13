@@ -18,11 +18,11 @@ import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Fase de grupos",
-  roundOf32: "Treintaidosavos",
-  roundOf16: "Octavos",
-  quarterFinal: "Cuartos",
-  semiFinal: "Semifinal",
-  thirdPlace: "Tercer puesto",
+  roundOf32: "16vos",
+  roundOf16: "8vos",
+  quarterFinal: "4tos",
+  semiFinal: "Semis",
+  thirdPlace: "3er puesto",
   final: "Final",
 };
 
@@ -119,14 +119,14 @@ const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
   groups:
     "Esta acción solo genera marcadores con IA para los partidos de fase de grupos (no para cruces ni final).",
   roundOf32:
-    "Solo partidos de la ronda de 32 (R32). Antes debes tener predicción en todos los partidos de grupos.",
+    "Solo partidos de la ronda de 16avos. Antes debes tener predicción en todos los partidos de grupos.",
   knockout:
-    "Incluye octavos, cuartos, semis, tercer puesto y final, más campeón/subcampeón. Antes completa todos los partidos de la fase de 16avos (R32).",
+    "Incluye 8vos, 4tos, semis, tercer puesto y final, más campeón y subcampeón. Antes completa todos los partidos de la fase de 16avos.",
 };
 
 const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
   groups: "Fase de grupos",
-  roundOf32: "Treintaidosavos (R32)",
+  roundOf32: "16avos",
   knockout: "Eliminatorias",
 };
 
@@ -386,42 +386,36 @@ export default function ProdePage() {
       <header className="prode-page-header">
         <h1>Prode FIFA 2026</h1>
         <p className="page-subtitle prode-page-subtitle">
-          Generá predicciones con IA usando las pautas por etapa del Laboratorio. Tenés tiempo hasta una hora antes
+          Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
           del primer partido de cada fase para generar o regenerar.
         </p>
-        {predictionStats && (
-          <p className="prode-progress-summary" role="status">
-            <strong>
-              {predictionStats.predicted}/{predictionStats.total}
-            </strong>{" "}
-            partidos con predicción guardada
-            {predictionStats.predicted < predictionStats.total && (
-              <span className="prode-progress-hint"> — completá el resto generando por fase o cuando publiquen más partidos.</span>
-            )}
-          </p>
-        )}
         {matches.length > 0 && (
-          <nav className="prode-toolbar" aria-label="Saltar a sección">
-            <span className="prode-toolbar-label">Ir a:</span>
+          <nav className="prode-toolbar" aria-label="Resumen y accesos a secciones">
+            {predictionStats && (
+              <p className="prode-progress-summary prode-progress-summary--toolbar" role="status">
+                <strong>
+                  {predictionStats.predicted}/{predictionStats.total}
+                </strong>{" "}
+                partidos con predicción guardada
+                {predictionStats.predicted < predictionStats.total && (
+                  <span className="prode-progress-hint">
+                    {" "}
+                    — completa el resto generando por fase o cuando publiquen más partidos.
+                  </span>
+                )}
+              </p>
+            )}
             <ul className="prode-toolbar-list">
-              <li>
-                <a href="#prode-generate-section">Generar con IA</a>
-              </li>
               {groupSections.length > 0 && (
                 <li>
                   <a href="#prode-sim-groups-heading">Fase de grupos</a>
                 </li>
               )}
-              {knockoutSections.length > 0 && (
-                <li>
-                  <a href="#prode-eliminatorias">Eliminatorias</a>
+              {knockoutSections.map((section) => (
+                <li key={section.id}>
+                  <a href={`#prode-${section.id}`}>{section.title}</a>
                 </li>
-              )}
-              {championPrediction && (
-                <li>
-                  <a href="#prode-campeon">Campeón</a>
-                </li>
-              )}
+              ))}
             </ul>
           </nav>
         )}
@@ -498,7 +492,7 @@ npx prisma db seed`}
         {knockoutSections.map((section) => {
           const isOpen = openSections[section.id] ?? false;
           return (
-            <section key={section.id} className="prode-accordion prode-actions-full">
+            <section key={section.id} id={`prode-${section.id}`} className="prode-accordion prode-actions-full">
               <button
                 type="button"
                 className="prode-accordion-trigger"

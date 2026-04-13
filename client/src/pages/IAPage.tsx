@@ -18,8 +18,8 @@ const PHASE_EDITOR: {
   },
   {
     key: "roundOf32",
-    label: "Treintaidosavos (R32)",
-    hint: "Se usa para la generación de la ronda de 32 (etapa distinta a grupos).",
+    label: "16avos",
+    hint: "Se usa para la generación de la ronda de 16avos (etapa distinta a grupos).",
     placeholder: "Ej. criterios para cruces eliminatorios tempranos…",
   },
   {
@@ -107,7 +107,7 @@ function IaBatchPromptBlock({ lines }: { lines?: BatchPromptLine[] }) {
 
 const PHASE_LABELS: Record<string, string> = {
   groups: "Fase de grupos",
-  roundOf32: "Treintaidosavos",
+  roundOf32: "16avos",
   knockout: "Eliminatorias",
 };
 

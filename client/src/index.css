@@ -1275,12 +1275,15 @@ button:focus:not(:focus-visible) {
 .prode-page-header {
   width: 100%;
   margin-bottom: 0.25rem;
+  text-align: center;
 }
 
 .prode-page-subtitle {
   max-width: 40rem;
   margin-left: auto;
   margin-right: auto;
+  text-align: center;
+  width: 100%;
 }
 
 .prode-progress-summary {
@@ -1290,6 +1293,12 @@ button:focus:not(:focus-visible) {
   text-align: center;
   max-width: 36rem;
   line-height: 1.45;
+}
+
+.prode-progress-summary--toolbar {
+  margin: 0 0 0.5rem;
+  max-width: none;
+  width: 100%;
 }
 
 .prode-progress-summary strong {
@@ -1305,23 +1314,17 @@ button:focus:not(:focus-visible) {
 
 .prode-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
   justify-content: center;
-  gap: 0.5rem 1rem;
-  margin: 0 0 1.25rem;
-  padding: 0.65rem 1rem;
+  gap: 0.65rem;
+  margin: 0.75rem 0 1.25rem;
+  padding: 0.85rem 1rem;
   border: 1px dashed var(--border);
   background: rgba(0, 0, 0, 0.15);
   font-size: 0.85rem;
-}
-
-.prode-toolbar-label {
-  color: var(--text-muted);
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  font-size: 0.72rem;
+  text-align: center;
 }
 
 .prode-toolbar-list {
@@ -1351,7 +1354,8 @@ button:focus:not(:focus-visible) {
 #prode-generate-section,
 #prode-sim-groups-heading,
 #prode-eliminatorias,
-#prode-campeon {
+#prode-campeon,
+[id^="prode-stage-"] {
   scroll-margin-top: 5rem;
 }
 
