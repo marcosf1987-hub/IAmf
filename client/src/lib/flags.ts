@@ -71,6 +71,9 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "Czech Republic": "🇨🇿",
   Bosnia: "🇧🇦",
   "Bosnia and Herzegovina": "🇧🇦",
+  "Bosnia y Herzegovina": "🇧🇦",
+  "Bosnia-Herzegovina": "🇧🇦",
+  "Bosnia Herzegovina": "🇧🇦",
   Turkey: "🇹🇷",
   Sweden: "🇸🇪",
   Iraq: "🇮🇶",
@@ -86,6 +89,12 @@ const COUNTRY_FLAGS: Record<string, string> = {
   "Finalista 2": "🥈",
 };
 
+function normalizeCountryKey(name: string): string {
+  return name.normalize("NFC").replace(/\s+/g, " ").trim();
+}
+
 export function getFlag(countryName: string): string {
-  return COUNTRY_FLAGS[countryName] ?? "⚽";
+  const key = normalizeCountryKey(countryName);
+  if (!key) return "⚽";
+  return COUNTRY_FLAGS[key] ?? "⚽";
 }

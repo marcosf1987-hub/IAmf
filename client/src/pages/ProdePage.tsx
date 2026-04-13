@@ -3,11 +3,13 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Match, Prediction, ChampionPrediction } from "../lib/api";
 import { getFlag } from "../lib/flags";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
+import { useFlash } from "../contexts/FlashContext";
 import {
   fetchMatches,
   fetchMyPredictions,
   fetchChampionPrediction,
   fetchProdeGuidelines,
+  formatApiError,
   generateProdePredictions,
 } from "../lib/api";
 import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
@@ -152,7 +154,23 @@ function pautasForPhase(phase: ProdePhaseId, lab: ProdeGuidelinesByPhase): strin
   return lab.knockout;
 }
 
+function ProdePageSkeleton() {
+  return (
+    <div className="page-content page-content--prode prode-page prode-page--loading" aria-busy="true" aria-label="Cargando predicciones">
+      <div className="skeleton skeleton-line prode-sk-title" />
+      <div className="skeleton skeleton-line prode-sk-sub" />
+      <div className="skeleton skeleton-block prode-sk-generate" />
+      <div className="prode-sk-grid">
+        <div className="skeleton skeleton-block prode-sk-card" />
+        <div className="skeleton skeleton-block prode-sk-card" />
+        <div className="skeleton skeleton-block prode-sk-card" />
+      </div>
+    </div>
+  );
+}
+
 export default function ProdePage() {
+  const { showFlash } = useFlash();
   const navigate = useNavigate();
   const location = useLocation();
   /** Evita doble disparo en el mismo render; se resetea cuando la URL deja de tener ?generate=1 (no usar solo location.key: puede ser undefined y bloquear visitas repetidas). */
@@ -177,6 +195,15 @@ export default function ProdePage() {
     () => sections.filter((s) => !s.id.startsWith("group-")),
     [sections]
   );
+
+  const predictionStats = useMemo(() => {
+    if (matches.length === 0) return null;
+    let predicted = 0;
+    for (const m of matches) {
+      if (predictions[m.id]) predicted++;
+    }
+    return { predicted, total: matches.length };
+  }, [matches, predictions]);
 
   const bestThirds = useMemo(() => {
     const groups = groupSections
@@ -221,7 +248,7 @@ export default function ProdePage() {
         setChampionPrediction(champRes.championPrediction);
         setLabGuidelines(normalizeGuidelinesResponse(guidelinesRes));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar");
+        setError(formatApiError(err));
       } finally {
         setLoading(false);
       }
@@ -260,13 +287,14 @@ export default function ProdePage() {
           return next;
         });
         if (newChamp) setChampionPrediction(newChamp);
+        showFlash("Predicciones generadas y guardadas correctamente.", "success");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al generar predicciones");
+        setError(formatApiError(err));
       } finally {
         setGenerating(false);
       }
     },
-    [labGuidelines]
+    [labGuidelines, showFlash]
   );
 
   useEffect(() => {
@@ -307,19 +335,12 @@ export default function ProdePage() {
   ]);
 
   if (loading) {
-    return (
-      <div className="page-content">
-        <div className="app-loading">
-          <div className="spinner" />
-          <p>Cargando partidos…</p>
-        </div>
-      </div>
-    );
+    return <ProdePageSkeleton />;
   }
 
   const prodeGenerateBlock =
     currentPhase ? (
-      <div className="prode-generate-panel prode-generate-above-cards">
+      <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
         {!hasLabGuidelinesForCurrentPhase && (
           <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
             Aún <strong>no has guardado pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
@@ -353,7 +374,7 @@ export default function ProdePage() {
         <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
       </div>
     ) : (
-      <div className="prode-generate-panel prode-generate-above-cards">
+      <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
         <p className="prode-deadline prode-deadline-passed">
           Ya no se pueden cargar predicciones. Todas las fases han cerrado.
         </p>
@@ -361,14 +382,56 @@ export default function ProdePage() {
     );
 
   return (
-    <div className="page-content page-content--prode">
-      <h1>Prode FIFA 2026</h1>
-      <p className="page-subtitle">
-        Genera predicciones con IA usando las pautas por etapa que guardas en el Laboratorio. Recuerda que tienes
-        tiempo hasta una hora antes de que comience cada etapa para ajustar tu prompt.
-      </p>
+    <div className="page-content page-content--prode prode-page">
+      <header className="prode-page-header">
+        <h1>Prode FIFA 2026</h1>
+        <p className="page-subtitle prode-page-subtitle">
+          Generá predicciones con IA usando las pautas por etapa del Laboratorio. Tenés tiempo hasta una hora antes
+          del primer partido de cada fase para generar o regenerar.
+        </p>
+        {predictionStats && (
+          <p className="prode-progress-summary" role="status">
+            <strong>
+              {predictionStats.predicted}/{predictionStats.total}
+            </strong>{" "}
+            partidos con predicción guardada
+            {predictionStats.predicted < predictionStats.total && (
+              <span className="prode-progress-hint"> — completá el resto generando por fase o cuando publiquen más partidos.</span>
+            )}
+          </p>
+        )}
+        {matches.length > 0 && (
+          <nav className="prode-toolbar" aria-label="Saltar a sección">
+            <span className="prode-toolbar-label">Ir a:</span>
+            <ul className="prode-toolbar-list">
+              <li>
+                <a href="#prode-generate-section">Generar con IA</a>
+              </li>
+              {groupSections.length > 0 && (
+                <li>
+                  <a href="#prode-sim-groups-heading">Fase de grupos</a>
+                </li>
+              )}
+              {knockoutSections.length > 0 && (
+                <li>
+                  <a href="#prode-eliminatorias">Eliminatorias</a>
+                </li>
+              )}
+              {championPrediction && (
+                <li>
+                  <a href="#prode-campeon">Campeón</a>
+                </li>
+              )}
+            </ul>
+          </nav>
+        )}
+      </header>
 
-      {error && <div className="auth-error">{error}</div>}
+      {error ? (
+        <div className="auth-error" role="alert">
+          {error}
+        </div>
+      ) : null}
 
       {matches.length === 0 && !loading && (
         <div className="prode-seed-hint" role="status">
@@ -472,7 +535,7 @@ npx prisma db seed`}
         })}
 
         {championPrediction && (
-          <>
+          <div id="prode-campeon" className="prode-champion-block">
             <div className="prode-champion-card prode-actions-full prode-champion-card-gold">
               <h3 className="prode-champion-title"><span className="prode-emoji">🏆</span> Campeón</h3>
               <div className="prode-champion-team">
@@ -485,7 +548,7 @@ npx prisma db seed`}
                 <span className="prode-flag">{getFlag(championPrediction.runnerUp)}</span> {championPrediction.runnerUp}
               </div>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

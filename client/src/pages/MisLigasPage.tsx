@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useFlash } from "../contexts/FlashContext";
@@ -10,6 +10,7 @@ import type {
   MyCompetitionSummary,
   ResultsDashboard,
 } from "../lib/api";
+import { EmptyState } from "../components/EmptyState";
 import {
   createCompetition,
   fetchCompetitionDetail,
@@ -59,13 +60,118 @@ function maxMembersBounds(q: CompetitionQuota): { min: number; max: number } {
   return { min: 2, max: 500 };
 }
 
-function AvatarMini({ label }: { label: string }) {
+function AvatarMini({ label, place }: { label: string; place?: 1 | 2 | 3 }) {
   const t = label.trim() || "?";
   const initials = t.length <= 2 ? t.toUpperCase() : (t[0] + (t[t.length - 1] ?? "")).toUpperCase();
+  const placeCls = place ? ` ligas-avatar-mini--p${place}` : "";
   return (
-    <span className="ligas-avatar-mini" title={label}>
+    <span className={`ligas-avatar-mini${placeCls}`} title={label}>
       {initials}
     </span>
+  );
+}
+
+function RankDelta({ change }: { change: number }) {
+  if (change > 0) return <span className="ligas-rank-delta ligas-rank-delta--up" aria-label={`Subió ${change} puestos`}>↑{change}</span>;
+  if (change < 0) return <span className="ligas-rank-delta ligas-rank-delta--down" aria-label={`Bajó ${Math.abs(change)} puestos`}>↓{Math.abs(change)}</span>;
+  return <span className="ligas-rank-delta ligas-rank-delta--same">—</span>;
+}
+
+function LeaveLeagueModal({
+  open,
+  leagueName,
+  onClose,
+  onConfirm,
+  loading,
+  variant,
+}: {
+  open: boolean;
+  leagueName: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+  variant: "card" | "detail";
+}) {
+  const titleId = useId();
+  useEscapeKey(open, onClose);
+  if (!open) return null;
+  const desc =
+    variant === "detail"
+      ? "Si sos el último miembro, la liga se elimina. Tu posición en este grupo dejará de mostrarse."
+      : "Vas a dejar de aparecer en el ranking de esta liga. Podés volver a unirte solo con una nueva invitación o código.";
+  return (
+    <div className="ligas-modal-backdrop" role="presentation" onClick={onClose}>
+      <div
+        className="ligas-modal ligas-modal--confirm"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id={titleId} className="ligas-modal-title">
+          ¿Salir de «{leagueName}»?
+        </h2>
+        <p className="ligas-modal-lead">{desc}</p>
+        <div className="ligas-modal-actions">
+          <button type="button" className="btn-secondary" onClick={onClose} disabled={loading}>
+            Cancelar
+          </button>
+          <button type="button" className="btn-primary" onClick={onConfirm} disabled={loading}>
+            {loading ? "Saliendo…" : "Sí, salir de la liga"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LigasHomeSkeleton() {
+  return (
+    <div className="page-content ligas-page ligas-community ligas-home-skeleton" aria-busy="true" aria-label="Cargando ligas">
+      <div className="ligas-skeleton-hero">
+        <div className="skeleton skeleton-line ligas-sk-title" />
+        <div className="skeleton skeleton-line ligas-sk-lead" />
+      </div>
+      <div className="ligas-global-actions ligas-global-actions--skeleton">
+        <div className="skeleton skeleton-block ligas-sk-actions" />
+      </div>
+      <div className="ligas-cards-grid">
+        {[1, 2, 3].map((k) => (
+          <div key={k} className="liga-card liga-card--skeleton">
+            <div className="skeleton skeleton-block liga-card-sk-visual" />
+            <div className="liga-card-body">
+              <div className="skeleton skeleton-line ligas-sk-line" />
+              <div className="skeleton skeleton-line ligas-sk-line-short" />
+              <div className="liga-card-sk-podium">
+                <span className="skeleton skeleton-block ligas-sk-av" />
+                <span className="skeleton skeleton-block ligas-sk-av" />
+                <span className="skeleton skeleton-block ligas-sk-av" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LigasDetailSkeleton() {
+  return (
+    <div className="page-content ligas-page ligas-detail-page ligas-detail-skeleton" aria-busy="true" aria-label="Cargando liga">
+      <div className="skeleton skeleton-line ligas-sk-crumb" />
+      <div className="ligas-detail-header">
+        <div className="skeleton skeleton-block ligas-sk-cover" />
+        <div className="ligas-sk-head-text">
+          <div className="skeleton skeleton-line ligas-sk-h1" />
+          <div className="skeleton skeleton-line ligas-sk-meta" />
+        </div>
+      </div>
+      <div className="ligas-tabs ligas-tabs--skeleton">
+        <div className="skeleton skeleton-line ligas-sk-tab" />
+        <div className="skeleton skeleton-line ligas-sk-tab" />
+      </div>
+      <div className="skeleton skeleton-block ligas-sk-panel" />
+    </div>
   );
 }
 
@@ -78,6 +184,8 @@ export default function MisLigasPage() {
 }
 
 function LigasCommunityHome() {
+  const { showFlash } = useFlash();
+  const joinInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<MineCompetitionsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -87,6 +195,11 @@ function LigasCommunityHome() {
   const [joinBusy, setJoinBusy] = useState(false);
   const [joinMsg, setJoinMsg] = useState("");
   const navigate = useNavigate();
+
+  function focusJoinCode() {
+    document.getElementById("ligas-unirse")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    window.setTimeout(() => joinInputRef.current?.focus(), 300);
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -126,10 +239,11 @@ function LigasCommunityHome() {
       const r = await joinCompetitionByCode(raw);
       const cid = r.competitionId;
       if ("alreadyMember" in r && r.alreadyMember) {
-        setJoinMsg("Ya participás de esa liga.");
+        showFlash("Ya participás de esa liga. Te llevamos al detalle.", "info");
         navigate(`/app/ligas/${cid}`);
         return;
       }
+      showFlash("Te uniste a la liga.", "success");
       await load();
       navigate(`/app/ligas/${cid}`);
     } catch (err) {
@@ -140,14 +254,7 @@ function LigasCommunityHome() {
   }
 
   if (loading && !data) {
-    return (
-      <div className="page-content">
-        <div className="app-loading">
-          <div className="spinner" />
-          <p>Cargando…</p>
-        </div>
-      </div>
-    );
+    return <LigasHomeSkeleton />;
   }
 
   const q = data?.quota;
@@ -185,27 +292,35 @@ function LigasCommunityHome() {
           </p>
         )}
 
-        <form className="ligas-join-form" onSubmit={handleJoin}>
-          <label className="ligas-join-label">
-            <span className="ligas-join-title">Unirse con código</span>
-            <span className="ligas-join-desc">Pegá el código alfanumérico (ej. MUNDIAL-IA-A1B2C3) que te pasó un amigo.</span>
-          </label>
-          <div className="ligas-join-row">
-            <input
-              type="text"
-              className="ligas-join-input"
-              value={joinCode}
-              onChange={(e) => setJoinCode(e.target.value)}
-              placeholder="MUNDIAL-IA-…"
-              autoComplete="off"
-              spellCheck={false}
-            />
-            <button type="submit" className="btn-secondary" disabled={joinBusy}>
-              {joinBusy ? "Uniendo…" : "Unirme"}
-            </button>
-          </div>
-          {joinMsg && <p className="ligas-join-msg">{joinMsg}</p>}
-        </form>
+        <div className="ligas-join-card" id="ligas-unirse">
+          <form className="ligas-join-form" onSubmit={handleJoin} aria-describedby={joinMsg ? "ligas-join-err" : undefined}>
+            <label className="ligas-join-label" htmlFor="ligas-join-input">
+              <span className="ligas-join-title">Unirse con código</span>
+              <span className="ligas-join-desc">Pegá el código alfanumérico (ej. MUNDIAL-IA-A1B2C3) que te pasó un amigo.</span>
+            </label>
+            <div className="ligas-join-row">
+              <input
+                id="ligas-join-input"
+                ref={joinInputRef}
+                type="text"
+                className="ligas-join-input"
+                value={joinCode}
+                onChange={(e) => setJoinCode(e.target.value)}
+                placeholder="MUNDIAL-IA-…"
+                autoComplete="off"
+                spellCheck={false}
+              />
+              <button type="submit" className="btn-secondary" disabled={joinBusy}>
+                {joinBusy ? "Uniendo…" : "Unirme"}
+              </button>
+            </div>
+            {joinMsg ? (
+              <p id="ligas-join-err" className="ligas-join-msg ligas-join-msg--error" role="alert">
+                {joinMsg}
+              </p>
+            ) : null}
+          </form>
+        </div>
       </section>
 
       <section className="ligas-active-section" aria-labelledby="ligas-activas-heading">
@@ -213,7 +328,26 @@ function LigasCommunityHome() {
           Mis ligas activas
         </h2>
         {competitions.length === 0 ? (
-          <p className="ligas-empty">Todavía no estás en ninguna liga.</p>
+          <EmptyState
+            title="Todavía no estás en ninguna liga"
+            description="Creá una para invitar a tu grupo o unite con el código que te compartieron."
+            action={
+              <>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setModalOpen(true)}
+                  disabled={!createAllowed}
+                  title={!createAllowed && q ? "Llegaste al máximo de ligas que podés crear." : undefined}
+                >
+                  Crear mi primera liga
+                </button>
+                <button type="button" className="btn-secondary" onClick={focusJoinCode}>
+                  Tengo un código
+                </button>
+              </>
+            }
+          />
         ) : (
           <div className="ligas-cards-grid">
             {competitions.map((c) => (
@@ -240,13 +374,9 @@ function LigasCommunityHome() {
 function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => void }) {
   const navigate = useNavigate();
   const { showFlash } = useFlash();
-  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const { card } = row;
-  const pos =
-    card.myRank != null && card.totalParticipants > 0
-      ? `Estás ${card.myRank}º de ${card.totalParticipants} participantes`
-      : "Sin posición aún (faltan resultados o predicciones)";
 
   const top = card.topThree;
   const fillers = [0, 1, 2].map((i) => top[i] ?? null);
@@ -255,7 +385,7 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
     setLeaving(true);
     try {
       await leaveCompetition(row.id);
-      setConfirmLeave(false);
+      setLeaveOpen(false);
       onLeft();
     } catch (e) {
       showFlash(formatApiError(e), "error");
@@ -278,11 +408,27 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
       <div className="liga-card-body">
         <h3 className="liga-card-title">{row.name}</h3>
         {row.description && <p className="liga-card-rules">{row.description}</p>}
-        <p className="liga-card-position">{pos}</p>
+        <div className="liga-card-rank-row">
+          {card.myRank != null && card.totalParticipants > 0 ? (
+            <>
+              <span
+                className="liga-card-rank-badge"
+                aria-label={`Tu puesto: ${card.myRank} de ${card.totalParticipants}`}
+              >
+                <span className="liga-card-rank-num">{card.myRank}</span>
+                <span className="liga-card-rank-sep">/</span>
+                <span className="liga-card-rank-total">{card.totalParticipants}</span>
+              </span>
+              <span className="liga-card-rank-label">Tu puesto</span>
+            </>
+          ) : (
+            <span className="liga-card-rank-muted">Sin posición aún (faltan resultados o predicciones)</span>
+          )}
+        </div>
         <div className="liga-card-podium" aria-label="Top 3">
           {fillers.map((p, i) =>
             p ? (
-              <AvatarMini key={`${p.userId}-${i}`} label={p.displayLabel} />
+              <AvatarMini key={`${p.userId}-${i}`} label={p.displayLabel} place={(i + 1) as 1 | 2 | 3} />
             ) : (
               <span key={`empty-${i}`} className="liga-card-podium-empty">
                 —
@@ -294,27 +440,24 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
           <button type="button" className="btn-primary btn-sm" onClick={() => navigate(`/app/ligas/${row.id}`)}>
             Ver tabla
           </button>
-          {!confirmLeave ? (
-            <button type="button" className="liga-card-leave" onClick={() => setConfirmLeave(true)} title="Abandonar liga">
-              Abandonar
-            </button>
-          ) : (
-            <span className="liga-card-leave-confirm">
-              <button type="button" className="btn-sm btn-primary" disabled={leaving} onClick={handleLeave}>
-                Confirmar
-              </button>
-              <button type="button" className="btn-sm btn-secondary" onClick={() => setConfirmLeave(false)}>
-                Cancelar
-              </button>
-            </span>
-          )}
+          <button
+            type="button"
+            className="liga-card-leave"
+            onClick={() => setLeaveOpen(true)}
+            title="Abandonar liga"
+          >
+            Abandonar
+          </button>
         </div>
-        {confirmLeave && (
-          <p className="liga-card-leave-warning" role="alert">
-            ¿Seguro que querés darte de baja? Perderás tu progreso en este grupo (la posición en esta liga).
-          </p>
-        )}
       </div>
+      <LeaveLeagueModal
+        open={leaveOpen}
+        leagueName={row.name}
+        onClose={() => !leaving && setLeaveOpen(false)}
+        onConfirm={handleLeave}
+        loading={leaving}
+        variant="card"
+      />
     </article>
   );
 }
@@ -342,6 +485,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [leaving, setLeaving] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -369,14 +513,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
     };
   }, [competitionId]);
 
-  async function handleLeave() {
-    if (
-      !window.confirm(
-        "¿Salir de esta liga? Si sos el último miembro, la liga se elimina. Tu progreso en el grupo dejará de mostrarse."
-      )
-    ) {
-      return;
-    }
+  async function confirmLeaveDetail() {
     setLeaving(true);
     try {
       await leaveCompetition(competitionId);
@@ -385,18 +522,12 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       showFlash(formatApiError(e), "error");
     } finally {
       setLeaving(false);
+      setLeaveOpen(false);
     }
   }
 
   if (loading) {
-    return (
-      <div className="page-content">
-        <div className="app-loading">
-          <div className="spinner" />
-          <p>Cargando…</p>
-        </div>
-      </div>
-    );
+    return <LigasDetailSkeleton />;
   }
 
   if (error || !detail) {
@@ -472,6 +603,24 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
           <p className="ligas-tab-lead">
             Mismas predicciones que en el global; acá el puntaje es solo entre miembros de esta liga.
           </p>
+          {block ? (
+            <div className="ligas-your-rank-strip" role="region" aria-label="Tu posición en esta liga">
+              <div className="ligas-your-rank-main">
+                <span className="ligas-your-rank-label">Tu lugar en esta liga</span>
+                {block.myRank != null && block.totalParticipants > 0 ? (
+                  <p className="ligas-your-rank-value">
+                    <strong>#{block.myRank}</strong>
+                    <span className="ligas-your-rank-of"> de {block.totalParticipants} participantes</span>
+                    <RankDelta change={block.rankChange} />
+                  </p>
+                ) : (
+                  <p className="ligas-your-rank-muted">
+                    Aún sin posición: cuando haya resultados en el torneo, tu puesto aparecerá aquí y en la tabla.
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : null}
           {block && block.leaderboard.length > 0 ? (
             <div className="ligas-table-wrap">
               <table className="ligas-table">
@@ -494,7 +643,10 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
               </table>
             </div>
           ) : (
-            <p className="ligas-empty">Aún no hay datos de ranking para esta liga.</p>
+            <EmptyState
+              title="Todavía no hay ranking en esta liga"
+              description="Cuando se publiquen resultados de partidos y los miembros tengan predicciones, la tabla se completará automáticamente."
+            />
           )}
           <Link to="/app/resultados" className="ligas-link-results">
             Ver también en Mis resultados (todas las ligas)
@@ -528,10 +680,19 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       )}
 
       <footer className="ligas-detail-footer">
-        <button type="button" className="btn-text-danger" disabled={leaving} onClick={handleLeave}>
-          {leaving ? "Saliendo…" : "Abandonar liga"}
+        <button type="button" className="btn-text-danger" disabled={leaving} onClick={() => setLeaveOpen(true)}>
+          Abandonar liga
         </button>
       </footer>
+
+      <LeaveLeagueModal
+        open={leaveOpen}
+        leagueName={competition.name}
+        onClose={() => !leaving && setLeaveOpen(false)}
+        onConfirm={confirmLeaveDetail}
+        loading={leaving}
+        variant="detail"
+      />
     </div>
   );
 }

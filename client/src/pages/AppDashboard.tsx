@@ -80,6 +80,94 @@ function UsersLeagueIcon() {
   );
 }
 
+function UserCircleIcon() {
+  return (
+    <span className="card-icon-svg" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+      </svg>
+    </span>
+  );
+}
+
+function DashboardNextStep({
+  prodeStatus,
+}: {
+  prodeStatus: { hasGuidelines: boolean; hasPredictions: boolean; guidelinesVersion: number } | null;
+}) {
+  if (!prodeStatus) return null;
+
+  if (!prodeStatus.hasGuidelines) {
+    return (
+      <section className="dashboard-next dashboard-next--accent" aria-labelledby="dashboard-next-title">
+        <h2 id="dashboard-next-title" className="dashboard-next-title">
+          Primer paso
+        </h2>
+        <p className="dashboard-next-desc">
+          Definí las instrucciones de tu IA en el Laboratorio; después podrás generar predicciones para los partidos.
+        </p>
+        <Link to="/app/ia" className="btn-primary">
+          Ir al Laboratorio de prompts
+        </Link>
+      </section>
+    );
+  }
+
+  if (!prodeStatus.hasPredictions) {
+    return (
+      <section className="dashboard-next" aria-labelledby="dashboard-next-title">
+        <h2 id="dashboard-next-title" className="dashboard-next-title">
+          Siguiente paso
+        </h2>
+        <p className="dashboard-next-desc">
+          Ya tenés el modelo «DataExpert_v{prodeStatus.guidelinesVersion}». Generá o revisá tus predicciones en Mis predicciones.
+        </p>
+        <Link to="/app/prode" className="btn-primary">
+          Ir a Mis predicciones
+        </Link>
+      </section>
+    );
+  }
+
+  return (
+    <section className="dashboard-next dashboard-next--muted" aria-labelledby="dashboard-next-title">
+      <h2 id="dashboard-next-title" className="dashboard-next-title">
+        Todo listo por ahora
+      </h2>
+      <p className="dashboard-next-desc">
+        Revisá tu puntaje global, competí en ligas con tu grupo o afiná el modelo en el Laboratorio si querés cambiar la lógica.
+      </p>
+      <div className="dashboard-next-actions">
+        <Link to="/app/resultados" className="btn-secondary">
+          Ver Mis resultados
+        </Link>
+        <Link to="/app/ligas" className="btn-secondary">
+          Ligas &amp; Comunidad
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function DashboardSkeleton() {
+  return (
+    <div className="dashboard dashboard-skeleton" aria-busy="true" aria-label="Cargando tu resumen">
+      <div className="skeleton skeleton-line dashboard-sk-welcome" />
+      <div className="skeleton skeleton-line dashboard-sk-status" />
+      <div className="skeleton skeleton-block dashboard-sk-next" />
+      <div className="skeleton skeleton-block dashboard-sk-hero" />
+      <div className="skeleton skeleton-block dashboard-sk-tip" />
+      <div className="dashboard-sk-cards">
+        <div className="skeleton skeleton-block dashboard-sk-card" />
+        <div className="skeleton skeleton-block dashboard-sk-card" />
+        <div className="skeleton skeleton-block dashboard-sk-card" />
+        <div className="skeleton skeleton-block dashboard-sk-card" />
+      </div>
+    </div>
+  );
+}
+
 export default function AppDashboard() {
   const { user } = useAuth();
   const [prodeStatus, setProdeStatus] = useState<{ hasGuidelines: boolean; hasPredictions: boolean; guidelinesVersion: number } | null>(null);
@@ -115,19 +203,27 @@ export default function AppDashboard() {
     return "Predicciones ya generadas.";
   }
 
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
+
   return (
     <div className="dashboard">
-      <h1 className="dashboard-welcome">
-        Hola, {displayName} <WaveIcon />
-      </h1>
-      {!loading && (
+      <header className="dashboard-header-block">
+        <h1 className="dashboard-welcome">
+          Hola, {displayName} <WaveIcon />
+        </h1>
         <p className="dashboard-model-status">
-          Estado del Modelo: {getModelStatusText()}
+          <span className="dashboard-model-status-label">Estado del modelo:</span> {getModelStatusText()}
         </p>
-      )}
+      </header>
 
-      <section className="dashboard-hero">
-        <h2 className="dashboard-hero-title">Laboratorio de Prompts</h2>
+      <DashboardNextStep prodeStatus={prodeStatus} />
+
+      <section className="dashboard-hero" aria-labelledby="dashboard-hero-heading">
+        <h2 id="dashboard-hero-heading" className="dashboard-hero-title">
+          Laboratorio de Prompts
+        </h2>
         <p className="dashboard-hero-desc">
           Diseña la lógica de tu IA para generar tus predicciones del Mundial.
         </p>
@@ -136,41 +232,53 @@ export default function AppDashboard() {
         </Link>
       </section>
 
-      <div className="dashboard-tip">
-        <span className="dashboard-tip-label">Tip del día</span>
+      <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
+        <span id="dashboard-tip-label" className="dashboard-tip-label">
+          Tip del día
+        </span>
         <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
-      </div>
+      </section>
 
-      <div className="dashboard-cards">
-        <div className="dashboard-card dashboard-card-score">
-          <TrophyIcon />
-          <span className="dashboard-score-value">
-            {worldCupStarted && totalHits !== null
-              ? totalHits
-              : getCurrentPhase()
-                ? `Faltan ${formatDaysLeft(getCurrentPhase()!.deadline)} días`
-                : "Cerrado"}
-          </span>
-          <span className="dashboard-score-label">
-            {worldCupStarted ? "Puntaje" : "Para el cierre de carga"}
-          </span>
+      <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
+        <h2 id="dashboard-cards-heading" className="dashboard-section-heading">
+          Accesos rápidos
+        </h2>
+        <div className="dashboard-cards">
+          <div className="dashboard-card dashboard-card-score">
+            <TrophyIcon />
+            <span className="dashboard-score-value">
+              {worldCupStarted && totalHits !== null
+                ? totalHits
+                : getCurrentPhase()
+                  ? `Faltan ${formatDaysLeft(getCurrentPhase()!.deadline)} días`
+                  : "Cerrado"}
+            </span>
+            <span className="dashboard-score-label">
+              {worldCupStarted ? "Puntaje global" : "Para el cierre de carga"}
+            </span>
+          </div>
+          <Link to="/app/prode" className="dashboard-card">
+            <FootballIcon />
+            <h3>Mis predicciones</h3>
+            <p>Partidos y marcadores que generó tu IA</p>
+          </Link>
+          <Link to="/app/resultados" className="dashboard-card">
+            <ChartIcon />
+            <h3>Mis resultados</h3>
+            <p>Puntaje y posición en el ranking de la empresa</p>
+          </Link>
+          <Link to="/app/ligas" className="dashboard-card">
+            <UsersLeagueIcon />
+            <h3>Ligas &amp; Comunidad</h3>
+            <p>Ligas privadas, códigos de invitación y ranking por grupo</p>
+          </Link>
+          <Link to="/app/perfil" className="dashboard-card">
+            <UserCircleIcon />
+            <h3>Mi usuario</h3>
+            <p>Datos de cuenta, alias en rankings y cierre de sesión</p>
+          </Link>
         </div>
-        <Link to="/app/prode" className="dashboard-card">
-          <FootballIcon />
-          <h3>Mis predicciones</h3>
-          <p>Ver los resultados que generó tu IA para los próximos partidos</p>
-        </Link>
-        <Link to="/app/resultados" className="dashboard-card">
-          <ChartIcon />
-          <h3>Mis resultados</h3>
-          <p>Tu puntaje actual y posición en el ranking de la empresa</p>
-        </Link>
-        <Link to="/app/ligas" className="dashboard-card">
-          <UsersLeagueIcon />
-          <h3>Ligas &amp; Comunidad</h3>
-          <p>Crear o unirte por código, invitar y ver el ranking por grupo</p>
-        </Link>
-      </div>
+      </section>
     </div>
   );
 }

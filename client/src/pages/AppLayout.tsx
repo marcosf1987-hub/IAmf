@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import { useEscapeKey } from "../hooks/useEscapeKey";
 
 function appNavLinkClass(pathname: string, to: string): string {
   if (to === "/app") {
@@ -16,10 +17,18 @@ export default function AppLayout() {
   const { user, loading, logout } = useAuth();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuFirstLinkRef = useRef<HTMLAnchorElement>(null);
+
+  useEscapeKey(menuOpen, () => setMenuOpen(false));
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (menuOpen) {
       document.body.style.overflow = "hidden";
+      menuFirstLinkRef.current?.focus({ preventScroll: true });
     } else {
       document.body.style.overflow = "";
     }
@@ -57,6 +66,7 @@ export default function AppLayout() {
           onClick={() => setMenuOpen((o) => !o)}
           aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={menuOpen}
+          aria-controls="app-header-menu-panel"
         >
           <span className={menuOpen ? "icon-close" : "icon-menu"} />
         </button>
@@ -67,9 +77,13 @@ export default function AppLayout() {
             aria-hidden="true"
           />
         )}
-        <div className={`app-header-menu ${menuOpen ? "app-header-menu-open" : ""}`}>
+        <div
+          id="app-header-menu-panel"
+          className={`app-header-menu ${menuOpen ? "app-header-menu-open" : ""}`}
+        >
           <nav className="app-nav" aria-label="Secciones principales">
             <Link
+              ref={menuFirstLinkRef}
               to="/app"
               className={appNavLinkClass(pathname, "/app")}
               onClick={() => setMenuOpen(false)}

@@ -718,6 +718,10 @@ button:focus:not(:focus-visible) {
   border-bottom: 1px solid var(--border);
   background: var(--bg);
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.06);
 }
 
 @media (max-width: 768px) {
@@ -836,6 +840,13 @@ button:focus:not(:focus-visible) {
 .app-nav a.app-nav-link--current {
   color: var(--accent);
   font-weight: 600;
+}
+
+@media (max-width: 1100px) {
+  .app-nav {
+    gap: 1.1rem;
+    flex-wrap: wrap;
+  }
 }
 
 .app-header-right {
@@ -1150,6 +1161,103 @@ button:focus:not(:focus-visible) {
   line-height: 1.5;
 }
 
+.dashboard-header-block {
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-model-status-label {
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.dashboard-next {
+  margin-bottom: 2rem;
+  padding: 1.25rem 1.5rem;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.dashboard-next--accent {
+  border-color: var(--accent-border);
+  background: var(--accent-dim);
+}
+
+.dashboard-next--muted {
+  background: var(--bg-input);
+}
+
+.dashboard-next-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-next-desc {
+  margin: 0 0 1rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+  max-width: 40rem;
+}
+
+.dashboard-next-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.dashboard-section-heading {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+  letter-spacing: 0.02em;
+}
+
+.dashboard-cards-wrap {
+  width: 100%;
+}
+
+.dashboard-skeleton .dashboard-sk-welcome {
+  width: min(22rem, 85%);
+  height: 2.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.dashboard-skeleton .dashboard-sk-status {
+  width: min(28rem, 95%);
+  height: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-skeleton .dashboard-sk-next {
+  height: 7rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-skeleton .dashboard-sk-hero {
+  height: 10rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-skeleton .dashboard-sk-tip {
+  height: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-sk-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.dashboard-sk-card {
+  min-height: 8rem;
+}
+
 /* Page content */
 .page-content {
   width: 100%;
@@ -1162,6 +1270,120 @@ button:focus:not(:focus-visible) {
 /* Prode: más ancho para el grid de grupos (12 tarjetas) */
 .page-content--prode {
   max-width: 1320px;
+}
+
+.prode-page-header {
+  width: 100%;
+  margin-bottom: 0.25rem;
+}
+
+.prode-page-subtitle {
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prode-progress-summary {
+  margin: 0.75rem auto 1rem;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 36rem;
+  line-height: 1.45;
+}
+
+.prode-progress-summary strong {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.prode-progress-hint {
+  font-weight: 400;
+  color: var(--text-muted);
+  opacity: 0.95;
+}
+
+.prode-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 1rem;
+  margin: 0 0 1.25rem;
+  padding: 0.65rem 1rem;
+  border: 1px dashed var(--border);
+  background: rgba(0, 0, 0, 0.15);
+  font-size: 0.85rem;
+}
+
+.prode-toolbar-label {
+  color: var(--text-muted);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+}
+
+.prode-toolbar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: center;
+}
+
+.prode-toolbar-list a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.prode-toolbar-list a:hover {
+  color: var(--text);
+}
+
+.prode-champion-block {
+  scroll-margin-top: 5rem;
+}
+
+#prode-generate-section,
+#prode-sim-groups-heading,
+#prode-eliminatorias,
+#prode-campeon {
+  scroll-margin-top: 5rem;
+}
+
+.prode-sk-title {
+  width: min(18rem, 70%);
+  height: 2rem;
+  margin: 0 auto 1rem;
+}
+
+.prode-sk-sub {
+  width: min(36rem, 95%);
+  height: 0.9rem;
+  margin: 0 auto 1.5rem;
+}
+
+.prode-sk-generate {
+  height: 8rem;
+  margin-bottom: 1.5rem;
+  max-width: 48rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.prode-sk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+  width: 100%;
+}
+
+.prode-sk-card {
+  min-height: 12rem;
 }
 
 .page-content h1 {
@@ -1511,9 +1733,16 @@ button:focus:not(:focus-visible) {
   flex-wrap: wrap;
 }
 
+/* Banderas emoji: Syne/DM Sans no pintan secuencias regionales; en Windows desktop hace falta pila emoji explícita */
 .prode-flag {
   margin-right: 0.35rem;
-  font-size: 1.1em;
+  font-size: 1.15em;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  font-family: "Segoe UI Emoji", "Segoe UI Symbol", "Apple Color Emoji", "Noto Color Emoji", "Twemoji Mozilla",
+    emoji, sans-serif;
+  font-variant-emoji: emoji;
 }
 
 .prode-vs {
@@ -1688,6 +1917,9 @@ button:focus:not(:focus-visible) {
 .prode-standings-table .prode-stand-team .prode-flag {
   flex-shrink: 0;
   line-height: 1;
+  min-width: 1.35em;
+  font-size: 1.2em;
+  text-align: center;
 }
 
 .prode-standings-table .prode-stand-team-name {
@@ -2394,6 +2626,11 @@ button:focus:not(:focus-visible) {
   justify-content: flex-end;
   gap: 0.75rem;
   margin-top: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.ligas-modal--confirm {
+  max-width: 22rem;
 }
 
 .ligas-breadcrumb {
@@ -2490,8 +2727,7 @@ button:focus:not(:focus-visible) {
 }
 
 .ligas-join-form {
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
+  margin: 0;
 }
 
 .ligas-join-label {
@@ -2532,11 +2768,124 @@ button:focus:not(:focus-visible) {
 .ligas-join-msg {
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
+}
+
+.ligas-join-msg--error {
   color: var(--error);
+}
+
+.ligas-join-card {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
 }
 
 .ligas-active-section {
   margin-top: 0.5rem;
+}
+
+.ligas-active-section .empty-state {
+  max-width: none;
+  width: 100%;
+}
+
+.ligas-home-skeleton .ligas-skeleton-hero {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.ligas-sk-title {
+  width: 70%;
+  max-width: 20rem;
+  height: 2rem;
+  margin: 0 auto 0.75rem;
+}
+
+.ligas-sk-lead {
+  width: 90%;
+  max-width: 36rem;
+  height: 0.85rem;
+  margin: 0 auto;
+}
+
+.ligas-global-actions--skeleton {
+  padding: 1.5rem;
+}
+
+.ligas-sk-actions {
+  height: 5.5rem;
+  border-radius: 2px;
+}
+
+.liga-card--skeleton .liga-card-sk-visual {
+  height: 100px;
+}
+
+.ligas-sk-line {
+  height: 0.95rem;
+  margin-bottom: 0.5rem;
+}
+
+.ligas-sk-line-short {
+  width: 65%;
+  height: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.liga-card-sk-podium {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: auto;
+}
+
+.ligas-sk-av {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+}
+
+.ligas-detail-skeleton .ligas-sk-crumb {
+  width: 55%;
+  height: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.ligas-detail-skeleton .ligas-sk-cover {
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+}
+
+.ligas-sk-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ligas-sk-h1 {
+  height: 1.35rem;
+  width: 70%;
+  margin-bottom: 0.65rem;
+}
+
+.ligas-sk-meta {
+  height: 0.8rem;
+  width: 45%;
+}
+
+.ligas-tabs--skeleton {
+  border-bottom: none;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.ligas-sk-tab {
+  width: 6rem;
+  height: 2rem;
+}
+
+.ligas-sk-panel {
+  min-height: 12rem;
+  border-radius: 2px;
 }
 
 .ligas-cards-grid {
@@ -2594,9 +2943,51 @@ button:focus:not(:focus-visible) {
   line-height: 1.4;
 }
 
-.liga-card-position {
-  font-size: 0.88rem;
-  margin: 0.25rem 0 0;
+.liga-card-rank-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0.35rem 0 0;
+  min-height: 1.5rem;
+}
+
+.liga-card-rank-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.1rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 2px;
+  background: var(--accent-dim);
+  border: 1px solid var(--accent-border);
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.liga-card-rank-sep {
+  font-weight: 500;
+  opacity: 0.65;
+  font-size: 0.85rem;
+}
+
+.liga-card-rank-total {
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.liga-card-rank-label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.liga-card-rank-muted {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  line-height: 1.35;
 }
 
 .liga-card-podium {
@@ -2619,6 +3010,19 @@ button:focus:not(:focus-visible) {
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--accent);
+}
+
+.ligas-avatar-mini--p1 {
+  border-color: #c9a962;
+  box-shadow: 0 0 0 1px rgba(201, 169, 98, 0.35);
+}
+
+.ligas-avatar-mini--p2 {
+  border-color: #9aa3ad;
+}
+
+.ligas-avatar-mini--p3 {
+  border-color: #b87333;
 }
 
 .liga-card-podium-empty {
@@ -2765,6 +3169,66 @@ button:focus:not(:focus-visible) {
 
 .ligas-row-me {
   background: var(--accent-dim);
+}
+
+.ligas-your-rank-strip {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  padding: 0.85rem 1rem;
+  margin-bottom: 1rem;
+  border-radius: 2px;
+}
+
+.ligas-your-rank-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.ligas-your-rank-value {
+  margin: 0;
+  font-size: 0.95rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ligas-your-rank-of {
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.ligas-your-rank-muted {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ligas-rank-delta {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.1rem 0.35rem;
+  border-radius: 2px;
+}
+
+.ligas-rank-delta--up {
+  color: #6abf69;
+  background: rgba(106, 191, 105, 0.12);
+}
+
+.ligas-rank-delta--down {
+  color: #e07a7a;
+  background: rgba(224, 122, 122, 0.12);
+}
+
+.ligas-rank-delta--same {
+  color: var(--text-muted);
+  font-weight: 500;
 }
 
 .ligas-detail-footer {
