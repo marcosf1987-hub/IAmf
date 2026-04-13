@@ -1270,22 +1270,38 @@ button:focus:not(:focus-visible) {
 /* Prode: más ancho para el grid de grupos (12 tarjetas) */
 .page-content.page-content--prode {
   max-width: 1320px;
-  /* app-main usa align-items:center y encoge el bloque: sin esto el subtítulo no queda centrado en desktop */
   align-self: stretch;
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
+/* Centrado real del título/subtítulo: flex + caja interna (evita desalineación con app-main flex) */
 .prode-page-header {
+  display: flex;
+  justify-content: center;
   width: 100%;
   margin-bottom: 0.25rem;
+  box-sizing: border-box;
+}
+
+.prode-page-header-inner {
+  width: 100%;
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 0 0.25rem;
+  text-align: center;
+}
+
+.prode-page-title {
+  margin: 0 0 1rem;
   text-align: center;
 }
 
 .prode-page-subtitle {
-  max-width: 40rem;
-  margin-left: auto;
-  margin-right: auto;
+  margin: 0 0 1.5rem;
   text-align: center;
+  max-width: none;
   width: 100%;
 }
 

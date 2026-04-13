@@ -397,11 +397,13 @@ export default function ProdePage() {
   return (
     <div className="page-content page-content--prode prode-page">
       <header className="prode-page-header">
-        <h1>Prode FIFA 2026</h1>
-        <p className="page-subtitle prode-page-subtitle">
-          Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
-          del primer partido de cada fase para generar o regenerar.
-        </p>
+        <div className="prode-page-header-inner">
+          <h1 className="prode-page-title">Prode FIFA 2026</h1>
+          <p className="page-subtitle prode-page-subtitle">
+            Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
+            del primer partido de cada fase para generar o regenerar.
+          </p>
+        </div>
       </header>
 
       {error ? (
