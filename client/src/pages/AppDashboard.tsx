@@ -136,14 +136,14 @@ function DashboardNextStep({
         Todo listo por ahora
       </h2>
       <p className="dashboard-next-desc">
-        Revisá tu puntaje global, competí en ligas con tu grupo o afiná el modelo en el Laboratorio si querés cambiar la lógica.
+        Revisa tu puntaje global y compite en ligas con tu grupo. Si quieres cambiar las pautas del modelo, abre el Laboratorio desde el menú.
       </p>
-      <div className="dashboard-next-actions">
-        <Link to="/app/resultados" className="btn-secondary">
+      <div className="dashboard-next-actions dashboard-next-actions--primary-pair">
+        <Link to="/app/resultados" className="btn-primary">
           Ver Mis resultados
         </Link>
-        <Link to="/app/ligas" className="btn-secondary">
-          Ligas &amp; Comunidad
+        <Link to="/app/ligas" className="btn-primary dashboard-next-cta-ligas">
+          Crea tu liga o únete a una
         </Link>
       </div>
     </section>
@@ -196,6 +196,9 @@ export default function AppDashboard() {
   const displayName = user?.fullName || user?.email || "Usuario";
   const worldCupStarted = new Date() >= WORLD_CUP_START;
 
+  const modelReady =
+    prodeStatus?.hasGuidelines === true && prodeStatus?.hasPredictions === true;
+
   function getModelStatusText(): string {
     if (!prodeStatus) return "";
     if (!prodeStatus.hasGuidelines) return "Tu IA aún no tiene instrucciones. ¡Empieza ahora!";
@@ -220,17 +223,19 @@ export default function AppDashboard() {
 
       <DashboardNextStep prodeStatus={prodeStatus} />
 
-      <section className="dashboard-hero" aria-labelledby="dashboard-hero-heading">
-        <h2 id="dashboard-hero-heading" className="dashboard-hero-title">
-          Laboratorio de Prompts
-        </h2>
-        <p className="dashboard-hero-desc">
-          Diseña la lógica de tu IA para generar tus predicciones del Mundial.
-        </p>
-        <Link to="/app/ia" className="btn-primary btn-large">
-          Entrar a Prompting
-        </Link>
-      </section>
+      {!modelReady && (
+        <section className="dashboard-hero" aria-labelledby="dashboard-hero-heading">
+          <h2 id="dashboard-hero-heading" className="dashboard-hero-title">
+            Laboratorio de Prompts
+          </h2>
+          <p className="dashboard-hero-desc">
+            Diseña la lógica de tu IA para generar tus predicciones del Mundial.
+          </p>
+          <Link to="/app/ia" className="btn-primary btn-large">
+            Entrar a Prompting
+          </Link>
+        </section>
+      )}
 
       <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
         <span id="dashboard-tip-label" className="dashboard-tip-label">
