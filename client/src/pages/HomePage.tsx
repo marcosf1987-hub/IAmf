@@ -80,8 +80,6 @@ export default function HomePage() {
         </p>
       </main>
 
-      <UpcomingMatchesCarousel variant="marketing" className="home-upcoming-carousel" />
-
       <section className="home-features">
         <div className="feature-card">
           <div className="feature-icon" aria-hidden>
@@ -117,6 +115,8 @@ export default function HomePage() {
           <p>Mide la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real.</p>
         </div>
       </section>
+
+      <UpcomingMatchesCarousel variant="marketing" className="home-upcoming-carousel" />
 
       <footer className="home-footer">
         <p>PromptPlay 2026 - Conviértete en un Prompt Master</p>

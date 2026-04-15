@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchPublicUpcomingMatches, type Match } from "../lib/api";
 import { getFlagImageUrl } from "../lib/flags";
-import { pickVenueForMatch, stadiumBackgroundUrlForMatch } from "../lib/match-venue";
+import {
+  FALLBACK_STADIUM_BG,
+  pickVenueForMatch,
+  stadiumBackgroundUrlForMatch,
+} from "../lib/match-venue";
 
 const dateFmt = new Intl.DateTimeFormat("es-AR", {
   weekday: "short",
@@ -13,15 +17,27 @@ const dateFmt = new Intl.DateTimeFormat("es-AR", {
 
 function MatchSlide({ match }: { match: Match }) {
   const bg = stadiumBackgroundUrlForMatch(match.id);
+  const [bgSrc, setBgSrc] = useState(bg);
   const venue = pickVenueForMatch(match.id);
   const kick = new Date(match.kickoffAt);
   const urlA = getFlagImageUrl(match.teamA);
   const urlB = getFlagImageUrl(match.teamB);
 
+  useEffect(() => {
+    setBgSrc(bg);
+  }, [bg]);
+
   return (
     <article className="match-carousel-card" aria-labelledby={`match-title-${match.id}`}>
       <div className="match-carousel-card-bg" aria-hidden="true">
-        <img src={bg} alt="" className="match-carousel-card-bg-img" loading="lazy" decoding="async" />
+        <img
+          src={bgSrc}
+          alt=""
+          className="match-carousel-card-bg-img"
+          loading="lazy"
+          decoding="async"
+          onError={() => setBgSrc(FALLBACK_STADIUM_BG)}
+        />
         <div className="match-carousel-card-bg-blur" />
         <div className="match-carousel-card-bg-scrim" />
       </div>

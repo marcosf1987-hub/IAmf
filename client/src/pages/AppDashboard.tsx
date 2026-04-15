@@ -222,8 +222,6 @@ export default function AppDashboard() {
         </p>
       </header>
 
-      <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
-
       <DashboardNextStep prodeStatus={prodeStatus} />
 
       {!modelReady && (
@@ -246,6 +244,8 @@ export default function AppDashboard() {
         </span>
         <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
       </section>
+
+      <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
 
       <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
         <h2 id="dashboard-cards-heading" className="dashboard-section-heading">

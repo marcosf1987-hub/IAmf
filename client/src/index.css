@@ -417,7 +417,7 @@ button:focus:not(:focus-visible) {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 0 2rem 3rem;
+  padding: 2.5rem 2rem 3rem;
 }
 
 .match-carousel {
@@ -501,6 +501,8 @@ button:focus:not(:focus-visible) {
   position: absolute;
   inset: 0;
   overflow: hidden;
+  /* Si la imagen tarda o falla, sigue viéndose “cancha / mundial” */
+  background: linear-gradient(155deg, #153d28 0%, #0a1f14 42%, #122a1c 100%);
 }
 
 .match-carousel-card-bg-img {
@@ -650,7 +652,7 @@ button:focus:not(:focus-visible) {
 .dashboard-upcoming-carousel {
   max-width: 720px;
   margin: 0 auto 2rem;
-  padding: 0 1.5rem;
+  padding: 0 1.5rem 0.5rem;
 }
 
 @media (max-width: 768px) {

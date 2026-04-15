@@ -17,17 +17,28 @@ const VENUES: VenueInfo[] = [
   { stadium: "NRG Stadium", city: "Houston, EE. UU." },
 ];
 
-/** Imágenes de estadio/cancha (Unsplash); una por slide según hash del id. */
+/** Parámetros estándar Unsplash (evita respuestas inconsistentes sin ixlib). */
+function soccerPhoto(id: string): string {
+  return `https://images.unsplash.com/${id}?ixlib=rb-4.0.3&auto=format&fit=crop&w=1600&q=75`;
+}
+
+/**
+ * Solo fútbol / estadio / cancha (evitar fotos genéricas o de otros deportes).
+ * Varias entradas repiten motivos distintos para que el hash siempre caiga en imagen válida.
+ */
 const STADIUM_BACKGROUNDS: string[] = [
-  "https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1431324155629-1a6deb1dec8d?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1522778119026-d647f0596c20?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1579952363873-27f3bade9f55?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1508098682722-e99c43a406b2?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1459865264687-5959a615ff32?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1517466787929-bc90951d0974?auto=format&fit=crop&w=1600&q=65",
-  "https://images.unsplash.com/photo-1522778525557-b980b08d51ef?auto=format&fit=crop&w=1600&q=65",
+  soccerPhoto("photo-1574629810360-7efbbe195018"), // estadio, césped
+  soccerPhoto("photo-1431324155629-1a6deb1dec8d"), // cancha vista aérea
+  soccerPhoto("photo-1522778119026-d647f0596c20"), // estadio / gradas
+  soccerPhoto("photo-1579952363873-27f3bade9f55"), // balón en césped
+  soccerPhoto("photo-1579952363873-27f3bade9f55"),
+  soccerPhoto("photo-1522778119026-d647f0596c20"),
+  soccerPhoto("photo-1574629810360-7efbbe195018"),
+  soccerPhoto("photo-1431324155629-1a6deb1dec8d"),
 ];
+
+/** Si falla la carga remota, el componente usa esta URL (misma temática). */
+export const FALLBACK_STADIUM_BG = soccerPhoto("photo-1574629810360-7efbbe195018");
 
 function hashString(s: string): number {
   let h = 0;
