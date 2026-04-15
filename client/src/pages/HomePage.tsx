@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { getCurrentPhase, formatTimeLeftLong } from "../lib/prode-phases";
 
 export default function HomePage() {
@@ -78,6 +79,8 @@ export default function HomePage() {
           )}
         </p>
       </main>
+
+      <UpcomingMatchesCarousel variant="marketing" className="home-upcoming-carousel" />
 
       <section className="home-features">
         <div className="feature-card">

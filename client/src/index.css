@@ -412,6 +412,262 @@ button:focus:not(:focus-visible) {
   color: var(--accent);
 }
 
+/* Carrusel próximos partidos (home + /app) */
+.home-upcoming-carousel {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 2rem 3rem;
+}
+
+.match-carousel {
+  width: 100%;
+}
+
+.match-carousel--marketing .match-carousel-heading {
+  color: var(--text);
+}
+
+.match-carousel--dashboard .match-carousel-heading {
+  color: var(--text);
+}
+
+.match-carousel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.match-carousel-heading {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.match-carousel-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.match-carousel-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.match-carousel-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.match-carousel-counter {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  min-width: 2.5rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.match-carousel-viewport {
+  position: relative;
+  border-radius: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.match-carousel-card {
+  position: relative;
+  min-height: 240px;
+  display: flex;
+  align-items: stretch;
+}
+
+.match-carousel-card-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.match-carousel-card-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.08);
+  filter: blur(10px) saturate(1.1);
+}
+
+.match-carousel-card-bg-blur {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(2px);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.match-carousel-card-bg-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    135deg,
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.35) 50%,
+    rgba(0, 0, 0, 0.5) 100%
+  );
+}
+
+.match-carousel-card-inner {
+  position: relative;
+  z-index: 1;
+  padding: 1.75rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.match-carousel-meta {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.match-carousel-teams {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 4vw, 1.75rem);
+  font-weight: 700;
+  line-height: 1.25;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.match-carousel-team {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.match-carousel-flag {
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  flex-shrink: 0;
+}
+
+.match-carousel-vs {
+  font-weight: 600;
+  font-size: 0.85em;
+  opacity: 0.9;
+}
+
+.match-carousel-datetime {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.match-carousel-venue {
+  margin: 0;
+  font-size: 0.8rem;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+.match-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.match-carousel-dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.2s;
+}
+
+.match-carousel-dot:hover {
+  background: var(--text-muted);
+}
+
+.match-carousel-dot--active {
+  background: var(--accent);
+  transform: scale(1.15);
+}
+
+.match-carousel--loading .match-carousel-shell {
+  border: 1px solid var(--border);
+  min-height: 240px;
+}
+
+.match-carousel-skeleton {
+  min-height: 240px;
+  background: linear-gradient(
+    90deg,
+    var(--border) 0%,
+    rgba(128, 128, 128, 0.15) 50%,
+    var(--border) 100%
+  );
+  background-size: 200% 100%;
+  animation: match-carousel-shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes match-carousel-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+.dashboard-upcoming-carousel {
+  max-width: 720px;
+  margin: 0 auto 2rem;
+  padding: 0 1.5rem;
+}
+
+@media (max-width: 768px) {
+  .home-upcoming-carousel {
+    padding: 0 1.25rem 2rem;
+  }
+
+  .dashboard-upcoming-carousel {
+    padding: 0 1rem;
+  }
+
+  .match-carousel-teams {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 .home-cta {
   display: flex;
   gap: 1.25rem;

@@ -372,6 +372,21 @@ export async function fetchMatches(): Promise<{ matches: Match[] }> {
   return fetchAuth("/matches");
 }
 
+/** Próximos partidos futuros (endpoint público; no requiere token). */
+export async function fetchPublicUpcomingMatches(limit = 5): Promise<{ matches: Match[] }> {
+  const url = `${API_BASE}/public/upcoming-matches?limit=${encodeURIComponent(String(limit))}`;
+  try {
+    const res = await fetch(url);
+    const data = await parseJson<{ matches: Match[] } & { error?: string }>(res, url);
+    if (!res.ok) {
+      throw new Error(data.error ?? "Request failed");
+    }
+    return data;
+  } catch (e) {
+    throw networkHint(e);
+  }
+}
+
 export async function fetchMyPredictions(): Promise<{ predictions: Prediction[] }> {
   return fetchAuth("/predictions/me");
 }

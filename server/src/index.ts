@@ -122,6 +122,37 @@ app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
 });
 
+/** Próximos partidos (sin auth: home marketing y /app). */
+app.get("/public/upcoming-matches", async (req, res) => {
+  try {
+    const raw = req.query.limit;
+    const parsed = raw !== undefined && raw !== "" ? parseInt(String(raw), 10) : NaN;
+    const limit = Math.min(20, Math.max(1, Number.isFinite(parsed) && parsed > 0 ? parsed : 5));
+    const now = new Date();
+    const rows = await prisma.match.findMany({
+      where: { kickoffAt: { gt: now } },
+      orderBy: { kickoffAt: "asc" },
+      take: limit,
+      select: {
+        id: true,
+        stage: true,
+        groupCode: true,
+        teamA: true,
+        teamB: true,
+        kickoffAt: true,
+        resultScoreA: true,
+        resultScoreB: true,
+      },
+    });
+    const matches = rows.map(enrichMatchRowWithInferredGroupCode);
+    res.status(200).json({ matches });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("GET /public/upcoming-matches error:", err);
+    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+  }
+});
+
 app.get("/db/health", async (_req, res) => {
   try {
     const result = await prisma.$queryRaw<{ now: Date }[]>`SELECT NOW() as now`;

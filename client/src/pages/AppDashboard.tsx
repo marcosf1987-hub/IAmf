@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { useAuth } from "../contexts/AuthContext";
 import { fetchProdeStatus, fetchMyResults } from "../lib/api";
 import { getCurrentPhase, formatDaysLeft } from "../lib/prode-phases";
@@ -220,6 +221,8 @@ export default function AppDashboard() {
           <span className="dashboard-model-status-label">Estado del modelo:</span> {getModelStatusText()}
         </p>
       </header>
+
+      <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
 
       <DashboardNextStep prodeStatus={prodeStatus} />
 
