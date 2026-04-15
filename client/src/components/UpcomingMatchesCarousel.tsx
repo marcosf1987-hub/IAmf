@@ -146,22 +146,6 @@ export default function UpcomingMatchesCarousel({
     >
       <div className="match-carousel-header">
         <h2 className="match-carousel-heading">Próximos partidos</h2>
-        <div className="match-carousel-controls">
-          <button
-            type="button"
-            className="match-carousel-btn"
-            onClick={() => go(-1)}
-            aria-label="Partido anterior"
-          >
-            ‹
-          </button>
-          <span className="match-carousel-counter" aria-live="polite">
-            {index + 1} / {n}
-          </span>
-          <button type="button" className="match-carousel-btn" onClick={() => go(1)} aria-label="Siguiente partido">
-            ›
-          </button>
-        </div>
       </div>
 
       <div className="match-carousel-viewport">
