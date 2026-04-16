@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "postinstall": "prisma generate",
     "start": "node dist/index.js",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "migrate:demo-to-platform": "tsx scripts/migrate-demo-users-to-public-pool.ts"
   },
   "keywords": [],
   "author": "",
