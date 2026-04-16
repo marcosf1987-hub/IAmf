@@ -321,9 +321,39 @@ export type PlatformCompanyRow = {
   createdAt: string;
   userCount: number;
   invitationCount: number;
+  /** Ligas/competencias creadas bajo esta empresa */
+  competitionCount?: number;
   stripeCustomerId: string | null;
   orgAdmins: PlatformOrgAdminRef[];
 };
+
+export type PlatformOverview = {
+  platformCompany: { id: string; name: string } | null;
+  /** Usuarios activos en org platform-internal (público + OAuth), sin super_admin */
+  publicPoolUserCount: number;
+  universalLeague: {
+    id: string;
+    name: string;
+    slug: string;
+    memberCount: number;
+  } | null;
+};
+
+export type PlatformPublicPoolUser = {
+  id: string;
+  email: string;
+  fullName: string | null;
+  role: string;
+  createdAt: string;
+};
+
+export async function fetchPlatformOverview(): Promise<PlatformOverview> {
+  return fetchAuth("/platform/overview");
+}
+
+export async function fetchPlatformPublicPoolUsers(limit = 80): Promise<{ users: PlatformPublicPoolUser[] }> {
+  return fetchAuth(`/platform/public-pool-users?limit=${encodeURIComponent(String(limit))}`);
+}
 
 export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {
   return fetchAuth("/platform/companies");

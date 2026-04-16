@@ -4,14 +4,20 @@ import { useAuth } from "../contexts/AuthContext";
 import {
   createPlatformCompany,
   fetchPlatformCompanies,
+  fetchPlatformOverview,
+  fetchPlatformPublicPoolUsers,
   patchPlatformCompanySeat,
   resetPlatformOrgAdminPassword,
   type PlatformCompanyRow,
+  type PlatformOverview,
+  type PlatformPublicPoolUser,
 } from "../lib/api";
 
 export default function PlatformAdminPage() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState<PlatformCompanyRow[]>([]);
+  const [overview, setOverview] = useState<PlatformOverview | null>(null);
+  const [publicPoolUsers, setPublicPoolUsers] = useState<PlatformPublicPoolUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -34,11 +40,19 @@ export default function PlatformAdminPage() {
     setLoading(true);
     setError("");
     try {
-      const { companies: list } = await fetchPlatformCompanies();
+      const [{ companies: list }, ov, pool] = await Promise.all([
+        fetchPlatformCompanies(),
+        fetchPlatformOverview(),
+        fetchPlatformPublicPoolUsers(100),
+      ]);
       setCompanies(list);
+      setOverview(ov);
+      setPublicPoolUsers(pool.users);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar");
       setCompanies([]);
+      setOverview(null);
+      setPublicPoolUsers([]);
     } finally {
       setLoading(false);
     }
@@ -130,10 +144,87 @@ export default function PlatformAdminPage() {
   return (
     <div className="page-content">
       <h1>Administración de plataforma</h1>
-      <p className="page-subtitle">Alta de empresas (tenants), cupos y contraseñas de administradores de empresa.</p>
+      <p className="page-subtitle">
+        Pool público (registro y OAuth), liga universal, empresas B2B, cupos y accesos de administradores.
+      </p>
 
       {error && <div className="auth-error">{error}</div>}
       {successMsg && <div className="auth-success">{successMsg}</div>}
+
+      <section className="admin-section" style={{ marginBottom: "2rem" }}>
+        <h2>Pool público y liga universal</h2>
+        <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
+          Quienes se registran sin invitación de empresa o entran con Google/OAuth quedan en la org{" "}
+          <code className="platform-slug-code">platform-internal</code>, entran en la{" "}
+          <strong>Liga universal</strong> (ranking entre ese pool). Quienes aceptan invitación B2B solo pertenecen a
+          su empresa.
+        </p>
+        {loading ? (
+          <p className="placeholder-text">Cargando resumen…</p>
+        ) : overview ? (
+          <div className="platform-overview-cards" style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                padding: "1rem 1.25rem",
+                minWidth: 200,
+              }}
+            >
+              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
+                Usuarios pool público
+              </div>
+              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>{overview.publicPoolUserCount}</div>
+            </div>
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                padding: "1rem 1.25rem",
+                minWidth: 220,
+              }}
+            >
+              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
+                Liga universal (miembros)
+              </div>
+              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
+                {overview.universalLeague?.memberCount ?? "—"}
+              </div>
+              {overview.universalLeague && (
+                <div style={{ fontSize: "0.85rem", marginTop: "0.35rem", color: "var(--text-muted)" }}>
+                  {overview.universalLeague.name}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : null}
+
+        {!loading && publicPoolUsers.length > 0 && (
+          <div style={{ marginTop: "1.25rem" }}>
+            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Últimos registros (pool público)</h3>
+            <div className="admin-table-wrap" style={{ maxHeight: 320, overflow: "auto" }}>
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Nombre</th>
+                    <th>Rol</th>
+                    <th>Alta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {publicPoolUsers.map((u) => (
+                    <tr key={u.id}>
+                      <td>{u.email}</td>
+                      <td>{u.fullName ?? "—"}</td>
+                      <td>{u.role}</td>
+                      <td>{new Date(u.createdAt).toLocaleString("es-AR")}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Nueva empresa + admin</h2>
@@ -250,6 +341,7 @@ export default function PlatformAdminPage() {
                   <th>Slug</th>
                   <th>Admins</th>
                   <th className="platform-companies-col-narrow">Usuarios</th>
+                  <th className="platform-companies-col-narrow">Ligas</th>
                   <th className="platform-companies-col-narrow">Invitaciones</th>
                   <th>Cupos</th>
                 </tr>
@@ -288,6 +380,7 @@ export default function PlatformAdminPage() {
                       )}
                     </td>
                     <td className="platform-companies-col-narrow">{c.userCount}</td>
+                    <td className="platform-companies-col-narrow">{c.competitionCount ?? "—"}</td>
                     <td className="platform-companies-col-narrow">{c.invitationCount}</td>
                     <td>
                       <input

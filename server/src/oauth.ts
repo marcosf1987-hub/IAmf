@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import crypto from "node:crypto";
 import type { PrismaClient, UserRole } from "@prisma/client";
 import { signAccessToken } from "./auth";
+import { ensureUniversalLeagueMembership } from "./universal-league";
 
 export type OAuthProviderId = "google" | "facebook" | "microsoft";
 
@@ -212,24 +213,33 @@ async function findOrCreateOAuthUser(
     };
   }
 
-  const company = await prisma.company.upsert({
-    where: { slug: "demo" },
-    update: {},
-    create: { name: "DemoCompany", slug: "demo", seatLimit: 100 },
+  const platformCompany = await prisma.company.findUnique({
+    where: { slug: "platform-internal" },
   });
+  if (!platformCompany) {
+    throw new Error(
+      "Falta la empresa plataforma (platform-internal). Ejecutá prisma db seed en el servidor."
+    );
+  }
 
   const user = await prisma.user.create({
     data: {
       email,
       passwordHash: null,
       fullName,
-      companyId: company.id,
+      companyId: platformCompany.id,
       role: "member",
       status: "active",
       oauthAccounts: { create: { provider, providerUserId } },
     },
     select: { id: true, email: true, fullName: true, role: true, companyId: true },
   });
+  try {
+    await ensureUniversalLeagueMembership(prisma, user.id);
+  } catch (leagueErr) {
+    // eslint-disable-next-line no-console
+    console.error("ensureUniversalLeagueMembership (oauth):", leagueErr);
+  }
   return user;
 }
 

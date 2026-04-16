@@ -15,6 +15,7 @@ import { mountOAuthRoutes } from "./oauth";
 import { registerB2BRoutes } from "./b2b-routes";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
+import { ensureUniversalLeagueMembership } from "./universal-league";
 import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
 
@@ -200,6 +201,13 @@ app.post("/auth/signup", async (req, res) => {
     },
     select: { id: true, email: true, fullName: true, role: true, companyId: true },
   });
+
+  try {
+    await ensureUniversalLeagueMembership(prisma, user.id);
+  } catch (leagueErr) {
+    // eslint-disable-next-line no-console
+    console.error("ensureUniversalLeagueMembership (signup):", leagueErr);
+  }
 
   const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
   const me = await buildMeResponse(user.id);

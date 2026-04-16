@@ -11,6 +11,7 @@ import {
   platformResetOrgAdminPasswordSchema,
 } from "./validators";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 
 function frontendBase(): string {
@@ -424,6 +425,77 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     });
   });
 
+  /** Resumen pool público + liga universal (super admin). */
+  app.get("/platform/overview", superAuth, async (_req, res) => {
+    const platform = await prisma.company.findUnique({
+      where: { slug: "platform-internal" },
+      select: { id: true, name: true },
+    });
+    if (!platform) {
+      res.status(200).json({
+        platformCompany: null,
+        publicPoolUserCount: 0,
+        universalLeague: null,
+      });
+      return;
+    }
+    const publicPoolUserCount = await prisma.user.count({
+      where: {
+        companyId: platform.id,
+        status: "active",
+        role: { not: "super_admin" },
+      },
+    });
+    const universal = await prisma.competition.findFirst({
+      where: { companyId: platform.id, slug: UNIVERSAL_COMPETITION_SLUG },
+      include: { _count: { select: { members: true } } },
+    });
+    res.status(200).json({
+      platformCompany: { id: platform.id, name: platform.name },
+      publicPoolUserCount,
+      universalLeague: universal
+        ? {
+            id: universal.id,
+            name: universal.name,
+            slug: universal.slug,
+            memberCount: universal._count.members,
+          }
+        : null,
+    });
+  });
+
+  /** Listado reciente de usuarios del pool público (sin invitación B2B). */
+  app.get("/platform/public-pool-users", superAuth, async (req, res) => {
+    const raw = req.query.limit;
+    const parsed = raw !== undefined && raw !== "" ? parseInt(String(raw), 10) : 80;
+    const limit = Math.min(200, Math.max(1, Number.isFinite(parsed) ? parsed : 80));
+    const platform = await prisma.company.findUnique({
+      where: { slug: "platform-internal" },
+      select: { id: true },
+    });
+    if (!platform) {
+      res.status(200).json({ users: [] });
+      return;
+    }
+    const users = await prisma.user.findMany({
+      where: {
+        companyId: platform.id,
+        role: { not: "super_admin" },
+        status: "active",
+      },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: "desc" },
+      take: limit,
+    });
+    res.status(200).json({ users });
+  });
+
   app.get("/platform/companies", superAuth, async (_req, res) => {
     const companies = await prisma.company.findMany({
       where: { NOT: { slug: "platform-internal" } },
@@ -433,6 +505,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
           select: {
             users: true,
             invitations: true,
+            competitions: true,
           },
         },
       },
@@ -465,6 +538,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         createdAt: c.createdAt,
         userCount: c._count.users,
         invitationCount: c._count.invitations,
+        competitionCount: c._count.competitions,
         stripeCustomerId: c.stripeCustomerId,
         orgAdmins: orgAdminsByCompany.get(c.id) ?? [],
       })),
