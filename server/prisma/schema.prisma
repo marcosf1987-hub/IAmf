@@ -83,6 +83,7 @@ model User {
   prodeChampionPrediction ProdeChampionPrediction?
   prodeGuidelines         ProdeGuidelines?
   invitationsSent         Invitation[] @relation("InvitationInviter")
+  competitionInvitesSent    CompetitionInvitation[] @relation("CompetitionInviteInviter")
   competitionsCreated     Competition[] @relation("CompetitionCreator")
   competitionMemberships  CompetitionMember[]
 
@@ -114,10 +115,28 @@ model Competition {
   maxMembers    Int      @default(10)
   createdAt     DateTime @default(now())
 
-  members CompetitionMember[]
+  members                CompetitionMember[]
+  emailInvitations       CompetitionInvitation[]
 
   @@index([companyId])
   @@index([createdById])
+}
+
+/// Invitación por email a una liga (sin alta B2B); el destinatario crea cuenta en pool público o reclama logueado.
+model CompetitionInvitation {
+  id            String    @id @default(cuid())
+  competitionId String
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
+  email         String
+  tokenHash     String    @unique
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  invitedById   String?
+  invitedBy     User?     @relation("CompetitionInviteInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+  acceptedAt    DateTime?
+
+  @@index([competitionId])
+  @@index([email])
 }
 
 model CompetitionMember {

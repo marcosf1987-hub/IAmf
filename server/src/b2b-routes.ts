@@ -436,9 +436,12 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         platformCompany: null,
         publicPoolUserCount: 0,
         universalLeague: null,
+        pendingCompetitionInvites: 0,
+        acceptedCompetitionInvites: 0,
       });
       return;
     }
+    const now = new Date();
     const publicPoolUserCount = await prisma.user.count({
       where: {
         companyId: platform.id,
@@ -450,6 +453,14 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       where: { companyId: platform.id, slug: UNIVERSAL_COMPETITION_SLUG },
       include: { _count: { select: { members: true } } },
     });
+    const [pendingCompetitionInvites, acceptedCompetitionInvites] = await Promise.all([
+      prisma.competitionInvitation.count({
+        where: { acceptedAt: null, expiresAt: { gt: now } },
+      }),
+      prisma.competitionInvitation.count({
+        where: { acceptedAt: { not: null } },
+      }),
+    ]);
     res.status(200).json({
       platformCompany: { id: platform.id, name: platform.name },
       publicPoolUserCount,
@@ -461,6 +472,8 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
             memberCount: universal._count.members,
           }
         : null,
+      pendingCompetitionInvites,
+      acceptedCompetitionInvites,
     });
   });
 
@@ -469,6 +482,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     const raw = req.query.limit;
     const parsed = raw !== undefined && raw !== "" ? parseInt(String(raw), 10) : 80;
     const limit = Math.min(200, Math.max(1, Number.isFinite(parsed) ? parsed : 80));
+    const qRaw = typeof req.query.q === "string" ? req.query.q.trim() : "";
     const platform = await prisma.company.findUnique({
       where: { slug: "platform-internal" },
       select: { id: true },
@@ -482,6 +496,14 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         companyId: platform.id,
         role: { not: "super_admin" },
         status: "active",
+        ...(qRaw.length > 0
+          ? {
+              OR: [
+                { email: { contains: qRaw, mode: "insensitive" } },
+                { fullName: { contains: qRaw, mode: "insensitive" } },
+              ],
+            }
+          : {}),
       },
       select: {
         id: true,

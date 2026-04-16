@@ -17,6 +17,7 @@ import {
   joinCompetitionCodeSchema,
   patchCompetitionSchema,
 } from "./validators";
+import { createCompetitionEmailInvitation } from "./competition-invite-routes";
 
 function routeParamId(req: Request): string | undefined {
   const raw = req.params.id;
@@ -447,31 +448,50 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       where: { email },
       select: { id: true, status: true },
     });
-    if (!invitee || invitee.status !== "active") {
-      res.status(404).json({
-        error: "user_not_found",
-        message: "No hay un usuario activo con ese email. Tiene que registrarse primero.",
+
+    if (invitee && invitee.status !== "active") {
+      res.status(400).json({
+        error: "user_disabled",
+        message: "Existe una cuenta con ese email pero está deshabilitada.",
       });
       return;
     }
 
-    const existing = await prisma.competitionMember.findUnique({
-      where: { competitionId_userId: { competitionId, userId: invitee.id } },
-    });
-    if (existing) {
-      res.status(409).json({ error: "already_member" });
+    if (invitee && invitee.status === "active") {
+      const existing = await prisma.competitionMember.findUnique({
+        where: { competitionId_userId: { competitionId, userId: invitee.id } },
+      });
+      if (existing) {
+        res.status(409).json({ error: "already_member" });
+        return;
+      }
+
+      await prisma.competitionMember.create({
+        data: {
+          competitionId,
+          userId: invitee.id,
+          role: CompetitionMemberRole.member,
+        },
+      });
+
+      res.status(201).json({ ok: true, mode: "joined" as const });
       return;
     }
 
-    await prisma.competitionMember.create({
-      data: {
-        competitionId,
-        userId: invitee.id,
-        role: CompetitionMemberRole.member,
-      },
+    const result = await createCompetitionEmailInvitation({
+      prisma,
+      competitionId,
+      email,
+      invitedById: userId,
     });
 
-    res.status(201).json({ ok: true });
+    res.status(201).json({
+      ok: true,
+      mode: "email_invite" as const,
+      inviteUrl: result.inviteUrl,
+      emailSent: result.emailSent,
+      ...(result.emailError ? { emailError: result.emailError } : {}),
+    });
   });
 
   app.get("/competitions/:id", requireAuth, async (req, res) => {

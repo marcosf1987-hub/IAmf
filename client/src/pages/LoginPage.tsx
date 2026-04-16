@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { isProductionApiUrlMissing } from "../lib/api";
 import SocialLoginButtons from "../components/SocialLoginButtons";
@@ -11,6 +11,8 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const redirectAfterLogin = searchParams.get("redirect");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -18,7 +20,15 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
-      navigate("/app");
+      if (
+        redirectAfterLogin &&
+        redirectAfterLogin.startsWith("/") &&
+        !redirectAfterLogin.startsWith("//")
+      ) {
+        navigate(redirectAfterLogin);
+      } else {
+        navigate("/app");
+      }
     } catch (err) {
       const raw = err instanceof Error ? err.message : "Error al iniciar sesión";
       let msg = raw;

@@ -36,6 +36,9 @@ export default function PlatformAdminPage() {
   const [resetPass2, setResetPass2] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
 
+  const [poolFilter, setPoolFilter] = useState("");
+  const [poolFilterDraft, setPoolFilterDraft] = useState("");
+
   const reload = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -43,7 +46,7 @@ export default function PlatformAdminPage() {
       const [{ companies: list }, ov, pool] = await Promise.all([
         fetchPlatformCompanies(),
         fetchPlatformOverview(),
-        fetchPlatformPublicPoolUsers(100),
+        fetchPlatformPublicPoolUsers(100, poolFilter),
       ]);
       setCompanies(list);
       setOverview(ov);
@@ -56,7 +59,7 @@ export default function PlatformAdminPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [poolFilter]);
 
   useEffect(() => {
     void reload();
@@ -194,12 +197,79 @@ export default function PlatformAdminPage() {
                 </div>
               )}
             </div>
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                padding: "1rem 1.25rem",
+                minWidth: 200,
+              }}
+            >
+              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
+                Invit. ligas pendientes
+              </div>
+              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
+                {overview.pendingCompetitionInvites ?? 0}
+              </div>
+            </div>
+            <div
+              style={{
+                border: "1px solid var(--border)",
+                padding: "1rem 1.25rem",
+                minWidth: 200,
+              }}
+            >
+              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
+                Invit. ligas aceptadas
+              </div>
+              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
+                {overview.acceptedCompetitionInvites ?? 0}
+              </div>
+            </div>
           </div>
         ) : null}
 
-        {!loading && publicPoolUsers.length > 0 && (
+        {!loading && (
           <div style={{ marginTop: "1.25rem" }}>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Últimos registros (pool público)</h3>
+            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Registros del pool público</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
+              <input
+                type="search"
+                className="admin-input-inline"
+                style={{ minWidth: 220, flex: "1 1 200px" }}
+                placeholder="Filtrar por email o nombre…"
+                value={poolFilterDraft}
+                onChange={(e) => setPoolFilterDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setPoolFilter(poolFilterDraft.trim());
+                  }
+                }}
+              />
+              <button
+                type="button"
+                className="btn-secondary btn-sm"
+                onClick={() => setPoolFilter(poolFilterDraft.trim())}
+              >
+                Buscar
+              </button>
+              {poolFilter ? (
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  onClick={() => {
+                    setPoolFilter("");
+                    setPoolFilterDraft("");
+                  }}
+                >
+                  Limpiar
+                </button>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {!loading && publicPoolUsers.length > 0 && (
+          <div style={{ marginTop: "0.25rem" }}>
             <div className="admin-table-wrap" style={{ maxHeight: 320, overflow: "auto" }}>
               <table className="admin-table">
                 <thead>
@@ -223,6 +293,11 @@ export default function PlatformAdminPage() {
               </table>
             </div>
           </div>
+        )}
+        {!loading && publicPoolUsers.length === 0 && (
+          <p className="placeholder-text" style={{ marginTop: "0.5rem" }}>
+            {poolFilter ? "No hay usuarios que coincidan con el filtro." : "Aún no hay usuarios en el pool público."}
+          </p>
         )}
       </section>
 

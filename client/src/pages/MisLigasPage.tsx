@@ -932,18 +932,31 @@ function CreateLigaModal({
       const toInvite = emails.filter((em) => em !== selfEmail);
 
       const failures: string[] = [];
-      for (const email of toInvite) {
+      const emailInvites: string[] = [];
+      for (const em of toInvite) {
         try {
-          await inviteToCompetition(competition.id, email);
+          const r = await inviteToCompetition(competition.id, em);
+          if (r.mode === "email_invite") {
+            emailInvites.push(em);
+            if (!r.emailSent && r.inviteUrl) {
+              showFlash(`Invitación a ${em}: copiá el enlace si no hay mail configurado.`, "info");
+            }
+          }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          failures.push(`${email}: ${msg}`);
+          failures.push(`${em}: ${msg}`);
         }
       }
 
+      if (emailInvites.length > 0) {
+        showFlash(
+          `Liga creada. Se enviaron invitaciones por email (${emailInvites.length}) a quienes aún no tenían cuenta; deberán abrir el enlace del correo.`,
+          "info"
+        );
+      }
       if (failures.length > 0) {
         showFlash(
-          `Liga creada. Algunas invitaciones por email fallaron: ${failures.slice(0, 5).join("; ")}${failures.length > 5 ? "…" : ""}`,
+          `Algunas invitaciones fallaron: ${failures.slice(0, 5).join("; ")}${failures.length > 5 ? "…" : ""}`,
           "info"
         );
       }

@@ -13,6 +13,7 @@ import AdminPage from "./pages/AdminPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
 import PricingPage from "./pages/PricingPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
+import AcceptLeagueInvitePage from "./pages/AcceptLeagueInvitePage";
 import MisLigasPage from "./pages/MisLigasPage";
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/invite/accept" element={<AcceptInvitePage />} />
+      <Route path="/invite/liga/accept" element={<AcceptLeagueInvitePage />} />
       <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
       <Route path="/app" element={<AppLayout />}>
         <Route index element={<AppDashboard />} />

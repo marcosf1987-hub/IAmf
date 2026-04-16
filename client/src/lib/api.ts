@@ -337,6 +337,10 @@ export type PlatformOverview = {
     slug: string;
     memberCount: number;
   } | null;
+  /** Invitaciones por email a ligas pendientes (no vencidas) */
+  pendingCompetitionInvites: number;
+  /** Invitaciones a ligas ya aceptadas (histórico) */
+  acceptedCompetitionInvites: number;
 };
 
 export type PlatformPublicPoolUser = {
@@ -351,8 +355,13 @@ export async function fetchPlatformOverview(): Promise<PlatformOverview> {
   return fetchAuth("/platform/overview");
 }
 
-export async function fetchPlatformPublicPoolUsers(limit = 80): Promise<{ users: PlatformPublicPoolUser[] }> {
-  return fetchAuth(`/platform/public-pool-users?limit=${encodeURIComponent(String(limit))}`);
+export async function fetchPlatformPublicPoolUsers(
+  limit = 80,
+  q?: string
+): Promise<{ users: PlatformPublicPoolUser[] }> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (q?.trim()) qs.set("q", q.trim());
+  return fetchAuth(`/platform/public-pool-users?${qs.toString()}`);
 }
 
 export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {
@@ -644,14 +653,82 @@ export async function removeCompetitionMember(
   );
 }
 
+export type InviteToCompetitionResult =
+  | { ok: true; mode: "joined" }
+  | {
+      ok: true;
+      mode: "email_invite";
+      inviteUrl: string;
+      emailSent: boolean;
+      emailError?: string;
+    };
+
 export async function inviteToCompetition(
   competitionId: string,
   email: string
-): Promise<{ ok: true }> {
+): Promise<InviteToCompetitionResult> {
   return fetchAuth(`/competitions/${encodeURIComponent(competitionId)}/invite`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email }),
+  });
+}
+
+export async function fetchCompetitionInvitePreview(token: string): Promise<{
+  competitionName: string;
+  companyName: string;
+  email: string;
+  inviterLabel: string | null;
+  accountExists: boolean;
+}> {
+  const url = `${API_BASE}/auth/competition-invite/preview?token=${encodeURIComponent(token)}`;
+  const res = await fetch(url);
+  const data = await parseJson<
+    {
+      competitionName: string;
+      companyName: string;
+      email: string;
+      inviterLabel: string | null;
+      accountExists: boolean;
+      error?: string;
+    } & { message?: string }
+  >(res, url);
+  if (!res.ok) {
+    throw new Error(data.error ?? "Invitación no válida");
+  }
+  return data;
+}
+
+export async function acceptCompetitionInvite(
+  token: string,
+  password: string,
+  fullName?: string
+): Promise<{ token: string; user: User }> {
+  const res = await fetch(`${API_BASE}/auth/competition-invite/accept`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, password, fullName }),
+  });
+  const data = await parseJson<
+    { token: string; user: User; error?: string; message?: string } & { message?: string }
+  >(res, `${API_BASE}/auth/competition-invite/accept`);
+  if (!res.ok) {
+    throw new Error(
+      (data as { message?: string }).message ?? data.error ?? "No se pudo crear la cuenta"
+    );
+  }
+  return data as { token: string; user: User };
+}
+
+export async function claimCompetitionInvite(token: string): Promise<{
+  ok: boolean;
+  competitionId: string;
+  alreadyMember?: boolean;
+}> {
+  return fetchAuth("/auth/competition-invite/claim", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token }),
   });
 }
 
