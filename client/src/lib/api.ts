@@ -407,6 +407,24 @@ export async function resetPlatformOrgAdminPassword(
   });
 }
 
+/** IA del pool público (empresa `platform-internal`); solo `super_admin`. */
+export async function fetchPlatformAiConfig(): Promise<{ config: AiConfig | null }> {
+  return fetchAuth("/platform/ai-config");
+}
+
+export async function updatePlatformAiConfig(data: {
+  provider?: "openai" | "custom" | "gemini" | "grok" | "groq" | "ollama";
+  model?: string;
+  baseUrl?: string | null;
+  apiKey?: string;
+}): Promise<{ config: AiConfig }> {
+  return fetchAuth("/platform/ai-config", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
 export async function fetchMatches(): Promise<{ matches: Match[] }> {
   return fetchAuth("/matches");
 }

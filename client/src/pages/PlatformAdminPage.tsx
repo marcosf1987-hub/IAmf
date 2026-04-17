@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import AiConfigTab from "../components/AiConfigTab";
 import {
   createPlatformCompany,
+  fetchPlatformAiConfig,
   fetchPlatformCompanies,
   fetchPlatformOverview,
   fetchPlatformPublicPoolUsers,
   patchPlatformCompanySeat,
   resetPlatformOrgAdminPassword,
+  updatePlatformAiConfig,
+  type AiConfig,
   type PlatformCompanyRow,
   type PlatformOverview,
   type PlatformPublicPoolUser,
@@ -38,19 +42,22 @@ export default function PlatformAdminPage() {
 
   const [poolFilter, setPoolFilter] = useState("");
   const [poolFilterDraft, setPoolFilterDraft] = useState("");
+  const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [{ companies: list }, ov, pool] = await Promise.all([
+      const [{ companies: list }, ov, pool, aiRes] = await Promise.all([
         fetchPlatformCompanies(),
         fetchPlatformOverview(),
         fetchPlatformPublicPoolUsers(100, poolFilter),
+        fetchPlatformAiConfig(),
       ]);
       setCompanies(list);
       setOverview(ov);
       setPublicPoolUsers(pool.users);
+      setPlatformAiConfig(aiRes.config);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar");
       setCompanies([]);
@@ -298,6 +305,23 @@ export default function PlatformAdminPage() {
           <p className="placeholder-text" style={{ marginTop: "0.5rem" }}>
             {poolFilter ? "No hay usuarios que coincidan con el filtro." : "Aún no hay usuarios en el pool público."}
           </p>
+        )}
+      </section>
+
+      <section className="admin-section" style={{ marginBottom: "2rem" }}>
+        {loading ? (
+          <p className="placeholder-text">Cargando configuración de IA…</p>
+        ) : (
+          <AiConfigTab
+            config={platformAiConfig}
+            title="IA del pool público"
+            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público y OAuth). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
+            successMessage="Configuración de IA del pool guardada."
+            onSave={async (data) => {
+              const { config } = await updatePlatformAiConfig(data);
+              setPlatformAiConfig(config);
+            }}
+          />
         )}
       </section>
 

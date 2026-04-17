@@ -4,12 +4,14 @@ import type { PrismaClient } from "@prisma/client";
 import { signAccessToken, verifyAccessToken, type AuthedRequest } from "./auth";
 import { hashPassword } from "./password";
 import {
+  adminAiConfigSchema,
   inviteAcceptSchema,
   orgInviteSchema,
   platformCreateCompanySchema,
   platformPatchCompanySchema,
   platformResetOrgAdminPasswordSchema,
 } from "./validators";
+import { encrypt } from "./crypto-util";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
@@ -627,5 +629,82 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       select: { id: true, name: true, slug: true, seatLimit: true, competitionLimit: true },
     });
     res.status(200).json({ company: updated });
+  });
+
+  /**
+   * IA del pool público (misma tabla `AiConfig` que por empresa, companyId = platform-internal).
+   * Sin esto, quienes no tienen org B2B dependen solo de OPENAI_API_KEY en env.
+   */
+  app.get("/platform/ai-config", superAuth, async (_req, res) => {
+    const platform = await prisma.company.findUnique({ where: { slug: "platform-internal" } });
+    if (!platform) {
+      res.status(404).json({ error: "not_found", message: "Falta empresa platform-internal." });
+      return;
+    }
+    const config = await prisma.aiConfig.findUnique({
+      where: { companyId: platform.id },
+    });
+    if (!config) {
+      res.status(200).json({ config: null });
+      return;
+    }
+    res.status(200).json({
+      config: {
+        provider: config.provider,
+        model: config.model,
+        baseUrl: config.baseUrl,
+        hasApiKey: Boolean(config.apiKeyEnc),
+      },
+    });
+  });
+
+  app.patch("/platform/ai-config", superAuth, async (req, res) => {
+    const parsed = adminAiConfigSchema.safeParse(req.body);
+    if (!parsed.success) {
+      const msg = parsed.error.issues.map((e) => `${e.path.map(String).join(".")}: ${e.message}`).join("; ");
+      res.status(400).json({ error: "invalid_body", message: msg });
+      return;
+    }
+    const platform = await prisma.company.findUnique({ where: { slug: "platform-internal" } });
+    if (!platform) {
+      res.status(404).json({ error: "not_found", message: "Falta empresa platform-internal." });
+      return;
+    }
+    const companyId = platform.id;
+    const { provider, model, baseUrl, apiKey } = parsed.data;
+
+    const data: {
+      provider?: string;
+      model?: string;
+      baseUrl?: string | null;
+      apiKeyEnc?: string | null;
+    } = {};
+    if (provider !== undefined) data.provider = provider;
+    if (model !== undefined && model.trim()) data.model = model.trim();
+    if (baseUrl !== undefined) data.baseUrl = (typeof baseUrl === "string" ? baseUrl.trim() : null) || null;
+    if (apiKey !== undefined) {
+      data.apiKeyEnc = apiKey.trim() ? encrypt(apiKey.trim()) : null;
+    }
+
+    const config = await prisma.aiConfig.upsert({
+      where: { companyId },
+      create: {
+        companyId,
+        provider: data.provider ?? "openai",
+        model: data.model ?? "gpt-4o-mini",
+        baseUrl: data.baseUrl ?? null,
+        apiKeyEnc: data.apiKeyEnc ?? null,
+      },
+      update: data,
+    });
+
+    res.status(200).json({
+      config: {
+        provider: config.provider,
+        model: config.model,
+        baseUrl: config.baseUrl,
+        hasApiKey: Boolean(config.apiKeyEnc),
+      },
+    });
   });
 }
