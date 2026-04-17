@@ -564,7 +564,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     prisma.match.findMany({
       where: { stage: { in: stages } },
       orderBy: { kickoffAt: "asc" },
-      select: { id: true, teamA: true, teamB: true, groupCode: true, stage: true },
+      select: { id: true, teamA: true, teamB: true, groupCode: true, stage: true, kickoffAt: true },
     }),
     prisma.prodeGuidelines.findUnique({
       where: { userId },
@@ -617,7 +617,17 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     stage: MatchStage;
   };
 
-  let workMatches: MatchWork[] = matches;
+  /** Misma inferencia que GET /matches: si en BD `groupCode` es null, se rellena desde el fixture (p. ej. Grupo A). */
+  let workMatches: MatchWork[] = matches.map((row) => {
+    const e = enrichMatchRowWithInferredGroupCode(row);
+    return {
+      id: e.id,
+      teamA: e.teamA,
+      teamB: e.teamB,
+      groupCode: e.groupCode,
+      stage: e.stage,
+    };
+  });
 
   if (phase === "groups" && groupCodeFilter) {
     const g = groupCodeFilter.toLowerCase();
