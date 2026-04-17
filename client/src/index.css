@@ -2085,10 +2085,48 @@ button:focus:not(:focus-visible) {
   letter-spacing: 0.04em;
 }
 
+.prode-group-card-head-right {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
 .prode-group-card-meta {
   font-size: 0.72rem;
   color: var(--text-muted);
   flex-shrink: 0;
+}
+
+.prode-group-ia-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.12rem 0.4rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.prode-group-ia-badge--loading {
+  color: var(--text-muted);
+  animation: prode-ia-pulse 1s ease-in-out infinite;
+}
+
+.prode-group-ia-badge--done {
+  color: var(--accent, #7fd4a0);
+  border-color: rgba(127, 212, 160, 0.45);
+}
+
+.prode-group-ia-badge--error {
+  color: #f08080;
+  border-color: rgba(240, 128, 128, 0.5);
+}
+
+@keyframes prode-ia-pulse {
+  50% {
+    opacity: 0.55;
+  }
 }
 
 .prode-standings-wrap {

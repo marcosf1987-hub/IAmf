@@ -157,9 +157,30 @@ export default function PlatformAdminPage() {
       <p className="page-subtitle">
         Pool público (registro y OAuth), liga universal, empresas B2B, cupos y accesos de administradores.
       </p>
+      <p className="page-subtitle" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
+        <strong>IA del pool público</strong> se configura en el bloque siguiente (usuarios en{" "}
+        <code className="platform-slug-code">platform-internal</code>). No está en Admin de empresa.
+      </p>
 
       {error && <div className="auth-error">{error}</div>}
       {successMsg && <div className="auth-success">{successMsg}</div>}
+
+      <section className="admin-section" id="ia-pool-publico" style={{ marginBottom: "2rem" }}>
+        {loading ? (
+          <p className="placeholder-text">Cargando configuración de IA…</p>
+        ) : (
+          <AiConfigTab
+            config={platformAiConfig}
+            title="IA del pool público"
+            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público y OAuth). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
+            successMessage="Configuración de IA del pool guardada."
+            onSave={async (data) => {
+              const { config } = await updatePlatformAiConfig(data);
+              setPlatformAiConfig(config);
+            }}
+          />
+        )}
+      </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Pool público y liga universal</h2>
@@ -305,23 +326,6 @@ export default function PlatformAdminPage() {
           <p className="placeholder-text" style={{ marginTop: "0.5rem" }}>
             {poolFilter ? "No hay usuarios que coincidan con el filtro." : "Aún no hay usuarios en el pool público."}
           </p>
-        )}
-      </section>
-
-      <section className="admin-section" style={{ marginBottom: "2rem" }}>
-        {loading ? (
-          <p className="placeholder-text">Cargando configuración de IA…</p>
-        ) : (
-          <AiConfigTab
-            config={platformAiConfig}
-            title="IA del pool público"
-            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público y OAuth). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
-            successMessage="Configuración de IA del pool guardada."
-            onSave={async (data) => {
-              const { config } = await updatePlatformAiConfig(data);
-              setPlatformAiConfig(config);
-            }}
-          />
         )}
       </section>
 

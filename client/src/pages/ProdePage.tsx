@@ -43,6 +43,16 @@ function normalizeGroupCode(raw: string): string {
   return t;
 }
 
+/** Clave para `groupCode` en la API (debe coincidir con el filtro del servidor). */
+function apiGroupCodeForSection(section: ProdeSection): string {
+  if (section.id === "group-unknown") return "ungrouped";
+  const raw = section.matches[0]?.groupCode?.trim();
+  if (raw) return raw.length === 1 ? raw.toUpperCase() : raw;
+  const title = section.title.replace(/^Grupo\s+/i, "").trim();
+  if (title) return title.length === 1 ? title.toUpperCase() : title;
+  return "ungrouped";
+}
+
 function isGroupStage(m: Match): boolean {
   return String(m.stage).toLowerCase() === "group";
 }
@@ -117,7 +127,7 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
 
 const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
   groups:
-    "Esta acción solo genera marcadores con IA para los partidos de fase de grupos (no para cruces ni final).",
+    "La IA recibe tus pautas una sola vez por grupo: se hace un pedido por zona (Grupo A, B, …) y se muestra el estado en cada tarjeta. No cruces ni final.",
   roundOf32:
     "Solo partidos de la ronda de 16avos. Antes debes tener predicción en todos los partidos de grupos.",
   knockout:
@@ -204,6 +214,8 @@ export default function ProdePage() {
   const [labGuidelines, setLabGuidelines] = useState<ProdeGuidelinesByPhase>(EMPTY_LAB);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  /** Solo fase de grupos: progreso por tarjeta al llamar a la IA por grupo. */
+  const [groupIaStatus, setGroupIaStatus] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
@@ -291,23 +303,51 @@ export default function ProdePage() {
       setGenerating(true);
       setError("");
       try {
-        const { predictions: newPreds, championPrediction: newChamp } = await generateProdePredictions(phase);
-        setPredictions((prev) => {
-          const next = { ...prev };
-          for (const p of newPreds) {
-            next[p.matchId] = p;
+        if (phase === "groups" && groupSections.length > 0) {
+          const init: Record<string, "idle" | "loading" | "done" | "error"> = {};
+          for (const s of groupSections) init[s.id] = "idle";
+          setGroupIaStatus(init);
+          let anyPred = false;
+          for (const section of groupSections) {
+            setGroupIaStatus((prev) => ({ ...prev, [section.id]: "loading" }));
+            try {
+              const code = apiGroupCodeForSection(section);
+              const { predictions: newPreds } = await generateProdePredictions(phase, { groupCode: code });
+              setPredictions((prev) => {
+                const next = { ...prev };
+                for (const p of newPreds) {
+                  next[p.matchId] = p;
+                }
+                return next;
+              });
+              if (newPreds.length > 0) anyPred = true;
+              setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
+            } catch (groupErr) {
+              setGroupIaStatus((prev) => ({ ...prev, [section.id]: "error" }));
+              throw groupErr;
+            }
           }
-          return next;
-        });
-        if (newChamp) setChampionPrediction(newChamp);
-        showFlash("Predicciones generadas y guardadas correctamente.", "success");
+          if (anyPred) showFlash("Predicciones generadas y guardadas correctamente.", "success");
+        } else {
+          setGroupIaStatus({});
+          const { predictions: newPreds, championPrediction: newChamp } = await generateProdePredictions(phase);
+          setPredictions((prev) => {
+            const next = { ...prev };
+            for (const p of newPreds) {
+              next[p.matchId] = p;
+            }
+            return next;
+          });
+          if (newChamp) setChampionPrediction(newChamp);
+          showFlash("Predicciones generadas y guardadas correctamente.", "success");
+        }
       } catch (err) {
         setError(formatApiError(err));
       } finally {
         setGenerating(false);
       }
     },
-    [labGuidelines, showFlash]
+    [labGuidelines, showFlash, groupSections]
   );
 
   useEffect(() => {
@@ -458,7 +498,12 @@ npx prisma db seed`}
             {prodeGenerateBlock}
             <div className="prode-groups-grid">
               {groupSections.map((section) => (
-                <GroupSimulatorCard key={section.id} section={section} predictions={predictions} />
+                <GroupSimulatorCard
+                  key={section.id}
+                  section={section}
+                  predictions={predictions}
+                  iaStatus={groupIaStatus[section.id]}
+                />
               ))}
             </div>
             {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
@@ -537,9 +582,11 @@ npx prisma db seed`}
 function GroupSimulatorCard({
   section,
   predictions,
+  iaStatus,
 }: {
   section: ProdeSection;
   predictions: Record<string, Prediction>;
+  iaStatus?: "idle" | "loading" | "done" | "error";
 }) {
   const standings = useMemo(
     () => computeGroupStandings(section.matches, predictions),
@@ -551,8 +598,24 @@ function GroupSimulatorCard({
     <article className="prode-group-card">
       <header className="prode-group-card-head">
         <h3 className="prode-group-card-title">{section.title}</h3>
-        <span className="prode-group-card-meta">
-          {predictedCount}/{section.matches.length} predichos
+        <span className="prode-group-card-head-right">
+          {iaStatus != null && iaStatus !== "idle" ? (
+            <span
+              className={`prode-group-ia-badge prode-group-ia-badge--${iaStatus}`}
+              title={
+                iaStatus === "loading"
+                  ? "Generando predicciones con IA para este grupo…"
+                  : iaStatus === "done"
+                    ? "Predicciones de este grupo generadas"
+                    : "Error al generar este grupo"
+              }
+            >
+              {iaStatus === "loading" ? "IA…" : iaStatus === "done" ? "IA ✓" : "IA ✗"}
+            </span>
+          ) : null}
+          <span className="prode-group-card-meta">
+            {predictedCount}/{section.matches.length} predichos
+          </span>
         </span>
       </header>
       <div className="prode-standings-wrap">

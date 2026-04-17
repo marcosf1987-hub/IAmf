@@ -851,14 +851,20 @@ export async function fetchChampionPrediction(): Promise<{
 
 export type ProdePhaseId = "groups" | "roundOf32" | "knockout";
 
-export async function generateProdePredictions(phase: ProdePhaseId): Promise<{
+export async function generateProdePredictions(
+  phase: ProdePhaseId,
+  options?: { groupCode?: string }
+): Promise<{
   predictions: Prediction[];
   championPrediction: ChampionPrediction | null;
 }> {
   return fetchAuth("/ai/generate-prode-predictions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ phase }),
+    body: JSON.stringify({
+      phase,
+      ...(options?.groupCode != null && options.groupCode !== "" ? { groupCode: options.groupCode } : {}),
+    }),
   });
 }
 

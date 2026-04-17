@@ -45,3 +45,50 @@ export function parseAiScore(text: string): { scoreA: number; scoreB: number } |
   }
   return null;
 }
+
+/**
+ * Extrae un objeto JSON de la respuesta (acepta bloque ```json opcional).
+ */
+function extractJsonObject(raw: string): Record<string, unknown> | null {
+  let s = raw.trim();
+  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
+  if (fence) s = fence[1].trim();
+  const start = s.indexOf("{");
+  const end = s.lastIndexOf("}");
+  if (start === -1 || end <= start) return null;
+  try {
+    const parsed = JSON.parse(s.slice(start, end + 1)) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parsea JSON con predicciones por id de partido: { "uuid": { "scoreA": 1, "scoreB": 0 } } o "1-0" como string.
+ */
+export function parseAiBatchScoresJson(
+  text: string,
+  expectedIds: Set<string>
+): Map<string, { scoreA: number; scoreB: number }> {
+  const obj = extractJsonObject(text);
+  const out = new Map<string, { scoreA: number; scoreB: number }>();
+  if (!obj) return out;
+
+  for (const id of expectedIds) {
+    const v = obj[id];
+    if (v == null) continue;
+    if (typeof v === "string") {
+      const p = parseAiScore(v);
+      if (p) out.set(id, p);
+      continue;
+    }
+    if (typeof v === "object" && v !== null && "scoreA" in v && "scoreB" in v) {
+      const o = v as { scoreA: unknown; scoreB: unknown };
+      const scoreA = Math.min(20, Math.max(0, Number(o.scoreA)));
+      const scoreB = Math.min(20, Math.max(0, Number(o.scoreB)));
+      if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) out.set(id, { scoreA, scoreB });
+    }
+  }
+  return out;
+}

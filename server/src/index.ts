@@ -6,7 +6,7 @@ import { Prisma, PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma
 import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
-import { parseAiScore, parseAiChampionRunnerUp } from "./ai-parse";
+import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
 import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } from "./sync-match-results";
 import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
@@ -433,35 +433,6 @@ function prodePhaseNameEs(phaseKey: ProdePromptPhase): string {
   }
 }
 
-/** Un prompt por partido: las pautas se repiten en cada llamada pero el encuadre aclara que rigen toda la etapa. */
-function buildProdeMatchPrompt(params: {
-  phaseKey: ProdePromptPhase;
-  pautas: string;
-  teamA: string;
-  teamB: string;
-  matchIndex1Based: number;
-  matchTotal: number;
-}): string {
-  const { phaseKey, pautas, teamA, teamB, matchIndex1Based, matchTotal } = params;
-  const phaseName = prodePhaseNameEs(phaseKey);
-  const batchHint =
-    matchTotal > 1
-      ? `Esta etapa tiene ${matchTotal} partidos en el fixture; cada llamada de la API es un partido distinto. Ahora corresponde el partido ${matchIndex1Based} de ${matchTotal}. Las pautas de arriba aplican a todos los pronósticos de esta etapa, no solo a este.\n\n`
-      : "";
-
-  return `Estás ayudando a completar pronósticos del Prode (Mundial).
-
-Las pautas del usuario que siguen son criterios generales de la etapa «${phaseName}»: orientan cómo pensar todos los marcadores de esta ventana del torneo. No las interpretes como atadas solo al partido de esta pregunta: son la guía coherente para cada resultado de esta fase.
-
---- PAUTAS DEL USUARIO (toda esta etapa) ---
-${pautas}
----
-
-${batchHint}Pregunta concreta (respondé únicamente el marcador de este partido): ¿Cuál será el resultado del partido de fútbol entre ${teamA} y ${teamB}?
-
-Responde ÚNICAMENTE con dos números separados por guión en el orden ${teamA}-${teamB}, por ejemplo: 2-1. Sin explicaciones ni texto extra.`;
-}
-
 function buildProdeChampionPrompt(pautas: string): string {
   return `Estás ayudando a completar pronósticos del Prode (Mundial).
 
@@ -476,9 +447,93 @@ Pregunta concreta: ¿Quiénes serán el campeón y subcampeón del Mundial FIFA 
 Responde ÚNICAMENTE con dos nombres de selecciones separados por guión en el orden campeón-subcampeón, por ejemplo: Argentina-Brasil. Sin explicaciones ni texto extra.`;
 }
 
+function normalizeGroupCodeKey(g: string | null | undefined): string {
+  if (!g?.trim()) return "";
+  return g.trim().toUpperCase();
+}
+
+/** Partidos de fase de grupos agrupados por groupCode; sin código van al último bloque. */
+function partitionGroupMatches(
+  matches: Array<{ id: string; teamA: string; teamB: string; groupCode: string | null }>
+): Array<{ scopeLabel: string; matches: typeof matches }> {
+  const ungrouped: typeof matches = [];
+  const byCode = new Map<string, typeof matches>();
+  for (const m of matches) {
+    const k = normalizeGroupCodeKey(m.groupCode);
+    if (!k) {
+      ungrouped.push(m);
+      continue;
+    }
+    if (!byCode.has(k)) byCode.set(k, []);
+    byCode.get(k)!.push(m);
+  }
+  const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const keys = Array.from(byCode.keys()).sort((a, b) => {
+    if (a.length === 1 && b.length === 1) {
+      const ia = letters.indexOf(a);
+      const ib = letters.indexOf(b);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+    }
+    return a.localeCompare(b, undefined, { numeric: true });
+  });
+  const out: Array<{ scopeLabel: string; matches: typeof matches }> = [];
+  for (const k of keys) {
+    const arr = byCode.get(k)!;
+    arr.sort((a, b) => a.id.localeCompare(b.id));
+    out.push({ scopeLabel: `Grupo ${k}`, matches: arr });
+  }
+  if (ungrouped.length) {
+    ungrouped.sort((a, b) => a.id.localeCompare(b.id));
+    out.push({ scopeLabel: "Partidos de grupos sin zona (groupCode vacío)", matches: ungrouped });
+  }
+  return out;
+}
+
+function buildProdeBatchJsonPrompt(params: {
+  phaseKey: ProdePromptPhase;
+  pautas: string;
+  scopeLabel: string;
+  matches: { id: string; teamA: string; teamB: string }[];
+}): string {
+  const lines = params.matches
+    .map(
+      (m, i) =>
+        `${i + 1}. id="${m.id}" → ${m.teamA} (local) vs ${m.teamB} (visitante); scoreA = goles de ${m.teamA}, scoreB = goles de ${m.teamB}`
+    )
+    .join("\n");
+  const phaseName = prodePhaseNameEs(params.phaseKey);
+  return `Estás ayudando a completar pronósticos del Prode (Mundial).
+
+Ámbito: ${params.scopeLabel}. Etapa: ${phaseName}.
+
+Las pautas del usuario orientan de forma coherente todos los marcadores de este bloque.
+
+--- PAUTAS DEL USUARIO ---
+${params.pautas}
+---
+
+Partidos (las claves del JSON deben ser exactamente estos id, sin modificar):
+${lines}
+
+Respondé ÚNICAMENTE con un objeto JSON válido (sin markdown ni texto fuera del JSON). Cada clave es el id del partido. Cada valor es un objeto {"scoreA": número, "scoreB": número} con enteros entre 0 y 20, o un string "2-1" donde el primer número son goles del equipo local (teamA) y el segundo del visitante (teamB).`;
+}
+
+const KNOCKOUT_BATCH_ORDER: MatchStage[] = ["roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"];
+
+const KNOCKOUT_STAGE_LABEL: Partial<Record<MatchStage, string>> = {
+  roundOf16: "Octavos de final",
+  quarterFinal: "Cuartos de final",
+  semiFinal: "Semifinales",
+  thirdPlace: "Tercer puesto",
+  final: "Final",
+};
+
 app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
   const phase = (req.body?.phase as string) || "groups";
+  const rawGroupCode = req.body?.groupCode;
+  const groupCodeFilter =
+    typeof rawGroupCode === "string" && rawGroupCode.trim().length > 0 ? rawGroupCode.trim() : undefined;
   const stages = PHASE_STAGES[phase] ?? PHASE_STAGES.groups;
 
   const [needGroup, haveGroup] = await Promise.all([
@@ -509,7 +564,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     prisma.match.findMany({
       where: { stage: { in: stages } },
       orderBy: { kickoffAt: "asc" },
-      select: { id: true, teamA: true, teamB: true },
+      select: { id: true, teamA: true, teamB: true, groupCode: true, stage: true },
     }),
     prisma.prodeGuidelines.findUnique({
       where: { userId },
@@ -554,23 +609,47 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
     return;
   }
 
+  type MatchWork = {
+    id: string;
+    teamA: string;
+    teamB: string;
+    groupCode: string | null;
+    stage: MatchStage;
+  };
+
+  let workMatches: MatchWork[] = matches;
+
+  if (phase === "groups" && groupCodeFilter) {
+    const g = groupCodeFilter.toLowerCase();
+    if (g === "ungrouped") {
+      workMatches = workMatches.filter((m) => !m.groupCode?.trim());
+    } else {
+      const want = normalizeGroupCodeKey(groupCodeFilter);
+      workMatches = workMatches.filter((m) => normalizeGroupCodeKey(m.groupCode) === want);
+    }
+    if (workMatches.length === 0) {
+      res.status(400).json({
+        error: "no_matches_for_group",
+        message: `No hay partidos de grupos para «${groupCodeFilter}».`,
+      });
+      return;
+    }
+  }
+
   const predictions: Array<{ id: string; matchId: string; scoreA: number; scoreB: number; createdAt: Date }> = [];
   let championPrediction: { champion: string; runnerUp: string } | null = null;
   const batchId = randomUUID();
-  const matchTotal = matches.length;
   const promptPhase = phaseKey as ProdePromptPhase;
 
-  for (let idx = 0; idx < matches.length; idx++) {
-    const m = matches[idx];
+  async function runMatchBatch(scopeLabel: string, batchMatches: Array<{ id: string; teamA: string; teamB: string }>) {
+    if (batchMatches.length === 0) return;
+    const prompt = buildProdeBatchJsonPrompt({
+      phaseKey: promptPhase,
+      pautas,
+      scopeLabel,
+      matches: batchMatches,
+    });
     try {
-      const prompt = buildProdeMatchPrompt({
-        phaseKey: promptPhase,
-        pautas,
-        teamA: m.teamA,
-        teamB: m.teamB,
-        matchIndex1Based: idx + 1,
-        matchTotal,
-      });
       const result = await chat(prompt, chatConfig);
 
       await prisma.promptLog.create({
@@ -586,37 +665,68 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
         },
       });
 
-      const parsed = parseAiScore(result.text);
-      if (parsed) {
-        const pred = await prisma.prediction.upsert({
-          where: { userId_matchId: { userId, matchId: m.id } },
-          update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-          create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
-          select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
-        });
-        try {
-          await prisma.predictionHistory.create({
-            data: {
-              userId,
-              kind: PredictionHistoryKind.match,
-              matchId: m.id,
-              scoreA: parsed.scoreA,
-              scoreB: parsed.scoreB,
-              source: "ai",
-              batchId,
-              phaseLabel: phase,
-            },
-          });
-        } catch (histErr) {
-          // eslint-disable-next-line no-console
-          console.error("PredictionHistory (IA) no se pudo guardar. ¿Migración aplicada?", histErr);
+      const ids = new Set(batchMatches.map((m) => m.id));
+      let parsedMap = parseAiBatchScoresJson(result.text, ids);
+
+      if (parsedMap.size === 0 && batchMatches.length === 1) {
+        const fallback = parseAiScore(result.text);
+        if (fallback) {
+          parsedMap = new Map([[batchMatches[0].id, fallback]]);
         }
-        predictions.push(pred);
+      }
+
+      for (const m of batchMatches) {
+        const parsed = parsedMap.get(m.id);
+        if (!parsed) continue;
+        try {
+          const pred = await prisma.prediction.upsert({
+            where: { userId_matchId: { userId, matchId: m.id } },
+            update: { scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+            create: { userId, matchId: m.id, scoreA: parsed.scoreA, scoreB: parsed.scoreB },
+            select: { id: true, matchId: true, scoreA: true, scoreB: true, createdAt: true },
+          });
+          try {
+            await prisma.predictionHistory.create({
+              data: {
+                userId,
+                kind: PredictionHistoryKind.match,
+                matchId: m.id,
+                scoreA: parsed.scoreA,
+                scoreB: parsed.scoreB,
+                source: "ai",
+                batchId,
+                phaseLabel: phase,
+              },
+            });
+          } catch (histErr) {
+            // eslint-disable-next-line no-console
+            console.error("PredictionHistory (IA) no se pudo guardar. ¿Migración aplicada?", histErr);
+          }
+          predictions.push(pred);
+        } catch (predErr) {
+          // eslint-disable-next-line no-console
+          console.error(`Error upsert prediction ${m.id}:`, predErr);
+        }
       }
     } catch (err) {
       // eslint-disable-next-line no-console
-      console.error(`Error generating prediction for match ${m.id}:`, err);
-      // Continuar con el siguiente partido
+      console.error(`Error batch IA (${scopeLabel}):`, err);
+    }
+  }
+
+  if (phase === "groups") {
+    const parts = partitionGroupMatches(workMatches);
+    for (const part of parts) {
+      await runMatchBatch(part.scopeLabel, part.matches);
+    }
+  } else if (phase === "roundOf32") {
+    await runMatchBatch("Treintaidosavos (R32) — todos los partidos", workMatches);
+  } else if (phase === "knockout") {
+    for (const st of KNOCKOUT_BATCH_ORDER) {
+      const roundMatches = workMatches.filter((m) => m.stage === st);
+      if (roundMatches.length === 0) continue;
+      const label = KNOCKOUT_STAGE_LABEL[st] ?? st;
+      await runMatchBatch(`${label} — eliminatorias`, roundMatches);
     }
   }
 
