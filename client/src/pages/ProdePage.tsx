@@ -320,6 +320,12 @@ export default function ProdePage() {
                 }
                 return next;
               });
+              if (newPreds.length === 0 && section.matches.length > 0) {
+                setGroupIaStatus((prev) => ({ ...prev, [section.id]: "error" }));
+                throw new Error(
+                  "La IA no devolvió marcadores para este grupo. Reintentá; si persiste, revisá la configuración de IA o los logs de prompts."
+                );
+              }
               if (newPreds.length > 0) anyPred = true;
               setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
             } catch (groupErr) {

@@ -78,7 +78,7 @@ async function chatOpenAI(
   const completion = await client.chat.completions.create({
     model,
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 1024,
+    max_tokens: 4096,
   });
 
   const choice = completion.choices[0];
@@ -102,7 +102,7 @@ async function chatGroq(prompt: string, apiKey: string, model: string): Promise<
   const completion = await client.chat.completions.create({
     model: model || "llama-3.3-70b-versatile",
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 1024,
+    max_tokens: 4096,
   });
 
   const choice = completion.choices[0];
@@ -126,7 +126,7 @@ async function chatGrok(prompt: string, apiKey: string, model: string): Promise<
   const completion = await client.chat.completions.create({
     model: model || "grok-2-1212",
     messages: [{ role: "user", content: prompt }],
-    max_tokens: 1024,
+    max_tokens: 4096,
   });
 
   const choice = completion.choices[0];
@@ -155,7 +155,7 @@ async function chatOllama(
     body: JSON.stringify({
       model: m,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 1024,
+      max_tokens: 4096,
       stream: false,
     }),
   });
@@ -193,7 +193,7 @@ async function chatGemini(prompt: string, apiKey: string, model: string): Promis
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: { maxOutputTokens: 1024 },
+      generationConfig: { maxOutputTokens: 4096 },
     }),
   });
 

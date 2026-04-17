@@ -518,6 +518,25 @@ ${lines}
 Respondé ÚNICAMENTE con un objeto JSON válido (sin markdown ni texto fuera del JSON). Cada clave es el id del partido. Cada valor es un objeto {"scoreA": número, "scoreB": número} con enteros entre 0 y 20, o un string "2-1" donde el primer número son goles del equipo local (teamA) y el segundo del visitante (teamB).`;
 }
 
+/** Si el lote JSON falla, un prompt corto por partido (mismo formato que antes). */
+function buildProdeSingleMatchFallbackPrompt(
+  phaseKey: ProdePromptPhase,
+  pautas: string,
+  teamA: string,
+  teamB: string
+): string {
+  const phaseName = prodePhaseNameEs(phaseKey);
+  return `Estás ayudando con pronósticos del Prode (Mundial). Etapa: ${phaseName}.
+
+--- PAUTAS DEL USUARIO ---
+${pautas}
+---
+
+Partido: ${teamA} (local) vs ${teamB} (visitante).
+
+Respondé ÚNICAMENTE con dos números separados por guión en el orden goles de ${teamA} - goles de ${teamB} (ej.: 2-1). Sin explicaciones ni texto extra.`;
+}
+
 const KNOCKOUT_BATCH_ORDER: MatchStage[] = ["roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"];
 
 const KNOCKOUT_STAGE_LABEL: Partial<Record<MatchStage, string>> = {
@@ -682,6 +701,31 @@ app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
         const fallback = parseAiScore(result.text);
         if (fallback) {
           parsedMap = new Map([[batchMatches[0].id, fallback]]);
+        }
+      }
+
+      const missingAfterBatch = batchMatches.filter((m) => !parsedMap.has(m.id));
+      for (const m of missingAfterBatch) {
+        try {
+          const sp = buildProdeSingleMatchFallbackPrompt(promptPhase, pautas, m.teamA, m.teamB);
+          const singleRes = await chat(sp, chatConfig);
+          await prisma.promptLog.create({
+            data: {
+              userId,
+              batchId,
+              provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
+              model: singleRes.model,
+              promptText: sp,
+              responseText: singleRes.text,
+              tokensIn: singleRes.tokensIn ?? undefined,
+              tokensOut: singleRes.tokensOut ?? undefined,
+            },
+          });
+          const one = parseAiScore(singleRes.text);
+          if (one) parsedMap.set(m.id, one);
+        } catch (singleErr) {
+          // eslint-disable-next-line no-console
+          console.error(`Fallback 1 partido (${scopeLabel}) ${m.id}:`, singleErr);
         }
       }
 

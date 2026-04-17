@@ -46,49 +46,132 @@ export function parseAiScore(text: string): { scoreA: number; scoreB: number } |
   return null;
 }
 
+function scoreFromUnknownValue(v: unknown): { scoreA: number; scoreB: number } | null {
+  if (typeof v === "string") return parseAiScore(v);
+  if (typeof v === "object" && v !== null && "scoreA" in v && "scoreB" in v) {
+    const o = v as { scoreA: unknown; scoreB: unknown };
+    const scoreA = Math.min(20, Math.max(0, Number(o.scoreA)));
+    const scoreB = Math.min(20, Math.max(0, Number(o.scoreB)));
+    if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) return { scoreA, scoreB };
+  }
+  return null;
+}
+
 /**
  * Extrae un objeto JSON de la respuesta (acepta bloque ```json opcional).
  */
 function extractJsonObject(raw: string): Record<string, unknown> | null {
   let s = raw.trim();
   const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
-  if (fence) s = fence[1].trim();
+  if (fence) s = fence[1]!.trim();
+
+  const tryObj = (str: string): Record<string, unknown> | null => {
+    try {
+      const parsed = JSON.parse(str) as unknown;
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
+    } catch {
+      /* siguiente */
+    }
+    return null;
+  };
+
+  const direct = tryObj(s);
+  if (direct) return direct;
+
   const start = s.indexOf("{");
   const end = s.lastIndexOf("}");
   if (start === -1 || end <= start) return null;
-  try {
-    const parsed = JSON.parse(s.slice(start, end + 1)) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : null;
-  } catch {
-    return null;
+  return tryObj(s.slice(start, end + 1));
+}
+
+const NEST_KEYS = [
+  "predictions",
+  "partidos",
+  "matches",
+  "resultados",
+  "predicciones",
+  "data",
+  "scores",
+  "respuesta",
+  "results",
+];
+
+function flattenBatchRecord(obj: Record<string, unknown>): Record<string, unknown> {
+  let out: Record<string, unknown> = { ...obj };
+  for (const nk of NEST_KEYS) {
+    const inner = obj[nk];
+    if (inner && typeof inner === "object" && !Array.isArray(inner)) {
+      out = { ...out, ...(inner as Record<string, unknown>) };
+    }
   }
+  return out;
+}
+
+function lookupScoreInFlat(flat: Record<string, unknown>, id: string): { scoreA: number; scoreB: number } | null {
+  let v: unknown = flat[id];
+  if (v == null) {
+    const low = id.toLowerCase();
+    for (const k of Object.keys(flat)) {
+      if (k.toLowerCase() === low) {
+        v = flat[k];
+        break;
+      }
+    }
+  }
+  return scoreFromUnknownValue(v);
 }
 
 /**
- * Parsea JSON con predicciones por id de partido: { "uuid": { "scoreA": 1, "scoreB": 0 } } o "1-0" como string.
+ * Parsea JSON con predicciones por id de partido: objeto plano, anidado bajo "predictions", o array de filas.
  */
 export function parseAiBatchScoresJson(
   text: string,
   expectedIds: Set<string>
 ): Map<string, { scoreA: number; scoreB: number }> {
-  const obj = extractJsonObject(text);
   const out = new Map<string, { scoreA: number; scoreB: number }>();
+  const trimmed = text.trim();
+
+  function resolveExpectedId(raw: string): string | null {
+    if (expectedIds.has(raw)) return raw;
+    const low = raw.toLowerCase();
+    for (const id of expectedIds) {
+      if (id.toLowerCase() === low) return id;
+    }
+    return null;
+  }
+
+  // Formato array: [ { "matchId"|"id", scoreA, scoreB } ]
+  try {
+    let s = trimmed;
+    const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
+    if (fence) s = fence[1]!.trim();
+    const parsed = JSON.parse(s) as unknown;
+    if (Array.isArray(parsed)) {
+      for (const row of parsed) {
+        if (!row || typeof row !== "object") continue;
+        const r = row as Record<string, unknown>;
+        const midRaw = r.matchId ?? r.match_id ?? r.id;
+        if (typeof midRaw !== "string") continue;
+        const canonicalId = resolveExpectedId(midRaw);
+        if (!canonicalId || out.has(canonicalId)) continue;
+        let p = scoreFromUnknownValue({ scoreA: r.scoreA, scoreB: r.scoreB });
+        if (!p && typeof r.result === "string") p = parseAiScore(r.result);
+        if (p) out.set(canonicalId, p);
+      }
+    }
+  } catch {
+    /* seguir con objeto */
+  }
+
+  const obj = extractJsonObject(text);
   if (!obj) return out;
 
+  const flat = flattenBatchRecord(obj);
   for (const id of expectedIds) {
-    const v = obj[id];
-    if (v == null) continue;
-    if (typeof v === "string") {
-      const p = parseAiScore(v);
-      if (p) out.set(id, p);
-      continue;
-    }
-    if (typeof v === "object" && v !== null && "scoreA" in v && "scoreB" in v) {
-      const o = v as { scoreA: unknown; scoreB: unknown };
-      const scoreA = Math.min(20, Math.max(0, Number(o.scoreA)));
-      const scoreB = Math.min(20, Math.max(0, Number(o.scoreB)));
-      if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) out.set(id, { scoreA, scoreB });
-    }
+    if (out.has(id)) continue;
+    const p = lookupScoreInFlat(flat, id);
+    if (p) out.set(id, p);
   }
+
   return out;
 }
