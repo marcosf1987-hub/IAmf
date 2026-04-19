@@ -1575,27 +1575,27 @@ a.home-logo:hover .home-logo-brand {
 }
 
 .dashboard-tip {
-  margin-bottom: 2.5rem;
-  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.75rem;
+  padding: 0.85rem 1.15rem;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
 }
 
 .dashboard-tip-label {
   display: block;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .dashboard-tip-text {
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.45;
 }
 
 .dashboard-cards {
@@ -1899,8 +1899,8 @@ a.home-logo:hover .home-logo-brand {
 }
 
 .dashboard-skeleton .dashboard-sk-tip {
-  height: 5rem;
-  margin-bottom: 1.5rem;
+  height: 4rem;
+  margin-bottom: 1.25rem;
 }
 
 .dashboard-sk-cards {
