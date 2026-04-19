@@ -256,7 +256,7 @@ export default function ResultadosPage() {
       )}
 
       <Link to="/app/ia" className="resultados-fab">
-        Ajustar mi Prompt para la próxima fecha
+        Ajustar mi Prompt para la próxima fase
       </Link>
     </div>
   );

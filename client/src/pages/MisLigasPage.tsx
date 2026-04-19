@@ -272,7 +272,7 @@ function LigasCommunityHome() {
 
       {error && <div className="auth-error">{error}</div>}
 
-      <section className="ligas-global-actions" aria-label="Acciones globales">
+      <section className="ligas-global-actions" id="ligas-crear" aria-label="Acciones globales">
         <div className="ligas-action-buttons">
           <button
             type="button"

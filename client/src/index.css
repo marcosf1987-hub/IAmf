@@ -1734,6 +1734,130 @@ a.home-logo:hover .home-logo-brand {
   justify-content: center;
 }
 
+.dashboard-next-actions--cta-equal {
+  flex-direction: column;
+  align-items: stretch;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+@media (min-width: 520px) {
+  .dashboard-next-actions--cta-equal {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    max-width: none;
+  }
+}
+
+.dashboard-next-cta-main {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.dashboard-load-error {
+  margin: 0 0 1rem;
+}
+
+.dashboard-home-metrics {
+  margin-bottom: 1.75rem;
+}
+
+.dashboard-league-ranks {
+  margin-bottom: 2rem;
+}
+
+.dashboard-league-ranks-table th:last-child,
+.dashboard-league-ranks-table td:last-child {
+  width: auto;
+  text-align: right;
+}
+
+.dashboard-league-ranks-name {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.dashboard-league-ranks-name:hover {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.dashboard-league-ranks-emoji {
+  margin-right: 0.35rem;
+}
+
+.dashboard-league-ranks-empty {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.dashboard-my-leagues {
+  margin-bottom: 2rem;
+}
+
+.dashboard-my-leagues-card {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem 1.25rem;
+}
+
+.dashboard-my-leagues-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+}
+
+.dashboard-my-leagues-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.dashboard-my-leagues-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s ease;
+  margin: 0 -0.25rem;
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+  border-radius: var(--radius-md);
+}
+
+.dashboard-my-leagues-link:hover {
+  background: var(--accent-dim);
+  text-decoration: none;
+  color: inherit;
+}
+
+.dashboard-my-leagues-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.dashboard-my-leagues-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.dashboard-my-leagues-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-my-leagues-create--soft {
+  opacity: 0.65;
+}
+
 .dashboard-next-cta-ligas {
   text-transform: uppercase;
   letter-spacing: 0.04em;

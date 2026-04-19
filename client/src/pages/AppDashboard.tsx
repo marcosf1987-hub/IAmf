@@ -2,7 +2,16 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { useAuth } from "../contexts/AuthContext";
-import { fetchProdeStatus, fetchMyResults } from "../lib/api";
+import {
+  fetchMyCompetitions,
+  fetchMyResults,
+  fetchProdeStatus,
+  fetchResultsDashboard,
+  type CompetitionQuota,
+  type MineCompetitionsResponse,
+  type ProdeStatus,
+  type ResultsDashboard,
+} from "../lib/api";
 import { getCurrentPhase, formatDaysLeft } from "../lib/prode-phases";
 
 /** Inicio del primer partido */
@@ -15,6 +24,14 @@ const TIPS = [
   "Pídele que razone: antes del resultado final, escribe: «Explica tu razonamiento paso a paso antes de dar el marcador». Esto obliga a la IA a analizar variables lógicas antes de «arriesgar» un número.",
   "Evita alucinaciones: sé específico con lo que no quieres. Por ejemplo: «No consideres partidos amistosos de hace más de 5 años». Poner límites claros ayuda a que la IA no se pierda en datos irrelevantes.",
 ];
+
+function canCreateMoreLeagues(q: CompetitionQuota): boolean {
+  if (q.scope === "user") {
+    return q.maxCreatedByMe != null && q.createdByMe < q.maxCreatedByMe;
+  }
+  if (q.maxCompany == null) return true;
+  return (q.companyTotal ?? 0) < q.maxCompany;
+}
 
 function WaveIcon() {
   return (
@@ -92,7 +109,44 @@ function UserCircleIcon() {
   );
 }
 
-function DashboardNextStep({
+function RankArrow({ change }: { change: number }) {
+  if (change > 0) {
+    return (
+      <span className="rank-arrow rank-up" aria-label="Subió puestos">
+        ↑
+      </span>
+    );
+  }
+  if (change < 0) {
+    return (
+      <span className="rank-arrow rank-down" aria-label="Bajó puestos">
+        ↓
+      </span>
+    );
+  }
+  return <span className="rank-arrow rank-same">—</span>;
+}
+
+function DashboardNextStepNoLeague() {
+  return (
+    <section className="dashboard-next dashboard-next--accent" aria-labelledby="dashboard-next-title">
+      <h2 id="dashboard-next-title" className="dashboard-next-title">
+        Primer paso
+      </h2>
+      <p className="dashboard-next-desc">Crea o únete a una liga para poder empezar a jugar y competir.</p>
+      <div className="dashboard-next-actions dashboard-next-actions--primary-pair dashboard-next-actions--cta-equal">
+        <Link to="/app/ligas#ligas-crear" className="btn-primary btn-large dashboard-next-cta-main">
+          CREAR LIGA
+        </Link>
+        <Link to="/app/ligas#ligas-unirse" className="btn-secondary btn-large dashboard-next-cta-main">
+          UNIRME A UNA LIGA
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function DashboardNextStepWithLeague({
   prodeStatus,
 }: {
   prodeStatus: { hasGuidelines: boolean; hasPredictions: boolean; guidelinesVersion: number } | null;
@@ -131,21 +185,41 @@ function DashboardNextStep({
     );
   }
 
+  return null;
+}
+
+function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
+  const { competitions, quota } = mine;
+  const createAllowed = quota ? canCreateMoreLeagues(quota) : false;
+
   return (
-    <section className="dashboard-next dashboard-next--muted" aria-labelledby="dashboard-next-title">
-      <h2 id="dashboard-next-title" className="dashboard-next-title">
-        Todo listo por ahora
+    <section className="dashboard-my-leagues" aria-labelledby="dashboard-my-leagues-title">
+      <h2 id="dashboard-my-leagues-title" className="dashboard-section-heading">
+        Tus ligas
       </h2>
-      <p className="dashboard-next-desc">
-        Revisa tu puntaje global y compite en ligas con tu grupo. Si quieres cambiar las pautas del modelo, abre el Laboratorio desde el menú.
-      </p>
-      <div className="dashboard-next-actions dashboard-next-actions--primary-pair">
-        <Link to="/app/resultados" className="btn-primary">
-          Ver Mis resultados
-        </Link>
-        <Link to="/app/ligas" className="btn-primary dashboard-next-cta-ligas">
-          Crea tu liga o únete a una
-        </Link>
+      <div className="dashboard-my-leagues-card">
+        <ul className="dashboard-my-leagues-list">
+          {competitions.map((c) => (
+            <li key={c.id}>
+              <Link to={`/app/ligas/${c.id}`} className="dashboard-my-leagues-link">
+                <span className="dashboard-my-leagues-name">{c.emoji ? `${c.emoji} ` : ""}{c.name}</span>
+                <span className="dashboard-my-leagues-meta">
+                  {c.card.myRank != null
+                    ? `Tu puesto: #${c.card.myRank} de ${c.card.totalParticipants}`
+                    : `${c.memberCount} miembros`}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="dashboard-my-leagues-actions">
+          <Link
+            to="/app/ligas#ligas-crear"
+            className={`btn-primary${createAllowed ? "" : " dashboard-my-leagues-create--soft"}`}
+          >
+            CREAR LIGA
+          </Link>
+        </div>
       </div>
     </section>
   );
@@ -169,24 +243,51 @@ function DashboardSkeleton() {
   );
 }
 
+const EMPTY_DASH: ResultsDashboard = {
+  totalHits: 0,
+  totalWithResult: 0,
+  precision: 0,
+  leaderboard: [],
+  myRank: null,
+  totalParticipants: 0,
+  rankChange: 0,
+  pointsOverTime: [],
+  competitionLeaderboards: [],
+};
+
 export default function AppDashboard() {
-  const { user } = useAuth();
-  const [prodeStatus, setProdeStatus] = useState<{ hasGuidelines: boolean; hasPredictions: boolean; guidelinesVersion: number } | null>(null);
+  const { user, company } = useAuth();
+  const [prodeStatus, setProdeStatus] = useState<ProdeStatus | null>(null);
+  const [mine, setMine] = useState<MineCompetitionsResponse | null>(null);
+  const [resultsDash, setResultsDash] = useState<ResultsDashboard | null>(null);
   const [totalHits, setTotalHits] = useState<number | null>(null);
+  const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tipIndex] = useState(() => Math.floor(Math.random() * TIPS.length));
 
   useEffect(() => {
     async function load() {
+      setLoadError("");
       try {
-        const [statusRes, resultsRes] = await Promise.all([
+        const [statusRes, resultsRes, mineRes] = await Promise.all([
           fetchProdeStatus(),
           fetchMyResults(),
+          fetchMyCompetitions(),
         ]);
         setProdeStatus(statusRes);
         setTotalHits(resultsRes.totalHits);
+        setMine(mineRes);
+        try {
+          const dash = await fetchResultsDashboard();
+          setResultsDash(dash);
+        } catch {
+          setResultsDash(EMPTY_DASH);
+        }
       } catch {
         setProdeStatus({ hasGuidelines: false, hasPredictions: false, guidelinesVersion: 1 });
+        setMine({ competitions: [], quota: { scope: "user", createdByMe: 0, maxCreatedByMe: null, companyTotal: null, maxCompany: null } });
+        setResultsDash(EMPTY_DASH);
+        setLoadError("No se pudo cargar el resumen. Reintentá en unos segundos.");
       } finally {
         setLoading(false);
       }
@@ -197,8 +298,11 @@ export default function AppDashboard() {
   const displayName = user?.fullName || user?.email || "Usuario";
   const worldCupStarted = new Date() >= WORLD_CUP_START;
 
-  const modelReady =
-    prodeStatus?.hasGuidelines === true && prodeStatus?.hasPredictions === true;
+  const hasAnyLeague = (mine?.competitions?.length ?? 0) > 0;
+  const modelReady = prodeStatus?.hasGuidelines === true && prodeStatus?.hasPredictions === true;
+
+  const dash = resultsDash ?? EMPTY_DASH;
+  const rankingLabel = company != null ? "Ranking de empresa" : "Ranking global";
 
   function getModelStatusText(): string {
     if (!prodeStatus) return "";
@@ -207,9 +311,26 @@ export default function AppDashboard() {
     return "Predicciones ya generadas.";
   }
 
+  const leagueRankRows =
+    modelReady && mine
+      ? mine.competitions.map((c) => {
+          const block = dash.competitionLeaderboards.find((b) => b.id === c.id);
+          return {
+            id: c.id,
+            name: c.name,
+            emoji: c.emoji,
+            myRank: block?.myRank ?? c.card.myRank,
+            totalParticipants: block?.totalParticipants ?? c.card.totalParticipants,
+          };
+        })
+      : [];
+
   if (loading) {
     return <DashboardSkeleton />;
   }
+
+  const showLeaguesPanel = hasAnyLeague && !modelReady && mine != null;
+  const showResultsStrip = modelReady;
 
   return (
     <div className="dashboard">
@@ -222,20 +343,68 @@ export default function AppDashboard() {
         </p>
       </header>
 
-      <DashboardNextStep prodeStatus={prodeStatus} />
+      {loadError && <div className="auth-error dashboard-load-error">{loadError}</div>}
 
-      {!modelReady && (
-        <section className="dashboard-hero" aria-labelledby="dashboard-hero-heading">
-          <h2 id="dashboard-hero-heading" className="dashboard-hero-title">
-            Laboratorio de Prompts
-          </h2>
-          <p className="dashboard-hero-desc">
-            Diseña la lógica de tu IA para generar tus predicciones del Mundial.
-          </p>
-          <Link to="/app/ia" className="btn-primary btn-large">
-            Entrar a Prompting
-          </Link>
-        </section>
+      {!hasAnyLeague && <DashboardNextStepNoLeague />}
+      {hasAnyLeague && !modelReady && <DashboardNextStepWithLeague prodeStatus={prodeStatus} />}
+
+      {showResultsStrip && (
+        <>
+          <div className="resultados-metrics dashboard-home-metrics" aria-label="Resumen de resultados">
+            <div className="resultados-metric">
+              <span className="resultados-metric-value">{dash.totalHits}</span>
+              <span className="resultados-metric-label">Puntos Totales</span>
+            </div>
+            <div className="resultados-metric">
+              <span className="resultados-metric-value">{dash.precision}%</span>
+              <span className="resultados-metric-label">Precisión del Prompt</span>
+            </div>
+            <div className="resultados-metric resultados-metric-rank">
+              <span className="resultados-metric-value">
+                #{dash.myRank ?? "—"} de {dash.totalParticipants}
+                {dash.myRank != null && <RankArrow change={dash.rankChange} />}
+              </span>
+              <span className="resultados-metric-label">{rankingLabel}</span>
+            </div>
+          </div>
+
+          <section className="dashboard-league-ranks" aria-labelledby="dashboard-league-ranks-title">
+            <h2 id="dashboard-league-ranks-title" className="dashboard-section-heading">
+              Tu posición por liga
+            </h2>
+            {leagueRankRows.length > 0 ? (
+              <div className="resultados-table-wrapper">
+                <table className="resultados-table dashboard-league-ranks-table">
+                  <thead>
+                    <tr>
+                      <th>Liga</th>
+                      <th>Posición</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leagueRankRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>
+                          <Link to={`/app/ligas/${row.id}`} className="dashboard-league-ranks-name">
+                            {row.emoji ? <span className="dashboard-league-ranks-emoji">{row.emoji}</span> : null}
+                            {row.name}
+                          </Link>
+                        </td>
+                        <td>
+                          #{row.myRank ?? "—"} de {row.totalParticipants}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="dashboard-league-ranks-empty">
+                Unite a una liga en Ligas &amp; Comunidad para ver tu posición en cada grupo.
+              </p>
+            )}
+          </section>
+        </>
       )}
 
       <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
@@ -244,6 +413,8 @@ export default function AppDashboard() {
         </span>
         <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
       </section>
+
+      {showLeaguesPanel && <DashboardMyLeaguesPanel mine={mine} />}
 
       <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
 
@@ -287,6 +458,12 @@ export default function AppDashboard() {
           </Link>
         </div>
       </section>
+
+      {modelReady && (
+        <Link to="/app/ia" className="resultados-fab">
+          Ajustar mi Prompt para la próxima fase
+        </Link>
+      )}
     </div>
   );
 }
