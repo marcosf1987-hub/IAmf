@@ -1,59 +1,11 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import MarketingLayout from "../components/MarketingLayout";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { getCurrentPhase, formatTimeLeftLong } from "../lib/prode-phases";
 
 export default function HomePage() {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (menuOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [menuOpen]);
-
   return (
-    <div className="home-page">
-      <header className="home-header">
-        <div className="home-logo">
-          <span className="home-logo-brand">Promptplay</span>
-          <span className="home-logo-sub">World Cup Edition</span>
-        </div>
-        <button
-          type="button"
-          className="home-menu-toggle"
-          onClick={() => setMenuOpen((o) => !o)}
-          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
-          aria-expanded={menuOpen}
-        >
-          <span className={menuOpen ? "icon-close" : "icon-menu"} />
-        </button>
-        {menuOpen && (
-          <div
-            className="home-menu-backdrop"
-            onClick={() => setMenuOpen(false)}
-            aria-hidden="true"
-          />
-        )}
-        <nav className={`home-nav ${menuOpen ? "home-nav-open" : ""}`}>
-          <Link to="/pricing" className="nav-link" onClick={() => setMenuOpen(false)}>
-            Precios
-          </Link>
-          <Link to="/login" className="nav-link" onClick={() => setMenuOpen(false)}>
-            Iniciar sesión
-          </Link>
-          <Link to="/signup" className="nav-link nav-link-accent" onClick={() => setMenuOpen(false)}>
-            Registrarse
-          </Link>
-        </nav>
-      </header>
-
-      <main className="home-main">
+    <MarketingLayout>
         <div className="home-hero">
           <div className="home-cta">
             <Link to="/signup" className="btn-primary btn-large">
@@ -121,11 +73,6 @@ export default function HomePage() {
             <p>Mide la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real.</p>
           </div>
         </section>
-
-        <footer className="home-footer">
-          <p>PromptPlay 2026 - Conviértete en un Prompt Master</p>
-        </footer>
-      </main>
-    </div>
+    </MarketingLayout>
   );
 }

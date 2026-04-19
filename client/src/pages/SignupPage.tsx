@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import MarketingLayout from "../components/MarketingLayout";
+import SocialLoginButtons from "../components/SocialLoginButtons";
 import { useAuth } from "../contexts/AuthContext";
 import { isProductionApiUrlMissing } from "../lib/api";
-import SocialLoginButtons from "../components/SocialLoginButtons";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -29,8 +30,9 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <MarketingLayout mainVariant="auth">
+      <div className="auth-page">
+        <div className="auth-card">
         <h1>Crear cuenta</h1>
         <p className="auth-subtitle">Únete al programa de IA y Prode FIFA 2026</p>
         <form onSubmit={handleSubmit} className="auth-form">
@@ -81,7 +83,8 @@ export default function SignupPage() {
         <p className="auth-footer">
           ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
         </p>
+        </div>
       </div>
-    </div>
+    </MarketingLayout>
   );
 }

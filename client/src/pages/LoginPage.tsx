@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import MarketingLayout from "../components/MarketingLayout";
+import SocialLoginButtons from "../components/SocialLoginButtons";
 import { useAuth } from "../contexts/AuthContext";
 import { isProductionApiUrlMissing } from "../lib/api";
-import SocialLoginButtons from "../components/SocialLoginButtons";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -45,8 +46,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
-      <div className="auth-card">
+    <MarketingLayout mainVariant="auth">
+      <div className="auth-page">
+        <div className="auth-card">
         <h1>Iniciar sesión</h1>
         <p className="auth-subtitle">Accede a tu cuenta del programa IA + Prode</p>
         <form onSubmit={handleSubmit} className="auth-form">
@@ -87,7 +89,8 @@ export default function LoginPage() {
         <p className="auth-footer">
           ¿No tienes cuenta? <Link to="/signup">Registrarse</Link>
         </p>
+        </div>
       </div>
-    </div>
+    </MarketingLayout>
   );
 }

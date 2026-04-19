@@ -337,6 +337,15 @@ button:focus:not(:focus-visible) {
   line-height: 1.2;
 }
 
+a.home-logo {
+  text-decoration: none;
+  cursor: pointer;
+}
+
+a.home-logo:hover .home-logo-brand {
+  filter: brightness(1.07);
+}
+
 .home-menu-toggle {
   display: none;
   background: none;
@@ -991,6 +1000,22 @@ button:focus:not(:focus-visible) {
   color: var(--text-muted);
   font-size: 0.8rem;
   letter-spacing: 0.03em;
+  flex-shrink: 0;
+}
+
+.marketing-layout-main--auth {
+  justify-content: center;
+}
+
+.marketing-layout-main--auth .auth-page {
+  min-height: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 2rem;
+  box-sizing: border-box;
 }
 
 /* Auth */
