@@ -121,7 +121,7 @@ export default function AppLayout() {
               onClick={() => setMenuOpen(false)}
               aria-current={pathname.startsWith("/app/ligas") ? "page" : undefined}
             >
-              Ligas &amp; Comunidad
+              Mis Ligas
             </Link>
             <Link
               to="/app/perfil"
