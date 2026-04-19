@@ -555,58 +555,126 @@ button:focus:not(:focus-visible) {
   box-shadow: 0 12px 40px rgba(1, 12, 42, 0.35);
 }
 
-/* Vista rejilla en desktop (home marketing): 2 columnas (pantallas medias) o 3 (anchas) */
-.match-carousel--grid-desktop .match-carousel-viewport--grid {
-  display: grid;
-  gap: 1rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+/* Desktop marketing: 2 cards visibles, carrusel con flechas */
+.match-carousel-desktop-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.65rem;
+  width: 100%;
   max-width: 1100px;
   margin: 0 auto;
-  border: none;
+}
+
+.match-carousel-arrow {
+  flex-shrink: 0;
+  align-self: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  padding: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(178, 197, 255, 0.22);
+  background: rgba(178, 197, 255, 0.06);
+  color: rgba(210, 220, 255, 0.95);
+  cursor: pointer;
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    color 0.2s ease,
+    transform 0.15s ease;
+  box-shadow: 0 4px 18px rgba(1, 12, 42, 0.25);
+}
+
+.match-carousel-arrow:hover:not(:disabled) {
+  background: rgba(178, 197, 255, 0.12);
+  border-color: rgba(178, 197, 255, 0.38);
+  color: var(--text);
+}
+
+.match-carousel-arrow:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.match-carousel-arrow:focus-visible {
+  outline: 2px solid rgba(178, 197, 255, 0.55);
+  outline-offset: 2px;
+}
+
+.match-carousel-arrow:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
   box-shadow: none;
-  overflow: visible;
-  border-radius: 0;
-  background: transparent;
 }
 
-@media (min-width: 1100px) {
-  .match-carousel--grid-desktop .match-carousel-viewport--grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-.match-carousel--grid-desktop .match-carousel-viewport--grid .match-carousel-card {
+.match-carousel-viewport--pair {
+  flex: 1;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: match-carousel;
   border-radius: var(--radius-xl);
   overflow: hidden;
   border: 1px solid rgba(178, 197, 255, 0.2);
-  box-shadow: 0 10px 32px rgba(1, 12, 42, 0.32);
-  min-height: 168px;
+  box-shadow: 0 12px 40px rgba(1, 12, 42, 0.35);
 }
 
-.match-carousel--grid-desktop .match-carousel-card-inner {
-  padding: 1.1rem 1rem;
+.match-carousel-viewport--pair .match-carousel-track {
+  display: flex;
+  gap: 1rem;
+  transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .match-carousel-viewport--pair .match-carousel-track {
+    transition: none;
+  }
+}
+
+.match-carousel-viewport--pair:not(.match-carousel-viewport--pair-single) .match-carousel-track {
+  transform: translateX(calc(-1 * (50cqw + 0.5rem) * var(--slide, 0)));
+}
+
+.match-carousel-viewport--pair-single .match-carousel-track {
+  transform: none;
+}
+
+.match-carousel-viewport--pair:not(.match-carousel-viewport--pair-single) .match-carousel-card {
+  flex: 0 0 calc(50cqw - 0.5rem);
+  min-width: 0;
+  min-height: 176px;
+}
+
+.match-carousel-viewport--pair-single .match-carousel-card {
+  flex: 0 0 100%;
+  min-height: 200px;
+}
+
+.match-carousel--desktop-pair .match-carousel-card-inner {
+  padding: 1.15rem 1rem;
   gap: 0.5rem;
 }
 
-.match-carousel--grid-desktop .match-carousel-meta {
+.match-carousel--desktop-pair .match-carousel-meta {
   font-size: 0.68rem;
 }
 
-.match-carousel--grid-desktop .match-carousel-teams {
-  font-size: clamp(0.95rem, 1.5vw, 1.2rem);
+.match-carousel--desktop-pair .match-carousel-teams {
+  font-size: clamp(0.95rem, 2cqw, 1.2rem);
 }
 
-.match-carousel--grid-desktop .match-carousel-flag {
+.match-carousel--desktop-pair .match-carousel-flag {
   width: 28px;
   height: 21px;
 }
 
-.match-carousel--grid-desktop .match-carousel-datetime {
-  font-size: 0.9rem;
+.match-carousel--desktop-pair .match-carousel-datetime {
+  font-size: 0.92rem;
 }
 
-.match-carousel--grid-desktop .match-carousel-venue {
-  font-size: 0.72rem;
+.match-carousel--desktop-pair .match-carousel-venue {
+  font-size: 0.74rem;
 }
 
 .match-carousel-card {

@@ -16,6 +16,20 @@ const dateFmt = new Intl.DateTimeFormat("es-AR", {
   minute: "2-digit",
 });
 
+function ChevronIcon({ dir }: { dir: "left" | "right" }) {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d={dir === "left" ? "M15 6l-6 6 6 6" : "M9 6l6 6-6 6"}
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function MatchSlide({ match }: { match: Match }) {
   const bg = stadiumBackgroundUrlForMatch(match.id);
   const [bgSrc, setBgSrc] = useState(bg);
@@ -73,7 +87,7 @@ function MatchSlide({ match }: { match: Match }) {
 
 type Variant = "marketing" | "dashboard";
 
-const DESKTOP_GRID_MQ = "(min-width: 900px)";
+const DESKTOP_PAIR_MQ = "(min-width: 900px)";
 
 export default function UpcomingMatchesCarousel({
   variant = "marketing",
@@ -84,8 +98,8 @@ export default function UpcomingMatchesCarousel({
 }) {
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
-  const [index, setIndex] = useState(0);
-  const isDesktopGrid = variant === "marketing" && useMediaQuery(DESKTOP_GRID_MQ);
+  const [slide, setSlide] = useState(0);
+  const isDesktopPair = variant === "marketing" && useMediaQuery(DESKTOP_PAIR_MQ);
 
   useEffect(() => {
     let cancelled = false;
@@ -105,22 +119,48 @@ export default function UpcomingMatchesCarousel({
   }, []);
 
   const n = matches.length;
-  const go = useCallback(
-    (delta: number) => {
-      if (n === 0) return;
-      setIndex((i) => (i + delta + n) % n);
-    },
-    [n]
-  );
+  const maxSlidePair = n <= 1 ? 0 : n - 2;
+  const canAdvancePair = maxSlidePair > 0;
 
   useEffect(() => {
-    if (isDesktopGrid || n <= 1) return;
+    if (isDesktopPair) {
+      setSlide((s) => Math.min(s, Math.max(0, n <= 1 ? 0 : n - 2)));
+    } else {
+      setSlide((s) => Math.min(s, Math.max(0, n - 1)));
+    }
+  }, [isDesktopPair, n]);
+
+  const goNext = useCallback(() => {
+    if (n <= 0) return;
+    if (isDesktopPair) {
+      if (maxSlidePair <= 0) return;
+      setSlide((s) => (s >= maxSlidePair ? 0 : s + 1));
+    } else {
+      if (n <= 1) return;
+      setSlide((s) => (s + 1) % n);
+    }
+  }, [isDesktopPair, n, maxSlidePair]);
+
+  const goPrev = useCallback(() => {
+    if (n <= 0) return;
+    if (isDesktopPair) {
+      if (maxSlidePair <= 0) return;
+      setSlide((s) => (s <= 0 ? maxSlidePair : s - 1));
+    } else {
+      if (n <= 1) return;
+      setSlide((s) => (s - 1 + n) % n);
+    }
+  }, [isDesktopPair, n, maxSlidePair]);
+
+  useEffect(() => {
+    if (n <= 1) return;
+    if (isDesktopPair && maxSlidePair <= 0) return;
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
-    const t = window.setInterval(() => go(1), 8000);
+    const t = window.setInterval(goNext, 8000);
     return () => window.clearInterval(t);
-  }, [n, go, isDesktopGrid]);
+  }, [n, isDesktopPair, maxSlidePair, goNext]);
 
   if (loading) {
     return (
@@ -140,24 +180,49 @@ export default function UpcomingMatchesCarousel({
     return null;
   }
 
-  const current = matches[index];
-  const gridClass = isDesktopGrid ? " match-carousel--grid-desktop" : "";
+  const current = matches[slide];
+  const pairClass = isDesktopPair ? " match-carousel--desktop-pair" : "";
 
   return (
     <section
-      className={`match-carousel match-carousel--${variant}${gridClass} ${className}`.trim()}
+      className={`match-carousel match-carousel--${variant}${pairClass} ${className}`.trim()}
       aria-label="Próximos partidos"
-      {...(!isDesktopGrid ? { "aria-roledescription": "carrusel" } : {})}
+      aria-roledescription="carrusel"
     >
       <div className="match-carousel-header">
         <h2 className="match-carousel-heading">Próximos partidos</h2>
       </div>
 
-      {isDesktopGrid ? (
-        <div className="match-carousel-viewport match-carousel-viewport--grid">
-          {matches.map((m) => (
-            <MatchSlide key={m.id} match={m} />
-          ))}
+      {isDesktopPair ? (
+        <div className="match-carousel-desktop-row">
+          <button
+            type="button"
+            className="match-carousel-arrow match-carousel-arrow--prev"
+            onClick={goPrev}
+            disabled={!canAdvancePair}
+            aria-label="Ver partidos anteriores"
+          >
+            <ChevronIcon dir="left" />
+          </button>
+          <div
+            className={`match-carousel-viewport match-carousel-viewport--pair ${n === 1 ? "match-carousel-viewport--pair-single" : ""}`}
+            style={{ "--slide": slide } as React.CSSProperties}
+          >
+            <div className="match-carousel-track">
+              {matches.map((m) => (
+                <MatchSlide key={m.id} match={m} />
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            className="match-carousel-arrow match-carousel-arrow--next"
+            onClick={goNext}
+            disabled={!canAdvancePair}
+            aria-label="Ver siguientes partidos"
+          >
+            <ChevronIcon dir="right" />
+          </button>
         </div>
       ) : (
         <>
@@ -171,9 +236,9 @@ export default function UpcomingMatchesCarousel({
                 key={m.id}
                 type="button"
                 role="tab"
-                aria-selected={i === index}
-                className={`match-carousel-dot ${i === index ? "match-carousel-dot--active" : ""}`}
-                onClick={() => setIndex(i)}
+                aria-selected={i === slide}
+                className={`match-carousel-dot ${i === slide ? "match-carousel-dot--active" : ""}`}
+                onClick={() => setSlide(i)}
                 aria-label={`Partido ${i + 1}: ${m.teamA} contra ${m.teamB}`}
               />
             ))}
