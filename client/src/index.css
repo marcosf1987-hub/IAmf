@@ -431,14 +431,33 @@ button:focus:not(:focus-visible) {
   text-decoration: none;
 }
 
-.home-hero {
+.home-main {
   flex: 1;
   display: flex;
   flex-direction: column;
+  min-height: 0;
+}
+
+.home-hero {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  padding: 6rem 2rem 4rem;
+  justify-content: flex-start;
+  padding: 3rem 2rem 2.5rem;
   text-align: center;
+}
+
+@media (min-width: 769px) {
+  .home-hero {
+    padding: 3.5rem 2rem 3rem;
+  }
+
+  .home-hero .home-cta .btn-primary.btn-large,
+  .home-hero .home-cta .btn-secondary.btn-large {
+    padding: 1rem 2.35rem;
+    font-size: 1.06rem;
+    min-width: 12.5rem;
+  }
 }
 
 .home-hero h1 {
@@ -472,6 +491,12 @@ button:focus:not(:focus-visible) {
   margin-bottom: 1rem;
 }
 
+.home-hero .home-cta {
+  margin: 0 0 1.75rem;
+  width: 100%;
+  justify-content: center;
+}
+
 .home-countdown {
   margin: 2rem 0 0;
   font-size: 0.95rem;
@@ -488,6 +513,13 @@ button:focus:not(:focus-visible) {
   max-width: 720px;
   margin: 0 auto;
   padding: 2.5rem 2rem 3rem;
+}
+
+@media (min-width: 900px) {
+  .home-upcoming-carousel {
+    max-width: min(1180px, 96vw);
+    padding: 2rem 2rem 3.5rem;
+  }
 }
 
 .match-carousel {
@@ -521,6 +553,60 @@ button:focus:not(:focus-visible) {
   overflow: hidden;
   border: 1px solid rgba(178, 197, 255, 0.2);
   box-shadow: 0 12px 40px rgba(1, 12, 42, 0.35);
+}
+
+/* Vista rejilla en desktop (home marketing): 2 columnas (pantallas medias) o 3 (anchas) */
+.match-carousel--grid-desktop .match-carousel-viewport--grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  max-width: 1100px;
+  margin: 0 auto;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+}
+
+@media (min-width: 1100px) {
+  .match-carousel--grid-desktop .match-carousel-viewport--grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.match-carousel--grid-desktop .match-carousel-viewport--grid .match-carousel-card {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid rgba(178, 197, 255, 0.2);
+  box-shadow: 0 10px 32px rgba(1, 12, 42, 0.32);
+  min-height: 168px;
+}
+
+.match-carousel--grid-desktop .match-carousel-card-inner {
+  padding: 1.1rem 1rem;
+  gap: 0.5rem;
+}
+
+.match-carousel--grid-desktop .match-carousel-meta {
+  font-size: 0.68rem;
+}
+
+.match-carousel--grid-desktop .match-carousel-teams {
+  font-size: clamp(0.95rem, 1.5vw, 1.2rem);
+}
+
+.match-carousel--grid-desktop .match-carousel-flag {
+  width: 28px;
+  height: 21px;
+}
+
+.match-carousel--grid-desktop .match-carousel-datetime {
+  font-size: 0.9rem;
+}
+
+.match-carousel--grid-desktop .match-carousel-venue {
+  font-size: 0.72rem;
 }
 
 .match-carousel-card {

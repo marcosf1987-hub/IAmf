@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { fetchPublicUpcomingMatches, type Match } from "../lib/api";
 import { getFlagImageUrl } from "../lib/flags";
 import {
@@ -72,6 +73,8 @@ function MatchSlide({ match }: { match: Match }) {
 
 type Variant = "marketing" | "dashboard";
 
+const DESKTOP_GRID_MQ = "(min-width: 900px)";
+
 export default function UpcomingMatchesCarousel({
   variant = "marketing",
   className = "",
@@ -82,6 +85,7 @@ export default function UpcomingMatchesCarousel({
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [index, setIndex] = useState(0);
+  const isDesktopGrid = variant === "marketing" && useMediaQuery(DESKTOP_GRID_MQ);
 
   useEffect(() => {
     let cancelled = false;
@@ -110,13 +114,13 @@ export default function UpcomingMatchesCarousel({
   );
 
   useEffect(() => {
-    if (n <= 1) return;
+    if (isDesktopGrid || n <= 1) return;
     if (typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       return;
     }
     const t = window.setInterval(() => go(1), 8000);
     return () => window.clearInterval(t);
-  }, [n, go]);
+  }, [n, go, isDesktopGrid]);
 
   if (loading) {
     return (
@@ -137,34 +141,45 @@ export default function UpcomingMatchesCarousel({
   }
 
   const current = matches[index];
+  const gridClass = isDesktopGrid ? " match-carousel--grid-desktop" : "";
 
   return (
     <section
-      className={`match-carousel match-carousel--${variant} ${className}`.trim()}
-      aria-roledescription="carrusel"
+      className={`match-carousel match-carousel--${variant}${gridClass} ${className}`.trim()}
       aria-label="Próximos partidos"
+      {...(!isDesktopGrid ? { "aria-roledescription": "carrusel" } : {})}
     >
       <div className="match-carousel-header">
         <h2 className="match-carousel-heading">Próximos partidos</h2>
       </div>
 
-      <div className="match-carousel-viewport">
-        <MatchSlide match={current} />
-      </div>
+      {isDesktopGrid ? (
+        <div className="match-carousel-viewport match-carousel-viewport--grid">
+          {matches.map((m) => (
+            <MatchSlide key={m.id} match={m} />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="match-carousel-viewport">
+            <MatchSlide match={current} />
+          </div>
 
-      <div className="match-carousel-dots" role="tablist" aria-label="Elegir partido">
-        {matches.map((m, i) => (
-          <button
-            key={m.id}
-            type="button"
-            role="tab"
-            aria-selected={i === index}
-            className={`match-carousel-dot ${i === index ? "match-carousel-dot--active" : ""}`}
-            onClick={() => setIndex(i)}
-            aria-label={`Partido ${i + 1}: ${m.teamA} contra ${m.teamB}`}
-          />
-        ))}
-      </div>
+          <div className="match-carousel-dots" role="tablist" aria-label="Elegir partido">
+            {matches.map((m, i) => (
+              <button
+                key={m.id}
+                type="button"
+                role="tab"
+                aria-selected={i === index}
+                className={`match-carousel-dot ${i === index ? "match-carousel-dot--active" : ""}`}
+                onClick={() => setIndex(i)}
+                aria-label={`Partido ${i + 1}: ${m.teamA} contra ${m.teamB}`}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </section>
   );
 }
