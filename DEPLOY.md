@@ -154,7 +154,7 @@ Si no estás seguro, borrá el campo y escribilo a mano.
    | `OAUTH_GOOGLE_CLIENT_ID` y el secreto (par `OAUTH_GOOGLE` + `_CLIENT_SECRET`) | Credenciales **Web** de Google Cloud (OAuth 2.0). |
    | (opcional) `OAUTH_FACEBOOK_*`, `OAUTH_MICROSOFT_*` | Solo si usás esos proveedores. |
 
-   **Nota:** en el repositorio, `server/.env.example` **no** lista nombres `OAUTH_*=…` porque el build de Railway (Railpack) las interpretaba como secretos obligatorios en la fase de build. Los nombres exactos son los de la tabla de arriba.
+   **Nota:** en el repositorio, `server/.env.example` **no** lista nombres `OAUTH_*=…` porque el build de Railway (Railpack) las interpretaba como secretos obligatorios en la fase de build. Además, `server/railpack.json` declara `"secrets": []` para que el build no exija mounts BuildKit por cada variable. Los nombres exactos de OAuth son los de la tabla de arriba.
 
    **No hace falta** poner `PORT` a mano: Railway lo asigna solo.
 
@@ -287,6 +287,15 @@ Si en algún paso Railway muestra textos distintos (“Service”, “Nixpacks�
 **Antes de seguir:** abrí en el navegador el archivo `server/src/auth.ts` **en tu repositorio de GitHub**. Si no ves la función `jwtExpiresInSeconds`, el código **no se subió**. Guía paso a paso: **[VERIFICAR-GITHUB.md](./VERIFICAR-GITHUB.md)**.
 
 Railway **siempre** construye lo que está en **GitHub**, no lo que tenés solo en tu computadora. Si cambiás archivos en el PC y no los “subís” a GitHub, Railway sigue usando la versión vieja.
+
+### Cómo hacer un deploy “desde cero” en Railway (no reintentar solo el deploy roto)
+
+- **Lo que importa es el último commit en GitHub**, no el historial de deploys fallidos: cada **push** a la rama conectada (`main`) crea un **nuevo** intento de build con ese código.
+- En el servicio: pestaña **Deployments** (o **Observability** → deployments, según la UI). Buscá un botón tipo **Deploy** / **New deployment** / **Deploy latest** que dispare desde **Git**, no el menú de tres puntos de un deploy viejo que solo dice **Redeploy** (eso a veces vuelve a ejecutar el mismo commit y el mismo error).
+- Si no ves “deploy desde Git”: hacé un **push** vacío para forzar evento nuevo: `git commit --allow-empty -m "chore: trigger railway"` y `git push`.
+- Si Railway muestra **cambios de variables sin aplicar**, revisá y **aplicá** esos cambios antes de esperar que el build pase.
+
+El repo incluye `server/railpack.json` con `"secrets": []` para que Railpack **no** trate todas las variables del servicio como secretos obligatorios de BuildKit durante `docker build` (evita errores del tipo `secret OAUTH_GOOGLE_CLIENT_SECRET: not found` cuando el build en realidad no necesita esas claves).
 
 Abajo tenés **dónde** escribir los comandos y **qué** hacer, paso a paso, sin asumir experiencia previa.
 
