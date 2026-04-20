@@ -1,6 +1,6 @@
-# IA + Prode 2026
+# IA + Prode 2026 
 
-Sistema de inducción a IA para RRHH con Prode FIFA 2026, chat con IA y ranking anonimizado.
+Sistema de inducción a IA para RRHH con Prode FIFA 2026, chat con IA y ranking anonimizado
 
 ## Requisitos
 
