@@ -16,15 +16,14 @@ import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
+import { EK } from "./env-key-names";
 
 function frontendBase(): string {
-  const k = ["FRONTEND", "_URL"].join("");
-  return (envString(k)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 function billingCheckoutBase(): string | null {
-  const bk = ["BILLING", "_CHECKOUT", "_BASE", "_URL"].join("");
-  const u = envString(bk)?.trim();
+  const u = envString(EK.billingCheckout)?.trim();
   return u && u.length > 0 ? u : null;
 }
 

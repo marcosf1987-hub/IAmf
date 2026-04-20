@@ -3,20 +3,8 @@ import crypto from "node:crypto";
 import type { PrismaClient, UserRole } from "@prisma/client";
 import { signAccessToken } from "./auth";
 import { envString } from "./env-dynamic";
+import { EK } from "./env-key-names";
 import { ensureUniversalLeagueMembership } from "./universal-league";
-
-/** Nombres troceados para que el plan de build no exija estos keys como secretos de BuildKit. */
-const OAUTH_ENV = {
-  publicBase: ["OAUTH", "_PUBLIC", "_BASE", "_URL"].join(""),
-  googleId: ["OAUTH", "_GOOGLE", "_CLIENT", "_ID"].join(""),
-  googleSecret: ["OAUTH", "_GOOGLE", "_CLIENT", "_SECRET"].join(""),
-  fbId: ["OAUTH", "_FACEBOOK", "_APP", "_ID"].join(""),
-  fbSecret: ["OAUTH", "_FACEBOOK", "_APP", "_SECRET"].join(""),
-  msId: ["OAUTH", "_MICROSOFT", "_CLIENT", "_ID"].join(""),
-  msSecret: ["OAUTH", "_MICROSOFT", "_CLIENT", "_SECRET"].join(""),
-  frontend: ["FRONTEND", "_URL"].join(""),
-  publicApi: ["PUBLIC", "_API", "_URL"].join(""),
-} as const;
 
 export type OAuthProviderId = "google" | "facebook" | "microsoft";
 
@@ -47,12 +35,12 @@ function consumeState(s: string | undefined): boolean {
 }
 
 function apiPublicBase(): string {
-  const raw = envString(OAUTH_ENV.publicBase)?.trim() || envString(OAUTH_ENV.publicApi)?.trim();
+  const raw = envString(EK.oauthPublicBase)?.trim() || envString(EK.publicApi)?.trim();
   return (raw || "http://localhost:4000").replace(/\/+$/, "");
 }
 
 function frontendBase(): string {
-  return (envString(OAUTH_ENV.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 function callbackUri(provider: OAuthProviderId): string {
@@ -69,15 +57,15 @@ function isProvider(s: string): s is OAuthProviderId {
 }
 
 function googleConfigured(): boolean {
-  return Boolean(envString(OAUTH_ENV.googleId)?.trim() && envString(OAUTH_ENV.googleSecret)?.trim());
+  return Boolean(envString(EK.googleId)?.trim() && envString(EK.googleSecret)?.trim());
 }
 
 function facebookConfigured(): boolean {
-  return Boolean(envString(OAUTH_ENV.fbId)?.trim() && envString(OAUTH_ENV.fbSecret)?.trim());
+  return Boolean(envString(EK.fbId)?.trim() && envString(EK.fbSecret)?.trim());
 }
 
 function microsoftConfigured(): boolean {
-  return Boolean(envString(OAUTH_ENV.msId)?.trim() && envString(OAUTH_ENV.msSecret)?.trim());
+  return Boolean(envString(EK.msId)?.trim() && envString(EK.msSecret)?.trim());
 }
 
 export function getOAuthConfigJson(): { google: boolean; facebook: boolean; microsoft: boolean } {
@@ -89,8 +77,8 @@ export function getOAuthConfigJson(): { google: boolean; facebook: boolean; micr
 }
 
 async function exchangeGoogleCode(code: string): Promise<{ access_token: string }> {
-  const clientId = envString(OAUTH_ENV.googleId)!.trim();
-  const clientSecret = envString(OAUTH_ENV.googleSecret)!.trim();
+  const clientId = envString(EK.googleId)!.trim();
+  const clientSecret = envString(EK.googleSecret)!.trim();
   const body = new URLSearchParams({
     code,
     client_id: clientId,
@@ -121,8 +109,8 @@ async function fetchGoogleProfile(accessToken: string): Promise<{ sub: string; e
 }
 
 async function exchangeFacebookCode(code: string): Promise<{ access_token: string }> {
-  const appId = envString(OAUTH_ENV.fbId)!.trim();
-  const secret = envString(OAUTH_ENV.fbSecret)!.trim();
+  const appId = envString(EK.fbId)!.trim();
+  const secret = envString(EK.fbSecret)!.trim();
   const url = new URL(`https://graph.facebook.com/v21.0/oauth/access_token`);
   url.searchParams.set("client_id", appId);
   url.searchParams.set("client_secret", secret);
@@ -150,8 +138,8 @@ async function fetchFacebookProfile(
 }
 
 async function exchangeMicrosoftCode(code: string): Promise<{ access_token: string }> {
-  const clientId = envString(OAUTH_ENV.msId)!.trim();
-  const clientSecret = envString(OAUTH_ENV.msSecret)!.trim();
+  const clientId = envString(EK.msId)!.trim();
+  const clientSecret = envString(EK.msSecret)!.trim();
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -274,7 +262,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         res.status(503).json({ error: "oauth_not_configured", provider: "google" });
         return;
       }
-      const clientId = envString(OAUTH_ENV.googleId)!.trim();
+      const clientId = envString(EK.googleId)!.trim();
       const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       u.searchParams.set("client_id", clientId);
       u.searchParams.set("redirect_uri", callbackUri("google"));
@@ -291,7 +279,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         res.status(503).json({ error: "oauth_not_configured", provider: "facebook" });
         return;
       }
-      const appId = envString(OAUTH_ENV.fbId)!.trim();
+      const appId = envString(EK.fbId)!.trim();
       const u = new URL("https://www.facebook.com/v21.0/dialog/oauth");
       u.searchParams.set("client_id", appId);
       u.searchParams.set("redirect_uri", callbackUri("facebook"));
@@ -304,7 +292,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       res.status(503).json({ error: "oauth_not_configured", provider: "microsoft" });
       return;
     }
-    const msClientId = envString(OAUTH_ENV.msId)!.trim();
+    const msClientId = envString(EK.msId)!.trim();
     const u = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
     u.searchParams.set("client_id", msClientId);
     u.searchParams.set("response_type", "code");

@@ -9,14 +9,14 @@ import { inviteAcceptSchema } from "./validators";
 import { ensureUniversalLeagueMembership } from "./universal-league";
 import { sendCompetitionInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
+import { EK } from "./env-key-names";
 
 function hashInviteToken(raw: string): string {
   return crypto.createHash("sha256").update(raw, "utf8").digest("hex");
 }
 
 function frontendBase(): string {
-  const k = ["FRONTEND", "_URL"].join("");
-  return (envString(k)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClient): void {
