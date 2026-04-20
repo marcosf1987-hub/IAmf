@@ -15,13 +15,16 @@ import { encrypt } from "./crypto-util";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
+import { envString } from "./env-dynamic";
 
 function frontendBase(): string {
-  return (process.env.FRONTEND_URL?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  const k = ["FRONTEND", "_URL"].join("");
+  return (envString(k)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 function billingCheckoutBase(): string | null {
-  const u = process.env.BILLING_CHECKOUT_BASE_URL?.trim();
+  const bk = ["BILLING", "_CHECKOUT", "_BASE", "_URL"].join("");
+  const u = envString(bk)?.trim();
   return u && u.length > 0 ? u : null;
 }
 

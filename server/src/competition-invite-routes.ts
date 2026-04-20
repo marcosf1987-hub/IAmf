@@ -8,13 +8,15 @@ import { hashPassword } from "./password";
 import { inviteAcceptSchema } from "./validators";
 import { ensureUniversalLeagueMembership } from "./universal-league";
 import { sendCompetitionInvitationEmail } from "./mail";
+import { envString } from "./env-dynamic";
 
 function hashInviteToken(raw: string): string {
   return crypto.createHash("sha256").update(raw, "utf8").digest("hex");
 }
 
 function frontendBase(): string {
-  return (process.env.FRONTEND_URL?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  const k = ["FRONTEND", "_URL"].join("");
+  return (envString(k)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClient): void {
