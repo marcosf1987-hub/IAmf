@@ -65,7 +65,7 @@ model AiConfig {
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
-  /// Null si el usuario solo entra con OAuth (Google / Meta / Microsoft)
+  /// Null si el usuario solo entra con OAuth (Google)
   passwordHash String?
   fullName     String?
   role         UserRole   @default(member)

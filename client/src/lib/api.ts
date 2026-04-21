@@ -35,31 +35,34 @@ function resolveApiBase(): string {
   return base;
 }
 
-export type OAuthProviderId = "google" | "facebook" | "microsoft";
-
-/** URL absoluta para abrir el flujo OAuth (mismo host que el API). */
-export function oauthStartUrl(provider: OAuthProviderId): string {
-  return `${resolveApiBase()}/auth/oauth/${provider}/start`;
+/** URL absoluta para iniciar OAuth con Google (mismo host que el API). */
+export function googleOAuthStartUrl(): string {
+  return `${resolveApiBase()}/auth/oauth/google/start`;
 }
 
-/** Indica qué proveedores tienen variables configuradas en el servidor. */
-export async function fetchOAuthConfig(): Promise<{
-  google: boolean;
-  facebook: boolean;
-  microsoft: boolean;
-}> {
-  const url = `${resolveApiBase()}/auth/oauth/config`;
+/** Estado de Google OAuth según el servidor. `fetchFailed` = no se pudo leer el API (red, CORS, caché, etc.). */
+export async function fetchOAuthConfig(): Promise<{ google: boolean; fetchFailed: boolean }> {
+  const base = resolveApiBase();
+  const url = `${base}/auth/oauth/config?_=${Date.now()}`;
   try {
-    // Sin no-store, CDN/proxy puede responder 304; fetch marca !res.ok y el cuerpo suele ir vacío → siempre "deshabilitado".
-    const res = await fetch(url, { cache: "no-store" });
-    if (!res.ok) return { google: false, facebook: false, microsoft: false };
-    return (await res.json()) as {
-      google: boolean;
-      facebook: boolean;
-      microsoft: boolean;
-    };
+    const res = await fetch(url, {
+      cache: "no-store",
+      credentials: "omit",
+      headers: {
+        Accept: "application/json",
+        "Cache-Control": "no-cache",
+      },
+    });
+    const text = await res.text();
+    if (!res.ok) return { google: false, fetchFailed: true };
+    try {
+      const j = JSON.parse(text) as { google?: unknown };
+      return { google: Boolean(j.google), fetchFailed: false };
+    } catch {
+      return { google: false, fetchFailed: true };
+    }
   } catch {
-    return { google: false, facebook: false, microsoft: false };
+    return { google: false, fetchFailed: true };
   }
 }
 

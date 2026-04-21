@@ -1163,19 +1163,6 @@ a.home-logo:hover .home-logo-brand {
   border-left: 3px solid #4285f4;
 }
 
-.btn-oauth-facebook {
-  border-left: 3px solid #0866ff;
-}
-
-.btn-oauth-microsoft {
-  border-left: 3px solid #00a4ef;
-}
-
-.btn-oauth-disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .auth-oauth-hint {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
@@ -1185,6 +1172,10 @@ a.home-logo:hover .home-logo-brand {
 
 .auth-oauth-hint code {
   font-size: 0.75rem;
+}
+
+.auth-oauth-hint--error {
+  color: var(--danger, #c62828);
 }
 
 /* App layout */

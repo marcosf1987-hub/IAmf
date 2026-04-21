@@ -6,7 +6,8 @@ import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { ensureUniversalLeagueMembership } from "./universal-league";
 
-export type OAuthProviderId = "google" | "facebook" | "microsoft";
+const OAUTH_PROVIDER = "google" as const;
+type OAuthProviderId = typeof OAUTH_PROVIDER;
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const stateStore = new Map<string, number>();
@@ -43,8 +44,8 @@ function frontendBase(): string {
   return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
-function callbackUri(provider: OAuthProviderId): string {
-  return `${apiPublicBase()}/auth/oauth/${provider}/callback`;
+function callbackUri(): string {
+  return `${apiPublicBase()}/auth/oauth/google/callback`;
 }
 
 function redirectFrontend(res: Response, fragment: Record<string, string>): void {
@@ -52,28 +53,12 @@ function redirectFrontend(res: Response, fragment: Record<string, string>): void
   res.redirect(302, `${frontendBase()}/oauth/callback#${q}`);
 }
 
-function isProvider(s: string): s is OAuthProviderId {
-  return s === "google" || s === "facebook" || s === "microsoft";
-}
-
 function googleConfigured(): boolean {
   return Boolean(envString(EK.googleId)?.trim() && envString(EK.googleSecret)?.trim());
 }
 
-function facebookConfigured(): boolean {
-  return Boolean(envString(EK.fbId)?.trim() && envString(EK.fbSecret)?.trim());
-}
-
-function microsoftConfigured(): boolean {
-  return Boolean(envString(EK.msId)?.trim() && envString(EK.msSecret)?.trim());
-}
-
-export function getOAuthConfigJson(): { google: boolean; facebook: boolean; microsoft: boolean } {
-  return {
-    google: googleConfigured(),
-    facebook: facebookConfigured(),
-    microsoft: microsoftConfigured(),
-  };
+export function getOAuthConfigJson(): { google: boolean } {
+  return { google: googleConfigured() };
 }
 
 async function exchangeGoogleCode(code: string): Promise<{ access_token: string }> {
@@ -83,7 +68,7 @@ async function exchangeGoogleCode(code: string): Promise<{ access_token: string 
     code,
     client_id: clientId,
     client_secret: clientSecret,
-    redirect_uri: callbackUri("google"),
+    redirect_uri: callbackUri(),
     grant_type: "authorization_code",
   });
   const r = await fetch("https://oauth2.googleapis.com/token", {
@@ -106,75 +91,6 @@ async function fetchGoogleProfile(accessToken: string): Promise<{ sub: string; e
   const j = (await r.json()) as { sub: string; email?: string; name?: string };
   if (!j.email) throw new Error("Google no devolvió email");
   return { sub: j.sub, email: j.email, name: j.name };
-}
-
-async function exchangeFacebookCode(code: string): Promise<{ access_token: string }> {
-  const appId = envString(EK.fbId)!.trim();
-  const secret = envString(EK.fbSecret)!.trim();
-  const url = new URL(`https://graph.facebook.com/v21.0/oauth/access_token`);
-  url.searchParams.set("client_id", appId);
-  url.searchParams.set("client_secret", secret);
-  url.searchParams.set("redirect_uri", callbackUri("facebook"));
-  url.searchParams.set("code", code);
-  const r = await fetch(url.toString());
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Facebook token: ${r.status} ${t}`);
-  }
-  return r.json() as Promise<{ access_token: string }>;
-}
-
-async function fetchFacebookProfile(
-  accessToken: string
-): Promise<{ id: string; email: string; name?: string }> {
-  const url = new URL("https://graph.facebook.com/v21.0/me");
-  url.searchParams.set("fields", "id,name,email");
-  url.searchParams.set("access_token", accessToken);
-  const r = await fetch(url.toString());
-  if (!r.ok) throw new Error(`Facebook me: ${r.status}`);
-  const j = (await r.json()) as { id: string; name?: string; email?: string };
-  if (!j.email) throw new Error("Facebook no devolvió email (revisa permisos de la app)");
-  return { id: j.id, email: j.email, name: j.name };
-}
-
-async function exchangeMicrosoftCode(code: string): Promise<{ access_token: string }> {
-  const clientId = envString(EK.msId)!.trim();
-  const clientSecret = envString(EK.msSecret)!.trim();
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    code,
-    redirect_uri: callbackUri("microsoft"),
-    grant_type: "authorization_code",
-  });
-  const r = await fetch("https://login.microsoftonline.com/common/oauth2/v2.0/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body,
-  });
-  if (!r.ok) {
-    const t = await r.text();
-    throw new Error(`Microsoft token: ${r.status} ${t}`);
-  }
-  return r.json() as Promise<{ access_token: string }>;
-}
-
-async function fetchMicrosoftProfile(
-  accessToken: string
-): Promise<{ id: string; email: string; name?: string }> {
-  const r = await fetch("https://graph.microsoft.com/v1.0/me", {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
-  if (!r.ok) throw new Error(`Microsoft me: ${r.status}`);
-  const j = (await r.json()) as {
-    id: string;
-    displayName?: string;
-    mail?: string | null;
-    userPrincipalName?: string | null;
-  };
-  const email = (j.mail || j.userPrincipalName || "").trim();
-  if (!email) throw new Error("Microsoft no devolvió email");
-  return { id: j.id, email, name: j.displayName };
 }
 
 async function findOrCreateOAuthUser(
@@ -249,68 +165,29 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/auth/oauth/config", (_req, res) => {
     res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
     res.setHeader("Pragma", "no-cache");
+    res.set("Vary", "Accept");
     res.status(200).json(getOAuthConfigJson());
   });
 
-  app.get("/auth/oauth/:provider/start", (req: Request, res: Response) => {
-    const p = String(req.params.provider);
-    if (!isProvider(p)) {
-      res.status(404).json({ error: "unknown_provider" });
-      return;
-    }
+  app.get("/auth/oauth/google/start", (_req: Request, res: Response) => {
     const state = newState();
-    if (p === "google") {
-      if (!googleConfigured()) {
-        res.status(503).json({ error: "oauth_not_configured", provider: "google" });
-        return;
-      }
-      const clientId = envString(EK.googleId)!.trim();
-      const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-      u.searchParams.set("client_id", clientId);
-      u.searchParams.set("redirect_uri", callbackUri("google"));
-      u.searchParams.set("response_type", "code");
-      u.searchParams.set("scope", "openid email profile");
-      u.searchParams.set("state", state);
-      u.searchParams.set("access_type", "online");
-      u.searchParams.set("include_granted_scopes", "true");
-      res.redirect(302, u.toString());
+    if (!googleConfigured()) {
+      res.status(503).json({ error: "oauth_not_configured", provider: "google" });
       return;
     }
-    if (p === "facebook") {
-      if (!facebookConfigured()) {
-        res.status(503).json({ error: "oauth_not_configured", provider: "facebook" });
-        return;
-      }
-      const appId = envString(EK.fbId)!.trim();
-      const u = new URL("https://www.facebook.com/v21.0/dialog/oauth");
-      u.searchParams.set("client_id", appId);
-      u.searchParams.set("redirect_uri", callbackUri("facebook"));
-      u.searchParams.set("state", state);
-      u.searchParams.set("scope", "email,public_profile");
-      res.redirect(302, u.toString());
-      return;
-    }
-    if (!microsoftConfigured()) {
-      res.status(503).json({ error: "oauth_not_configured", provider: "microsoft" });
-      return;
-    }
-    const msClientId = envString(EK.msId)!.trim();
-    const u = new URL("https://login.microsoftonline.com/common/oauth2/v2.0/authorize");
-    u.searchParams.set("client_id", msClientId);
+    const clientId = envString(EK.googleId)!.trim();
+    const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    u.searchParams.set("client_id", clientId);
+    u.searchParams.set("redirect_uri", callbackUri());
     u.searchParams.set("response_type", "code");
-    u.searchParams.set("redirect_uri", callbackUri("microsoft"));
-    u.searchParams.set("response_mode", "query");
-    u.searchParams.set("scope", "openid profile email offline_access");
+    u.searchParams.set("scope", "openid email profile");
     u.searchParams.set("state", state);
+    u.searchParams.set("access_type", "online");
+    u.searchParams.set("include_granted_scopes", "true");
     res.redirect(302, u.toString());
   });
 
-  app.get("/auth/oauth/:provider/callback", async (req: Request, res: Response) => {
-    const p = String(req.params.provider);
-    if (!isProvider(p)) {
-      redirectFrontend(res, { error: "Proveedor desconocido" });
-      return;
-    }
+  app.get("/auth/oauth/google/callback", async (req: Request, res: Response) => {
     const err = typeof req.query.error === "string" ? req.query.error : undefined;
     const errDesc = typeof req.query.error_description === "string" ? req.query.error_description : "";
     if (err) {
@@ -325,31 +202,9 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     }
 
     try {
-      let providerUserId: string;
-      let email: string;
-      let name: string | null = null;
-
-      if (p === "google") {
-        const { access_token } = await exchangeGoogleCode(code);
-        const prof = await fetchGoogleProfile(access_token);
-        providerUserId = prof.sub;
-        email = prof.email;
-        name = prof.name ?? null;
-      } else if (p === "facebook") {
-        const { access_token } = await exchangeFacebookCode(code);
-        const prof = await fetchFacebookProfile(access_token);
-        providerUserId = prof.id;
-        email = prof.email;
-        name = prof.name ?? null;
-      } else {
-        const { access_token } = await exchangeMicrosoftCode(code);
-        const prof = await fetchMicrosoftProfile(access_token);
-        providerUserId = prof.id;
-        email = prof.email;
-        name = prof.name ?? null;
-      }
-
-      const user = await findOrCreateOAuthUser(prisma, p, providerUserId, email, name);
+      const { access_token } = await exchangeGoogleCode(code);
+      const prof = await fetchGoogleProfile(access_token);
+      const user = await findOrCreateOAuthUser(prisma, OAUTH_PROVIDER, prof.sub, prof.email, prof.name ?? null);
 
       await prisma.loginEvent.create({
         data: {
@@ -370,4 +225,5 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       redirectFrontend(res, { error: msg });
     }
   });
+
 }

@@ -151,8 +151,7 @@ Si no estás seguro, borrá el campo y escribilo a mano.
    | `AI_MODEL` | `gpt-4o-mini` (o el que uses). |
    | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Necesaria para OAuth y enlaces por email. |
    | `OAUTH_PUBLIC_BASE_URL` | URL pública de **este** API (sin `/` final), la misma que el dominio de Railway del backend. |
-   | `OAUTH_GOOGLE_CLIENT_ID` y el secreto (par `OAUTH_GOOGLE` + `_CLIENT_SECRET`) | Credenciales **Web** de Google Cloud (OAuth 2.0). |
-   | (opcional) `OAUTH_FACEBOOK_*`, `OAUTH_MICROSOFT_*` | Solo si usás esos proveedores. |
+   | `OAUTH_GOOGLE_CLIENT_ID` y `OAUTH_GOOGLE_CLIENT_SECRET` | Credenciales **Web** de Google Cloud (OAuth 2.0). Redirect URI en Google: `https://<tu-api>/auth/oauth/google/callback`. |
 
    **Nota:** en el repositorio, `server/.env.example` **no** lista nombres `OAUTH_*=…` porque el build de Railway (Railpack) las interpretaba como secretos obligatorios en la fase de build. Además, `server/railpack.json` declara `"secrets": []` para que el build no exija mounts BuildKit por cada variable. Los nombres exactos de OAuth son los de la tabla de arriba.
 

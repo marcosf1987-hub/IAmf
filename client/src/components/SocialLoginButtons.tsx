@@ -1,56 +1,42 @@
 import { useEffect, useState } from "react";
-import { fetchOAuthConfig, oauthStartUrl } from "../lib/api";
+import { fetchOAuthConfig, googleOAuthStartUrl } from "../lib/api";
+
+type OAuthUiState =
+  | { phase: "loading" }
+  | { phase: "ready"; google: boolean; fetchFailed: boolean };
 
 export default function SocialLoginButtons() {
-  const [cfg, setCfg] = useState<{ google: boolean; facebook: boolean; microsoft: boolean } | null>(null);
+  const [state, setState] = useState<OAuthUiState>({ phase: "loading" });
 
   useEffect(() => {
-    void fetchOAuthConfig().then(setCfg);
+    void fetchOAuthConfig().then((r) => setState({ phase: "ready", google: r.google, fetchFailed: r.fetchFailed }));
   }, []);
-
-  const providers = [
-    { id: "google" as const, label: "Continuar con Google", className: "btn-oauth-google" },
-    { id: "facebook" as const, label: "Continuar con Meta", className: "btn-oauth-facebook" },
-    { id: "microsoft" as const, label: "Continuar con Microsoft", className: "btn-oauth-microsoft" },
-  ];
 
   return (
     <div className="auth-oauth">
       <div className="auth-oauth-divider">
         <span>o continúa con</span>
       </div>
-      {cfg === null ? (
-        <p className="auth-oauth-hint">Cargando opciones de acceso social…</p>
+      {state.phase === "loading" ? (
+        <p className="auth-oauth-hint">Cargando acceso con Google…</p>
+      ) : state.fetchFailed ? (
+        <p className="auth-oauth-hint auth-oauth-hint--error">
+          No se pudo contactar al servidor para comprobar Google. Revisá que{" "}
+          <code>VITE_API_URL</code> en el build del frontend sea la URL <code>https</code> del API (sin barra final) y
+          que el dominio permita peticiones desde este sitio; luego volvé a desplegar el frontend.
+        </p>
+      ) : !state.google ? (
+        <p className="auth-oauth-hint">
+          Google no está activo en el API. En Railway (servicio del backend) configurá{" "}
+          <code>OAUTH_GOOGLE_CLIENT_ID</code> y <code>OAUTH_GOOGLE_CLIENT_SECRET</code> (y recomendado:{" "}
+          <code>OAUTH_PUBLIC_BASE_URL</code>, <code>FRONTEND_URL</code>), guardá y redeploy del API.
+        </p>
       ) : (
-        <>
-          <div className="auth-oauth-buttons">
-            {providers.map((p) => {
-              if (!cfg[p.id]) {
-                return (
-                  <span
-                    key={p.id}
-                    className={`btn-oauth ${p.className} btn-oauth-disabled`}
-                    title="Configura las variables OAUTH_* de este proveedor en el servidor (API)."
-                  >
-                    {p.label}
-                  </span>
-                );
-              }
-              return (
-                <a key={p.id} href={oauthStartUrl(p.id)} className={`btn-oauth ${p.className}`}>
-                  {p.label}
-                </a>
-              );
-            })}
-          </div>
-          {!cfg.google && !cfg.facebook && !cfg.microsoft && (
-            <p className="auth-oauth-hint">
-              Ningún proveedor OAuth está configurado en el backend. Agrega{" "}
-              <code>OAUTH_GOOGLE_*</code>, <code>OAUTH_FACEBOOK_*</code> y/o <code>OAUTH_MICROSOFT_*</code> en
-              las variables del servidor y reinicia el API.
-            </p>
-          )}
-        </>
+        <div className="auth-oauth-buttons">
+          <a href={googleOAuthStartUrl()} className="btn-oauth btn-oauth-google">
+            Continuar con Google
+          </a>
+        </div>
       )}
     </div>
   );
