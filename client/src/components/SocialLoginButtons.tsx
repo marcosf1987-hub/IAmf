@@ -9,6 +9,8 @@ type OAuthUiState =
       fetchFailed: boolean;
       googleClientIdSet?: boolean;
       googleClientSecretSet?: boolean;
+      googleClientSecretEnvKeyPresent?: boolean;
+      googleClientSecretTrimmedLength?: number;
     };
 
 export default function SocialLoginButtons() {
@@ -22,6 +24,8 @@ export default function SocialLoginButtons() {
         fetchFailed: r.fetchFailed,
         googleClientIdSet: r.googleClientIdSet,
         googleClientSecretSet: r.googleClientSecretSet,
+        googleClientSecretEnvKeyPresent: r.googleClientSecretEnvKeyPresent,
+        googleClientSecretTrimmedLength: r.googleClientSecretTrimmedLength,
       })
     );
   }, []);
@@ -47,11 +51,27 @@ export default function SocialLoginButtons() {
               estén en el servicio del <strong>backend</strong> (Root <code>server</code>) en el mismo entorno que
               desplegás, sin typo en el nombre, y hacé <strong>redeploy</strong> del API.
             </>
+          ) : state.googleClientSecretSet === false &&
+            state.googleClientSecretEnvKeyPresent === false ? (
+            <>
+              El proceso del API <strong>no tiene</strong> la variable <code>OAUTH_GOOGLE_CLIENT_SECRET</code> en{" "}
+              <code>process.env</code> (Railway no la inyectó en <strong>este</strong> servicio o el nombre no coincide
+              exactamente). Revisá que esté en el servicio con Root <code>server</code>, mismo entorno (p. ej.
+              Production), sin espacios en el nombre, guardá y redeploy.
+            </>
+          ) : state.googleClientSecretSet === false &&
+            state.googleClientSecretEnvKeyPresent === true &&
+            (state.googleClientSecretTrimmedLength ?? 0) === 0 ? (
+            <>
+              La variable <code>OAUTH_GOOGLE_CLIENT_SECRET</code> existe pero el valor quedó <strong>vacío</strong>{" "}
+              (o solo espacios / caracteres invisibles). Volvé a pegar el secreto de Google (p. ej.{" "}
+              <code>GOCSPX-…</code>) en Railway, guardá y redeploy.
+            </>
           ) : state.googleClientSecretSet === false ? (
             <>
-              El API ve el Client ID pero <strong>no</strong> el secreto: revisá{" "}
-              <code>OAUTH_GOOGLE_CLIENT_SECRET</code> (valor no vacío, variable sellada o referencia bien resuelta en
-              Railway) y redeploy del backend.
+              El API ve el Client ID pero no acepta el secreto. Revisá <code>OAUTH_GOOGLE_CLIENT_SECRET</code> en
+              Railway (referencia sellada, valor completo) y redeploy del backend. Si sigue igual, abrí{" "}
+              <code>/auth/oauth/config</code> en el navegador y fijate los campos <code>googleClientSecret*</code>.
             </>
           ) : state.googleClientIdSet === false ? (
             <>

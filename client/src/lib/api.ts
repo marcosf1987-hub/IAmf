@@ -46,6 +46,8 @@ export async function fetchOAuthConfig(): Promise<{
   fetchFailed: boolean;
   googleClientIdSet?: boolean;
   googleClientSecretSet?: boolean;
+  googleClientSecretEnvKeyPresent?: boolean;
+  googleClientSecretTrimmedLength?: number;
 }> {
   const base = resolveApiBase();
   const url = `${base}/auth/oauth/config?_=${Date.now()}`;
@@ -59,12 +61,18 @@ export async function fetchOAuthConfig(): Promise<{
         google?: unknown;
         googleClientIdSet?: unknown;
         googleClientSecretSet?: unknown;
+        googleClientSecretEnvKeyPresent?: unknown;
+        googleClientSecretTrimmedLength?: unknown;
       };
       return {
         google: Boolean(j.google),
         fetchFailed: false,
         googleClientIdSet: Boolean(j.googleClientIdSet),
         googleClientSecretSet: Boolean(j.googleClientSecretSet),
+        googleClientSecretEnvKeyPresent:
+          typeof j.googleClientSecretEnvKeyPresent === "boolean" ? j.googleClientSecretEnvKeyPresent : undefined,
+        googleClientSecretTrimmedLength:
+          typeof j.googleClientSecretTrimmedLength === "number" ? j.googleClientSecretTrimmedLength : undefined,
       };
     } catch {
       return { google: false, fetchFailed: true };

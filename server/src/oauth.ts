@@ -53,8 +53,23 @@ function redirectFrontend(res: Response, fragment: Record<string, string>): void
   res.redirect(302, `${frontendBase()}/oauth/callback#${q}`);
 }
 
+/** Quita BOM, espacios invisibles y bordes: evita que el secreto “parezca vacío” para el servidor. */
+function normalizeEnvOAuth(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  const t = raw.replace(/^\uFEFF/g, "").replace(/\u200B/g, "").trim();
+  return t.length > 0 ? t : undefined;
+}
+
+function googleIdValue(): string | undefined {
+  return normalizeEnvOAuth(envString(EK.googleId));
+}
+
+function googleSecretValue(): string | undefined {
+  return normalizeEnvOAuth(envString(EK.googleSecret));
+}
+
 function googleConfigured(): boolean {
-  return Boolean(envString(EK.googleId)?.trim() && envString(EK.googleSecret)?.trim());
+  return Boolean(googleIdValue() && googleSecretValue());
 }
 
 /** Sin valores secretos: ayuda a ver si el proceso ve las variables (p. ej. Railway vs .env). */
@@ -62,19 +77,30 @@ export function getOAuthConfigJson(): {
   google: boolean;
   googleClientIdSet: boolean;
   googleClientSecretSet: boolean;
+  /** La clave existe en `process.env` (Railway la inyectó), aunque el valor sea "". */
+  googleClientSecretEnvKeyPresent: boolean;
+  /** Longitud del valor **después** de trim/BOM (no el secreto en sí). 0 = vacío o solo espacios. */
+  googleClientSecretTrimmedLength: number;
 } {
-  const googleClientIdSet = Boolean(envString(EK.googleId)?.trim());
-  const googleClientSecretSet = Boolean(envString(EK.googleSecret)?.trim());
+  const secretKey = EK.googleSecret;
+  const rawSecret = process.env[secretKey];
+  const googleClientSecretEnvKeyPresent = Object.hasOwn(process.env, secretKey);
+  const trimmed = googleSecretValue();
+  const googleClientSecretTrimmedLength = trimmed?.length ?? 0;
+  const googleClientIdSet = Boolean(googleIdValue());
+  const googleClientSecretSet = googleClientSecretTrimmedLength > 0;
   return {
     google: googleClientIdSet && googleClientSecretSet,
     googleClientIdSet,
     googleClientSecretSet,
+    googleClientSecretEnvKeyPresent,
+    googleClientSecretTrimmedLength,
   };
 }
 
 async function exchangeGoogleCode(code: string): Promise<{ access_token: string }> {
-  const clientId = envString(EK.googleId)!.trim();
-  const clientSecret = envString(EK.googleSecret)!.trim();
+  const clientId = googleIdValue()!;
+  const clientSecret = googleSecretValue()!;
   const body = new URLSearchParams({
     code,
     client_id: clientId,
@@ -186,7 +212,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       res.status(503).json({ error: "oauth_not_configured", provider: "google" });
       return;
     }
-    const clientId = envString(EK.googleId)!.trim();
+    const clientId = googleIdValue()!;
     const u = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     u.searchParams.set("client_id", clientId);
     u.searchParams.set("redirect_uri", callbackUri());
