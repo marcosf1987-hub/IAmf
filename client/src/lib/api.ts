@@ -41,7 +41,12 @@ export function googleOAuthStartUrl(): string {
 }
 
 /** Estado de Google OAuth según el servidor. `fetchFailed` = no se pudo leer el API (red, CORS, caché, etc.). */
-export async function fetchOAuthConfig(): Promise<{ google: boolean; fetchFailed: boolean }> {
+export async function fetchOAuthConfig(): Promise<{
+  google: boolean;
+  fetchFailed: boolean;
+  googleClientIdSet?: boolean;
+  googleClientSecretSet?: boolean;
+}> {
   const base = resolveApiBase();
   const url = `${base}/auth/oauth/config?_=${Date.now()}`;
   try {
@@ -50,8 +55,17 @@ export async function fetchOAuthConfig(): Promise<{ google: boolean; fetchFailed
     const text = await res.text();
     if (!res.ok) return { google: false, fetchFailed: true };
     try {
-      const j = JSON.parse(text) as { google?: unknown };
-      return { google: Boolean(j.google), fetchFailed: false };
+      const j = JSON.parse(text) as {
+        google?: unknown;
+        googleClientIdSet?: unknown;
+        googleClientSecretSet?: unknown;
+      };
+      return {
+        google: Boolean(j.google),
+        fetchFailed: false,
+        googleClientIdSet: Boolean(j.googleClientIdSet),
+        googleClientSecretSet: Boolean(j.googleClientSecretSet),
+      };
     } catch {
       return { google: false, fetchFailed: true };
     }

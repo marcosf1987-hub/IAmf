@@ -1,11 +1,11 @@
 /**
  * Capa "marca blanca" para IA: config desde Admin o env vars.
  * Soporta OpenAI, Gemini, Grok y APIs compatibles.
+ *
+ * No cargar `.env` aquí con `override: true`: en producción puede pisar variables
+ * que ya inyectó Railway (p. ej. OAuth) si existe un `.env` en el directorio de trabajo.
+ * `import "dotenv/config"` en `index.ts` alcanza para desarrollo local.
  */
-import path from "path";
-import { config } from "dotenv";
-
-config({ path: path.resolve(process.cwd(), ".env"), override: true });
 import OpenAI from "openai";
 
 export type ChatResult = {
