@@ -50,7 +50,8 @@ export async function fetchOAuthConfig(): Promise<{
 }> {
   const url = `${resolveApiBase()}/auth/oauth/config`;
   try {
-    const res = await fetch(url);
+    // Sin no-store, CDN/proxy puede responder 304; fetch marca !res.ok y el cuerpo suele ir vacío → siempre "deshabilitado".
+    const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return { google: false, facebook: false, microsoft: false };
     return (await res.json()) as {
       google: boolean;

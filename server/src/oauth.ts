@@ -247,6 +247,8 @@ async function findOrCreateOAuthUser(
 
 export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/auth/oauth/config", (_req, res) => {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.setHeader("Pragma", "no-cache");
     res.status(200).json(getOAuthConfigJson());
   });
 
