@@ -45,14 +45,8 @@ export async function fetchOAuthConfig(): Promise<{ google: boolean; fetchFailed
   const base = resolveApiBase();
   const url = `${base}/auth/oauth/config?_=${Date.now()}`;
   try {
-    const res = await fetch(url, {
-      cache: "no-store",
-      credentials: "omit",
-      headers: {
-        Accept: "application/json",
-        "Cache-Control": "no-cache",
-      },
-    });
+    // GET simple: sin cabeceras extra (evitan preflight CORS). Anti-caché: no-store + ?_= en la URL.
+    const res = await fetch(url, { cache: "no-store", credentials: "omit" });
     const text = await res.text();
     if (!res.ok) return { google: false, fetchFailed: true };
     try {

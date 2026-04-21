@@ -97,11 +97,11 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
 // Detrás de Railway / reverse proxy
 app.set("trust proxy", 1);
 
+// Sin allowedHeaders restringido: el preflight debe poder enviar Accept, Cache-Control, etc.
 app.use(
   cors({
     origin: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 app.use(express.json({ limit: "1mb" }));
