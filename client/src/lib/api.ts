@@ -462,6 +462,87 @@ export async function fetchPublicUpcomingMatches(limit = 5): Promise<{ matches: 
   }
 }
 
+export type F1RaceSummary = {
+  id: string;
+  sessionKey: number;
+  year: number;
+  roundOrder: number;
+  circuitShortName: string | null;
+  countryName: string | null;
+  raceStartAt: string;
+  hasResult: boolean;
+  /** Solo en rutas autenticadas cuando hay top 10 oficial. */
+  officialTop10?: number[] | null;
+};
+
+/** Próximas carreras (público; sin token). */
+export async function fetchPublicF1Races(year?: number, limit = 12): Promise<{ races: F1RaceSummary[] }> {
+  const qs = new URLSearchParams({ limit: String(limit) });
+  if (year != null && Number.isFinite(year)) qs.set("year", String(year));
+  const url = `${API_BASE}/public/f1/races?${qs.toString()}`;
+  try {
+    const res = await fetch(url);
+    const data = await parseJson<{ races: F1RaceSummary[] } & { error?: string }>(res, url);
+    if (!res.ok) throw new Error(data.error ?? "Request failed");
+    return data;
+  } catch (e) {
+    throw networkHint(e);
+  }
+}
+
+export async function fetchF1Races(): Promise<{ races: F1RaceSummary[] }> {
+  return fetchAuth("/f1/races");
+}
+
+export type F1RaceWithOfficial = F1RaceSummary & {
+  officialTop10: number[] | null;
+};
+
+export type F1PredictionEntry = {
+  id: string;
+  raceId: string;
+  placements: (number | null)[];
+  race: F1RaceWithOfficial;
+};
+
+export async function fetchF1MyPredictions(): Promise<{ predictions: F1PredictionEntry[] }> {
+  return fetchAuth("/f1/me/predictions");
+}
+
+export async function putF1Prediction(
+  raceId: string,
+  placements: (number | null)[]
+): Promise<{ id: string; raceId: string; placements: (number | null)[] }> {
+  return fetchAuth(`/f1/predictions/${encodeURIComponent(raceId)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ placements }),
+  });
+}
+
+export type F1SummaryByRace = {
+  raceId: string;
+  sessionKey: number;
+  label: string;
+  points: number;
+};
+
+export async function fetchF1MySummary(): Promise<{ totalPoints: number; byRace: F1SummaryByRace[] }> {
+  return fetchAuth("/f1/me/summary");
+}
+
+export async function fetchF1Guidelines(): Promise<{ bySessionKey: Record<string, string> }> {
+  return fetchAuth("/f1/me/guidelines");
+}
+
+export async function putF1RaceGuideline(sessionKey: number, text: string): Promise<{ bySessionKey: Record<string, string> }> {
+  return fetchAuth("/f1/me/guidelines", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionKey, text }),
+  });
+}
+
 export async function fetchMyPredictions(): Promise<{ predictions: Prediction[] }> {
   return fetchAuth("/predictions/me");
 }

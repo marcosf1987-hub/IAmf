@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
-import { computeLeaderboardForUsers } from "./leaderboard";
+import { anonymizeUserId, computeLeaderboardForUsers } from "./leaderboard";
 import { isPlatformCompanySlug } from "./org-seat";
+import { aggregateF1PointsByUser, officialTop10DriverNumbers } from "./f1-scoring";
 
 /**
  * Datos de ranking para tarjetas de liga (tu puesto, total, top 3).
@@ -33,6 +34,48 @@ export async function getCompetitionCardSnapshot(
     return { myRank: null, totalParticipants: 0, topThree: [] };
   }
 
+  const memberUsers = await prisma.user.findMany({
+    where: { id: { in: memberIds }, status: "active" },
+    select: { id: true, fullName: true, email: true },
+  });
+
+  const compConfig = await prisma.companyConfig.findUnique({
+    where: { companyId: comp.companyId },
+    select: { anonymizationEnabled: true },
+  });
+  const anonymizeCompetition =
+    !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
+
+  if (comp.discipline === "f1") {
+    const racesAll = await prisma.f1Race.findMany({
+      select: { id: true, resultTop10: true },
+    });
+    const races = racesAll.filter((r) => officialTop10DriverNumbers(r.resultTop10).length === 10);
+    const preds = await prisma.f1Prediction.findMany({
+      where: { userId: { in: memberIds } },
+      select: { userId: true, raceId: true, placements: true },
+    });
+    const totals = aggregateF1PointsByUser(races, preds);
+    const sorted = [...memberIds]
+      .map((uid) => ({ userId: uid, points: totals.get(uid) ?? 0 }))
+      .sort((a, b) => b.points - a.points || a.userId.localeCompare(b.userId));
+    const withRank = sorted.map((row, i) => ({ ...row, rank: i + 1 }));
+    const myRow = withRank.find((r) => r.userId === viewerUserId);
+    const topThree = withRank.slice(0, 3).map((r) => {
+      const u = memberUsers.find((x) => x.id === r.userId);
+      const label =
+        anonymizeCompetition && u
+          ? anonymizeUserId(u.id, comp.companyId)
+          : (u?.fullName || u?.email || `Usuario #${r.userId.slice(0, 4)}`);
+      return { userId: r.userId, displayLabel: label, rank: r.rank };
+    });
+    return {
+      myRank: myRow?.rank ?? null,
+      totalParticipants: memberIds.length,
+      topThree,
+    };
+  }
+
   const matchesWithResult = await prisma.match.findMany({
     where: {
       resultScoreA: { not: null },
@@ -49,18 +92,6 @@ export async function getCompetitionCardSnapshot(
       topThree: [],
     };
   }
-
-  const memberUsers = await prisma.user.findMany({
-    where: { id: { in: memberIds }, status: "active" },
-    select: { id: true, fullName: true, email: true },
-  });
-
-  const compConfig = await prisma.companyConfig.findUnique({
-    where: { companyId: comp.companyId },
-    select: { anonymizationEnabled: true },
-  });
-  const anonymizeCompetition =
-    !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
 
   const predComp = await prisma.prediction.findMany({
     where: {

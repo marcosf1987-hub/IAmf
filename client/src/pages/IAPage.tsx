@@ -29,8 +29,17 @@ const PHASE_EDITOR: {
     placeholder: "Ej. favoritos a copa, estilo de juego en eliminatorias…",
   },
 ];
-import { fetchProdeGuidelines, fetchPredictionHistory, updateProdeGuidelines } from "../lib/api";
-import type { BatchPromptLine, PredictionHistoryEntry } from "../lib/api";
+import {
+  fetchF1Guidelines,
+  fetchF1Races,
+  fetchPredictionHistory,
+  fetchProdeGuidelines,
+  putF1RaceGuideline,
+  updateProdeGuidelines,
+  type BatchPromptLine,
+  type F1RaceSummary,
+  type PredictionHistoryEntry,
+} from "../lib/api";
 
 const PAUTAS_MARKER_LEGACY = "TENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ";
 const PAUTAS_BLOCK_START = "--- PAUTAS DEL USUARIO (toda esta etapa) ---\n";
@@ -172,6 +181,13 @@ function buildTimeline(entries: PredictionHistoryEntry[]): HistoryTimelineItem[]
 
 const EMPTY_GUIDELINES: ProdeGuidelinesByPhase = { groups: "", roundOf32: "", knockout: "" };
 
+function f1LabRaceLabel(r: F1RaceSummary): string {
+  const c = r.circuitShortName?.trim();
+  const co = r.countryName?.trim();
+  if (c && co) return `R${r.roundOrder} · ${c} (${co})`;
+  return c || co || `Ronda ${r.roundOrder}`;
+}
+
 function normalizeGuidelinesResponse(res: { guidelines: unknown }): ProdeGuidelinesByPhase {
   const raw = res.guidelines;
   if (typeof raw === "string") {
@@ -190,10 +206,18 @@ function normalizeGuidelinesResponse(res: { guidelines: unknown }): ProdeGuideli
 
 export default function IAPage() {
   const location = useLocation();
+  const [labMode, setLabMode] = useState<"mundial" | "f1">("mundial");
   const [guidelines, setGuidelines] = useState<ProdeGuidelinesByPhase>(EMPTY_GUIDELINES);
   const [editorPhase, setEditorPhase] = useState<GuidelinePhaseKey>("groups");
   const [guidelinesSaving, setGuidelinesSaving] = useState(false);
   const [guidelinesSaved, setGuidelinesSaved] = useState(false);
+  const [f1Races, setF1Races] = useState<F1RaceSummary[]>([]);
+  const [f1SessionKey, setF1SessionKey] = useState<number | null>(null);
+  const [f1GuidelinesMap, setF1GuidelinesMap] = useState<Record<string, string>>({});
+  const [f1Text, setF1Text] = useState("");
+  const [f1Loading, setF1Loading] = useState(false);
+  const [f1Saving, setF1Saving] = useState(false);
+  const [f1Saved, setF1Saved] = useState(false);
   const [error, setError] = useState("");
   const [historyEntries, setHistoryEntries] = useState<PredictionHistoryEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -202,6 +226,41 @@ export default function IAPage() {
   const [expandedBatches, setExpandedBatches] = useState<Record<string, boolean>>({});
 
   const timeline = useMemo(() => buildTimeline(historyEntries), [historyEntries]);
+
+  const loadF1Lab = useCallback(async () => {
+    setF1Loading(true);
+    setError("");
+    try {
+      const [{ races }, gRes] = await Promise.all([fetchF1Races(), fetchF1Guidelines()]);
+      const sorted = [...races].sort(
+        (a, b) => new Date(a.raceStartAt).getTime() - new Date(b.raceStartAt).getTime()
+      );
+      setF1Races(sorted);
+      const map = gRes.bySessionKey ?? {};
+      setF1GuidelinesMap(map);
+      setF1SessionKey((prev) => {
+        if (prev != null && sorted.some((r) => r.sessionKey === prev)) return prev;
+        return sorted[0]?.sessionKey ?? null;
+      });
+      setF1Saved(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo cargar F1");
+      setF1Races([]);
+      setF1SessionKey(null);
+      setF1Text("");
+    } finally {
+      setF1Loading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (labMode !== "f1" || f1SessionKey == null) return;
+    setF1Text(f1GuidelinesMap[String(f1SessionKey)] ?? "");
+  }, [labMode, f1SessionKey, f1GuidelinesMap]);
+
+  useEffect(() => {
+    if (labMode === "f1") void loadF1Lab();
+  }, [labMode, loadF1Lab]);
 
   const reloadHistory = useCallback(async () => {
     setHistoryLoading(true);
@@ -249,9 +308,27 @@ export default function IAPage() {
 
   async function handleSaveGuidelines(e: React.FormEvent) {
     e.preventDefault();
+    setError("");
+    if (labMode === "f1") {
+      if (f1SessionKey == null) {
+        setError("No hay carrera seleccionable.");
+        return;
+      }
+      setF1Saving(true);
+      setF1Saved(false);
+      try {
+        const res = await putF1RaceGuideline(f1SessionKey, f1Text);
+        setF1GuidelinesMap(res.bySessionKey);
+        setF1Saved(true);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Error al guardar pautas F1");
+      } finally {
+        setF1Saving(false);
+      }
+      return;
+    }
     setGuidelinesSaving(true);
     setGuidelinesSaved(false);
-    setError("");
     try {
       await updateProdeGuidelines(guidelines);
       setGuidelinesSaved(true);
@@ -267,6 +344,7 @@ export default function IAPage() {
   }
 
   const phaseMeta = PHASE_EDITOR.find((p) => p.key === editorPhase) ?? PHASE_EDITOR[0];
+  const f1RaceMeta = f1Races.find((r) => r.sessionKey === f1SessionKey);
 
   return (
     <div className="page-content">
@@ -280,58 +358,151 @@ export default function IAPage() {
             <h2 className="ia-console-title">Consola de Edición</h2>
             <p className="ia-console-subtitle">Configura tu modelo maestro</p>
             <form onSubmit={handleSaveGuidelines} className="guidelines-form">
-              <div className="guidelines-phase-block">
-                <label htmlFor="guidelines-phase" className="guidelines-phase-label">
-                  Etapa
-                </label>
-                <select
-                  id="guidelines-phase"
-                  className="guidelines-phase-select"
-                  value={editorPhase}
-                  onChange={(e) => setEditorPhase(e.target.value as GuidelinePhaseKey)}
+              <div className="ia-lab-mode-tabs" role="tablist" aria-label="Laboratorio por disciplina">
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={labMode === "mundial"}
+                  className={`ia-lab-mode-tab ${labMode === "mundial" ? "ia-lab-mode-tab--active" : ""}`}
+                  onClick={() => setLabMode("mundial")}
                 >
-                  {PHASE_EDITOR.map((p) => (
-                    <option key={p.key} value={p.key}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-                <p className="guidelines-phase-hint">{phaseMeta.hint}</p>
-                <textarea
-                  value={guidelines[editorPhase]}
-                  onChange={(e) => {
-                    setGuidelinesSaved(false);
-                    setGuidelines((prev) => ({ ...prev, [editorPhase]: e.target.value }));
-                  }}
-                  placeholder={phaseMeta.placeholder}
-                  rows={10}
-                  className="chat-input"
-                  maxLength={2000}
-                  aria-label={`Pautas: ${phaseMeta.label}`}
-                />
-                <span className="guidelines-count">{guidelines[editorPhase].length}/2000</span>
+                  Mundial
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={labMode === "f1"}
+                  className={`ia-lab-mode-tab ${labMode === "f1" ? "ia-lab-mode-tab--active" : ""}`}
+                  onClick={() => setLabMode("f1")}
+                >
+                  F1
+                </button>
               </div>
+
+              {labMode === "mundial" ? (
+                <div className="guidelines-phase-block">
+                  <label htmlFor="guidelines-phase" className="guidelines-phase-label">
+                    Etapa
+                  </label>
+                  <select
+                    id="guidelines-phase"
+                    className="guidelines-phase-select"
+                    value={editorPhase}
+                    onChange={(e) => setEditorPhase(e.target.value as GuidelinePhaseKey)}
+                  >
+                    {PHASE_EDITOR.map((p) => (
+                      <option key={p.key} value={p.key}>
+                        {p.label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="guidelines-phase-hint">{phaseMeta.hint}</p>
+                  <textarea
+                    value={guidelines[editorPhase]}
+                    onChange={(e) => {
+                      setGuidelinesSaved(false);
+                      setGuidelines((prev) => ({ ...prev, [editorPhase]: e.target.value }));
+                    }}
+                    placeholder={phaseMeta.placeholder}
+                    rows={10}
+                    className="chat-input"
+                    maxLength={2000}
+                    aria-label={`Pautas: ${phaseMeta.label}`}
+                  />
+                  <span className="guidelines-count">{guidelines[editorPhase].length}/2000</span>
+                </div>
+              ) : (
+                <div className="guidelines-phase-block">
+                  <label htmlFor="f1-race-session" className="guidelines-phase-label">
+                    Carrera
+                  </label>
+                  {f1Loading ? (
+                    <p className="placeholder-text">Cargando calendario F1…</p>
+                  ) : f1Races.length === 0 ? (
+                    <p className="placeholder-text">
+                      No hay carreras en la base. Sincronizá OpenF1 desde el servidor o esperá al arranque con sync
+                      habilitado.
+                    </p>
+                  ) : (
+                    <>
+                      <select
+                        id="f1-race-session"
+                        className="guidelines-phase-select"
+                        value={f1SessionKey ?? ""}
+                        onChange={(e) => {
+                          setF1Saved(false);
+                          setF1SessionKey(parseInt(e.target.value, 10));
+                        }}
+                      >
+                        {f1Races.map((r) => (
+                          <option key={r.id} value={r.sessionKey}>
+                            {f1LabRaceLabel(r)} —{" "}
+                            {new Date(r.raceStartAt).toLocaleDateString("es-AR", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </option>
+                        ))}
+                      </select>
+                      <p className="guidelines-phase-hint">
+                        Pautas por carrera (session_key {f1SessionKey ?? "—"}). Cuando exista generación con IA por
+                        carrera, el servidor usará este texto para esa sesión.
+                      </p>
+                      <textarea
+                        value={f1Text}
+                        onChange={(e) => {
+                          setF1Saved(false);
+                          setF1Text(e.target.value);
+                        }}
+                        placeholder="Ej. ponderá parrilla, clima en el circuito, degradación de blandos, estrategia de safety car…"
+                        rows={10}
+                        className="chat-input"
+                        maxLength={20000}
+                        aria-label={`Pautas F1: ${f1RaceMeta ? f1LabRaceLabel(f1RaceMeta) : "carrera"}`}
+                      />
+                      <span className="guidelines-count">{f1Text.length}/20000</span>
+                    </>
+                  )}
+                </div>
+              )}
               <div className="guidelines-actions">
                 <button
                   type="submit"
-                  disabled={guidelinesSaving || guidelinesSaved}
+                  disabled={
+                    labMode === "mundial"
+                      ? guidelinesSaving || guidelinesSaved
+                      : f1Saving || f1Saved || f1Loading || f1Races.length === 0 || f1SessionKey == null
+                  }
                   className="btn-primary btn-sm"
                   title={
-                    guidelinesSaved
+                    labMode === "mundial" && guidelinesSaved
                       ? "Pautas guardadas. Edita el texto para volver a guardar."
-                      : undefined
+                      : labMode === "f1" && f1Saved
+                        ? "Pautas guardadas. Edita el texto para volver a guardar."
+                        : undefined
                   }
                 >
-                  {guidelinesSaving ? "Guardando…" : guidelinesSaved ? "Guardado" : "Guardar pautas"}
+                  {labMode === "mundial"
+                    ? guidelinesSaving
+                      ? "Guardando…"
+                      : guidelinesSaved
+                        ? "Guardado"
+                        : "Guardar pautas"
+                    : f1Saving
+                      ? "Guardando…"
+                      : f1Saved
+                        ? "Guardado"
+                        : "Guardar pautas"}
                 </button>
-                {guidelinesSaved && !guidelinesSaving ? (
+                {labMode === "mundial" && guidelinesSaved && !guidelinesSaving ? (
                   <Link
                     to="/app/prode?generate=1"
                     className="btn-secondary btn-sm guidelines-prode-link"
                   >
                     Generar predicción
                   </Link>
-                ) : (
+                ) : labMode === "mundial" ? (
                   <span
                     className="btn-secondary btn-sm guidelines-prode-link guidelines-prode-link-disabled"
                     title={
@@ -342,21 +513,35 @@ export default function IAPage() {
                   >
                     Generar predicción
                   </span>
+                ) : (
+                  <Link to="/app/prode#f1" className="btn-secondary btn-sm guidelines-prode-link">
+                    Ir a predicciones F1
+                  </Link>
                 )}
               </div>
             </form>
-            <p className="ia-console-legend">
-              Hay <strong>tres bloques</strong> (uno por etapa); elige la etapa arriba y edita cada una en la misma
-              caja. Al guardar se persisten los tres. Si falta el texto de una etapa, no podrás generar en el Prode
-              cuando esa ventana esté activa.
-            </p>
-            <p className="ia-console-flow">
-              <strong>¿Cómo llega esto a los resultados?</strong> Al generar en el Prode, el servidor arma un
-              prompt por cada partido de la etapa e incluye las pautas como{" "}
-              <em>criterios generales de toda esa etapa</em> (no solo de ese encuentro), para que el modelo mantenga
-              la misma guía en todos los marcadores. Si el bloque de esa etapa está vacío, la generación no se puede
-              ejecutar.
-            </p>
+            {labMode === "mundial" ? (
+              <>
+                <p className="ia-console-legend">
+                  Hay <strong>tres bloques</strong> (uno por etapa); elige la etapa arriba y edita cada una en la misma
+                  caja. Al guardar se persisten los tres. Si falta el texto de una etapa, no podrás generar en el Prode
+                  cuando esa ventana esté activa.
+                </p>
+                <p className="ia-console-flow">
+                  <strong>¿Cómo llega esto a los resultados?</strong> Al generar en el Prode, el servidor arma un
+                  prompt por cada partido de la etapa e incluye las pautas como{" "}
+                  <em>criterios generales de toda esa etapa</em> (no solo de ese encuentro), para que el modelo mantenga
+                  la misma guía en todos los marcadores. Si el bloque de esa etapa está vacío, la generación no se puede
+                  ejecutar.
+                </p>
+              </>
+            ) : (
+              <p className="ia-console-legend">
+                En <strong>F1</strong> las pautas van <strong>por carrera</strong> (selector arriba). Son la base para
+                futuras generaciones con IA por gran premio; hoy podés guardarlas y completar el top 10 manualmente en
+                Mis predicciones → pestaña F1.
+              </p>
+            )}
           </div>
         </section>
 

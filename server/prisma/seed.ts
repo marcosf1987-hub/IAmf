@@ -1,6 +1,7 @@
 import { PrismaClient, UserRole, UserStatus } from "@prisma/client";
 import { hashPassword } from "../src/password";
 import { MATCHES_SEED } from "../src/matches-seed-data";
+import { ensureUniversalLeagueMembership } from "../src/universal-league";
 
 const prisma = new PrismaClient();
 
@@ -63,6 +64,13 @@ async function main() {
         companyId: platformCompany.id,
       },
     });
+    const superUser = await prisma.user.findUnique({
+      where: { email: superEmail },
+      select: { id: true, companyId: true },
+    });
+    if (superUser?.companyId === platformCompany.id) {
+      await ensureUniversalLeagueMembership(prisma, superUser.id);
+    }
   }
 
   const replaceMatches = process.env.REPLACE_MATCHES === "true";

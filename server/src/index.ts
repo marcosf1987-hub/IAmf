@@ -18,7 +18,9 @@ import { ensureUniversalLeagueMembership } from "./universal-league";
 import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
 import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
+import { registerF1Routes } from "./f1-routes";
 import { mountOAuthRoutes } from "./oauth";
+import { syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -109,6 +111,7 @@ app.use(express.json({ limit: "1mb" }));
 registerB2BRoutes(app, prisma);
 registerCompetitionRoutes(app, prisma);
 registerCompetitionInviteRoutes(app, prisma);
+registerF1Routes(app, prisma);
 mountOAuthRoutes(app, prisma);
 
 /** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
@@ -1805,5 +1808,19 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
   startFootballDataResultAutoSync(prisma);
+  if (process.env.OPENF1_BOOTSTRAP_SYNC !== "false") {
+    const year = new Date().getFullYear();
+    void (async () => {
+      try {
+        const n = await syncF1SeasonRaces(prisma, year);
+        const r = await syncF1FinishedRaceResults(prisma);
+        // eslint-disable-next-line no-console
+        console.log(`OpenF1 bootstrap: ${n} races (${year}), ${r} result sync(s)`);
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.error("OpenF1 bootstrap sync failed:", e);
+      }
+    })();
+  }
 });
 

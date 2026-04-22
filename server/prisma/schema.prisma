@@ -23,6 +23,12 @@ enum UserStatus {
   disabled
 }
 
+/// Disciplina de la competencia / liga (Prode fútbol vs F1).
+enum CompetitionDiscipline {
+  football
+  f1
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -76,6 +82,7 @@ model User {
   company   Company @relation(fields: [companyId], references: [id])
 
   oauthAccounts           OAuthAccount[]
+  f1Predictions           F1Prediction[]
   loginEvents             LoginEvent[]
   promptLogs              PromptLog[]
   predictions             Prediction[]
@@ -113,6 +120,7 @@ model Competition {
   id            String   @id @default(cuid())
   name          String
   slug          String   @unique
+  discipline    CompetitionDiscipline @default(football)
   /// Código alfanumérico para unirse (ej. MUNDIAL-IA-A1B2C3); único en toda la plataforma.
   inviteCode    String   @unique
   /// Reglas o contexto visible para miembros (ej. «Solo equipo Ventas»).
@@ -189,8 +197,45 @@ model ProdeGuidelines {
   textGroups    String @default("")
   textRoundOf32 String @default("")
   textKnockout  String @default("")
+  /// Pautas F1 por carrera: clave = `sessionKey` OpenF1 (string), valor = texto del Laboratorio.
+  f1RaceGuidelines Json @default("{}")
   version   Int      @default(1)
   updatedAt DateTime @updatedAt
+}
+
+/// Gran Premio / carrera (datos OpenF1).
+model F1Race {
+  id               String   @id @default(cuid())
+  sessionKey       Int      @unique
+  meetingKey       Int
+  year             Int
+  roundOrder       Int      @default(0)
+  sessionName      String
+  circuitShortName String?
+  countryName      String?
+  raceStartAt      DateTime
+  /// Resultado oficial top 10: [{ "position": 1, "driverNumber": 1 }, ...]
+  resultTop10      Json?
+  lastSyncedAt     DateTime?
+
+  predictions F1Prediction[]
+
+  @@index([year, raceStartAt])
+}
+
+model F1Prediction {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  raceId     String
+  race       F1Race   @relation(fields: [raceId], references: [id], onDelete: Cascade)
+  /// 10 posiciones (P1..P10): número de piloto OpenF1 o null si aún no definido.
+  placements Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, raceId])
+  @@index([raceId])
 }
 
 model LoginEvent {

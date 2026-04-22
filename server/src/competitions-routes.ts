@@ -59,6 +59,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
             id: true,
             name: true,
             slug: true,
+            discipline: true,
             description: true,
             emoji: true,
             coverImageUrl: true,
@@ -139,7 +140,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     }
 
     const { userId, companyId } = (req as AuthedRequest).auth;
-    const { name, maxMembers, description, emoji, coverImageUrl } = parsed.data;
+    const { name, maxMembers, description, emoji, coverImageUrl, discipline } = parsed.data;
 
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -201,6 +202,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         name: name.trim(),
         slug,
         inviteCode,
+        discipline,
         description: description?.trim() ? description.trim() : null,
         emoji: emoji?.trim() ? emoji.trim() : null,
         coverImageUrl: coverImageUrl?.trim() ? coverImageUrl.trim() : null,

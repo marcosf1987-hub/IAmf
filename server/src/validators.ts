@@ -57,6 +57,7 @@ export const createCompetitionSchema = z.object({
   description: z.string().max(500).optional().nullable(),
   emoji: z.string().max(16).optional().nullable(),
   coverImageUrl: z.string().max(2000).optional().nullable(),
+  discipline: z.enum(["football", "f1"]).optional().default("football"),
 });
 
 export const patchCompetitionSchema = z.object({

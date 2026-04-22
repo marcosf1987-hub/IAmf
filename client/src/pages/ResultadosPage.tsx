@@ -9,8 +9,8 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import type { LeaderboardEntry, ResultsDashboard } from "../lib/api";
-import { fetchResultsDashboard, formatApiError } from "../lib/api";
+import type { F1SummaryByRace, LeaderboardEntry, ResultsDashboard } from "../lib/api";
+import { fetchF1MySummary, fetchResultsDashboard, formatApiError } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
 
 function RankArrow({ change }: { change: number }) {
@@ -37,6 +37,8 @@ const EMPTY_DATA: ResultsDashboard = {
 
 export default function ResultadosPage() {
   const [data, setData] = useState<ResultsDashboard | null>(null);
+  const [f1Summary, setF1Summary] = useState<{ totalPoints: number; byRace: F1SummaryByRace[] } | null>(null);
+  const [f1Error, setF1Error] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -45,6 +47,14 @@ export default function ResultadosPage() {
       try {
         const res = await fetchResultsDashboard();
         setData(res);
+        try {
+          const f1 = await fetchF1MySummary();
+          setF1Summary(f1);
+          setF1Error("");
+        } catch (e) {
+          setF1Summary({ totalPoints: 0, byRace: [] });
+          setF1Error(formatApiError(e));
+        }
       } catch (err) {
         setError(formatApiError(err));
         setData(EMPTY_DATA);
@@ -96,6 +106,49 @@ export default function ResultadosPage() {
       <h1>Mis resultados</h1>
 
       {error && <div className="auth-error">{error}</div>}
+
+      <section className="resultados-f1-section" aria-labelledby="resultados-f1-heading">
+        <h2 id="resultados-f1-heading">Fórmula 1</h2>
+        <p className="resultados-f1-rules">
+          Puntuación F1 (top 10): <strong>10 puntos</strong> por acertar el ganador (P1), <strong>5 puntos</strong> por
+          cada acierto en P2 y P3, y <strong>1 punto</strong> por cada piloto correcto en las posiciones P4 a P10. Fuera
+          del top 10 no suma. Los resultados oficiales se toman de OpenF1.
+        </p>
+        {f1Error ? <div className="auth-error">{f1Error}</div> : null}
+        {f1Summary != null ? (
+          <>
+            <div className="resultados-f1-metric">
+              <span className="resultados-f1-metric-value">{f1Summary.totalPoints}</span>
+              <span className="resultados-f1-metric-label">Puntos totales F1</span>
+            </div>
+            {f1Summary.byRace.length > 0 ? (
+              <div className="resultados-f1-table-wrap">
+                <table className="resultados-table">
+                  <thead>
+                    <tr>
+                      <th>Carrera</th>
+                      <th>Puntos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {f1Summary.byRace.map((row) => (
+                      <tr key={row.raceId}>
+                        <td>{row.label}</td>
+                        <td>{row.points}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="placeholder-text">
+                Aún no sumás puntos F1: cuando haya carreras con resultado oficial y tu predicción guardada, aparecerán
+                aquí.
+              </p>
+            )}
+          </>
+        ) : null}
+      </section>
 
       <div className="resultados-metrics">
         <div className="resultados-metric">

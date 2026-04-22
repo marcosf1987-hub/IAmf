@@ -6,9 +6,24 @@ import { isPlatformCompanySlug } from "./org-seat";
 /** Slug fijo de la competencia “pool público” (una por plataforma). */
 export const UNIVERSAL_COMPETITION_SLUG = "liga-universal-promptplay";
 
+/** Liga universal F1 (misma empresa platform-internal). */
+export const UNIVERSAL_F1_COMPETITION_SLUG = "liga-universal-f1-promptplay";
+
 async function allocateInviteCode(prisma: PrismaClient): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
     const code = `MUNDIAL-IA-${randomBytes(3).toString("hex").toUpperCase()}`;
+    const clash = await prisma.competition.findUnique({
+      where: { inviteCode: code },
+      select: { id: true },
+    });
+    if (!clash) return code;
+  }
+  throw new Error("invite_code_exhausted");
+}
+
+async function allocateF1InviteCode(prisma: PrismaClient): Promise<string> {
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const code = `F1-IA-${randomBytes(3).toString("hex").toUpperCase()}`;
     const clash = await prisma.competition.findUnique({
       where: { inviteCode: code },
       select: { id: true },
@@ -54,6 +69,7 @@ export async function ensureUniversalLeagueMembership(
       data: {
         name: "Liga universal",
         slug: UNIVERSAL_COMPETITION_SLUG,
+        discipline: "football",
         inviteCode: await allocateInviteCode(prisma),
         description:
           "Pool de todos los usuarios que se registran sin invitación de empresa (ranking global dentro de la plataforma).",
@@ -68,18 +84,54 @@ export async function ensureUniversalLeagueMembership(
         },
       },
     });
-    return;
+  } else {
+    await prisma.competitionMember.upsert({
+      where: {
+        competitionId_userId: { competitionId: comp.id, userId },
+      },
+      create: {
+        competitionId: comp.id,
+        userId,
+        role: CompetitionMemberRole.member,
+      },
+      update: {},
+    });
   }
 
-  await prisma.competitionMember.upsert({
-    where: {
-      competitionId_userId: { competitionId: comp.id, userId },
-    },
-    create: {
-      competitionId: comp.id,
-      userId,
-      role: CompetitionMemberRole.member,
-    },
-    update: {},
+  let compF1 = await prisma.competition.findFirst({
+    where: { companyId: platform.id, slug: UNIVERSAL_F1_COMPETITION_SLUG },
   });
+  if (!compF1) {
+    await prisma.competition.create({
+      data: {
+        name: "Liga universal F1",
+        slug: UNIVERSAL_F1_COMPETITION_SLUG,
+        discipline: "f1",
+        inviteCode: await allocateF1InviteCode(prisma),
+        description:
+          "Pool público F1: pronosticá el top 10 de cada carrera. Resultados vía OpenF1.",
+        companyId: platform.id,
+        createdById: userId,
+        maxMembers: 999_999,
+        members: {
+          create: {
+            userId,
+            role: CompetitionMemberRole.competition_admin,
+          },
+        },
+      },
+    });
+  } else {
+    await prisma.competitionMember.upsert({
+      where: {
+        competitionId_userId: { competitionId: compF1.id, userId },
+      },
+      create: {
+        competitionId: compF1.id,
+        userId,
+        role: CompetitionMemberRole.member,
+      },
+      update: {},
+    });
+  }
 }
