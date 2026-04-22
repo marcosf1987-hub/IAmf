@@ -1003,6 +1003,101 @@ a.home-logo:hover .home-logo-brand {
   flex-shrink: 0;
 }
 
+.home-footer-legal {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem 0.5rem;
+  font-size: 0.85rem;
+}
+
+.home-footer-legal a {
+  color: var(--text-muted);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.home-footer-legal a:hover {
+  color: var(--text);
+}
+
+.home-footer-legal-sep {
+  opacity: 0.5;
+  user-select: none;
+}
+
+/* Páginas legales (/terms, /privacy) */
+.legal-doc {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 3rem;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.legal-doc h1 {
+  font-size: clamp(1.5rem, 4vw, 1.85rem);
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 700;
+}
+
+.legal-doc h2 {
+  font-size: 1.05rem;
+  margin: 1.75rem 0 0.5rem;
+  font-weight: 600;
+}
+
+.legal-doc p,
+.legal-doc li {
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+.legal-doc ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.25rem;
+}
+
+.legal-doc li {
+  margin-bottom: 0.35rem;
+}
+
+.legal-doc-meta {
+  font-size: 0.85rem;
+  margin: 0 0 1rem;
+}
+
+.legal-doc-meta a {
+  color: var(--accent, #7eb8ff);
+  text-decoration: none;
+}
+
+.legal-doc-meta a:hover {
+  text-decoration: underline;
+}
+
+.legal-doc-updated {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0 0 1.5rem;
+}
+
+.auth-legal-consent {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.auth-legal-consent a {
+  color: var(--accent, #7eb8ff);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
 .marketing-layout-main--auth {
   justify-content: center;
 }

@@ -64,6 +64,13 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
 
       <footer className="home-footer">
         <p>PromptPlay 2026 - Conviértete en un Prompt Master</p>
+        <nav className="home-footer-legal" aria-label="Información legal">
+          <Link to="/terms">Términos del servicio</Link>
+          <span className="home-footer-legal-sep" aria-hidden>
+            ·
+          </span>
+          <Link to="/privacy">Privacidad</Link>
+        </nav>
       </footer>
     </div>
   );

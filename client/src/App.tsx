@@ -15,11 +15,15 @@ import PricingPage from "./pages/PricingPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AcceptLeagueInvitePage from "./pages/AcceptLeagueInvitePage";
 import MisLigasPage from "./pages/MisLigasPage";
+import TermsOfServicePage from "./pages/TermsOfServicePage";
+import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/terms" element={<TermsOfServicePage />} />
+      <Route path="/privacy" element={<PrivacyPolicyPage />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />

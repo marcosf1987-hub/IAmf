@@ -155,6 +155,8 @@ Si no estás seguro, borrá el campo y escribilo a mano.
 
    **Nota:** en `server/.env.example` no listamos valores `OAUTH_*=…` para no forzar secretos en build (Railpack). Los nombres exactos son los de la tabla. El código del API referencia esos nombres como literales en `oauth.ts` para que Railway/Railpack los inyecten en el contenedor en runtime (si no aparecen en el bundle, a veces el proceso no las ve aunque estén en el panel).
 
+   **Google Cloud (pantalla de consentimiento / verificación):** el frontend publicado expone páginas legales en la misma base que `FRONTEND_URL`, por ejemplo `https://www.tudominio.com/terms` (términos) y `https://www.tudominio.com/privacy` (privacidad). Podés usarlas como “Application privacy policy link” y “Terms of service” si Google las pide.
+
    **No hace falta** poner `PORT` a mano: Railway lo asigna solo.
 
 6. Guardá y esperá el despliegue. En **Settings** → **Networking** → **Generate Domain** para tener una URL pública del API, por ejemplo:

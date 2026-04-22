@@ -79,6 +79,11 @@ export default function SignupPage() {
             {loading ? "Creando cuenta…" : "Registrarse"}
           </button>
         </form>
+        <p className="auth-legal-consent">
+          Al registrarte aceptás los{" "}
+          <Link to="/terms">Términos del servicio</Link> y la{" "}
+          <Link to="/privacy">Política de privacidad</Link>.
+        </p>
         <SocialLoginButtons />
         <p className="auth-footer">
           ¿Ya tienes cuenta? <Link to="/login">Iniciar sesión</Link>
