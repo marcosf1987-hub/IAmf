@@ -994,6 +994,21 @@ a.home-logo:hover .home-logo-brand {
   gap: 0.75rem;
 }
 
+.f1-past-races-panel-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  margin-top: 0.25rem;
+  margin-left: 0.35rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--border);
+}
+
+.f1-race-accordion--nested .prode-accordion-trigger {
+  font-size: 0.95rem;
+}
+
 .f1-race-accordion-panel .f1-race-card-head--panel {
   margin-bottom: 0.75rem;
 }

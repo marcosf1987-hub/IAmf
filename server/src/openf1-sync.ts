@@ -19,6 +19,37 @@ type OpenF1ResultRow = {
   driver_number: number;
 };
 
+type OpenF1Driver = {
+  driver_number?: number;
+  full_name?: string;
+  name_acronym?: string;
+};
+
+export type OpenF1DriverEntry = { driverNumber: number; label: string };
+
+/** Pilotos de la sesión (OpenF1); para prompts IA y API pública. */
+export async function fetchOpenF1DriversForSession(sessionKey: number): Promise<OpenF1DriverEntry[]> {
+  const url = `${OPENF1}/drivers?session_key=${sessionKey}`;
+  const res = await fetch(url);
+  if (!res.ok) return [];
+  const rows = (await res.json()) as OpenF1Driver[];
+  if (!Array.isArray(rows)) return [];
+  const out: OpenF1DriverEntry[] = [];
+  for (const d of rows) {
+    const n = typeof d.driver_number === "number" ? d.driver_number : parseInt(String(d.driver_number), 10);
+    if (!Number.isFinite(n) || n < 1) continue;
+    const label =
+      typeof d.full_name === "string" && d.full_name.trim()
+        ? d.full_name.trim()
+        : typeof d.name_acronym === "string" && d.name_acronym.trim()
+          ? d.name_acronym.trim()
+          : `#${n}`;
+    out.push({ driverNumber: n, label });
+  }
+  out.sort((a, b) => a.driverNumber - b.driverNumber);
+  return out;
+}
+
 function isMainGrandPrixRace(s: OpenF1Session): boolean {
   return s.session_type === "Race" && s.session_name === "Race" && !s.is_cancelled;
 }

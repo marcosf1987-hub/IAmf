@@ -175,3 +175,63 @@ export function parseAiBatchScoresJson(
 
   return out;
 }
+
+/**
+ * Extrae un top 10 ordenado (P1..P10) de dorsales de la respuesta de la IA.
+ * Acepta array JSON, objeto con "placements"/"top10", o claves P1..P10.
+ */
+export function parseAiF1Top10Placements(text: string): number[] | null {
+  let s = text.trim();
+  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
+  if (fence) s = fence[1]!.trim();
+
+  const fromArray = (arr: unknown): number[] | null => {
+    if (!Array.isArray(arr) || arr.length < 10) return null;
+    const nums: number[] = [];
+    for (let i = 0; i < 10; i++) {
+      const v = arr[i];
+      const n = typeof v === "number" ? v : parseInt(String(v), 10);
+      if (!Number.isFinite(n) || n < 1 || n > 99) return null;
+      nums.push(n);
+    }
+    return nums;
+  };
+
+  try {
+    const parsed = JSON.parse(s) as unknown;
+    if (Array.isArray(parsed)) {
+      const a = fromArray(parsed);
+      if (a) return a;
+    }
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const o = parsed as Record<string, unknown>;
+      const inner = o.placements ?? o.top10 ?? o.prediction ?? o.predicciones;
+      if (Array.isArray(inner)) {
+        const a = fromArray(inner);
+        if (a) return a;
+      }
+      const keys = ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"];
+      const nums: number[] = [];
+      for (const k of keys) {
+        const v = o[k] ?? o[k.toLowerCase()];
+        const n = typeof v === "number" ? v : parseInt(String(v), 10);
+        if (!Number.isFinite(n) || n < 1 || n > 99) return null;
+        nums.push(n);
+      }
+      if (nums.length === 10) return nums;
+    }
+  } catch {
+    /* siguiente */
+  }
+
+  const bracket = s.match(/\[\s*[\d,\s]+\s*\]/);
+  if (bracket) {
+    try {
+      const parsed = JSON.parse(bracket[0]) as unknown;
+      if (Array.isArray(parsed)) return fromArray(parsed);
+    } catch {
+      /* */
+    }
+  }
+  return null;
+}

@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   fetchF1MyPredictions,
   fetchF1Races,
+  fetchPublicF1Drivers,
   formatApiError,
-  putF1Prediction,
+  postF1GenerateAiPrediction,
   type F1PredictionEntry,
   type F1RaceSummary,
 } from "../lib/api";
 import { scoreF1PlacementsClient } from "../lib/f1-client-scoring";
-import { fetchOpenF1DriverNames } from "../lib/openf1-drivers";
 
 const POS_LABELS = ["P1", "P2", "P3", "P4", "P5", "P6", "P7", "P8", "P9", "P10"];
+
+const PAST_SECTION_ID = "__f1_past_races__";
 
 function raceLabel(r: F1RaceSummary): string {
   const c = r.circuitShortName?.trim();
@@ -24,6 +26,11 @@ function isRaceLocked(raceStartAt: string): boolean {
   return Date.now() >= closeAt;
 }
 
+/** Carrera cuya hora de salida ya pasó (solo UI: va a «Carreras pasadas»). */
+function isRacePast(raceStartAt: string): boolean {
+  return Date.now() >= new Date(raceStartAt).getTime();
+}
+
 function emptyPlacements(): (number | null)[] {
   return Array(10).fill(null);
 }
@@ -34,10 +41,7 @@ type MergedRow = {
   placements: (number | null)[];
 };
 
-function mergeRaces(
-  races: F1RaceSummary[],
-  predictions: F1PredictionEntry[]
-): MergedRow[] {
+function mergeRaces(races: F1RaceSummary[], predictions: F1PredictionEntry[]): MergedRow[] {
   const predByRace = new Map(predictions.map((p) => [p.raceId, p]));
   return [...races]
     .sort((a, b) => new Date(a.raceStartAt).getTime() - new Date(b.raceStartAt).getTime())
@@ -51,7 +55,6 @@ function mergeRaces(
     });
 }
 
-/** Primera carrera con ventana de predicción abierta; si no hay, la próxima por fecha; si todo pasó, la última. */
 function indexOfVigenteForExpansion(rows: MergedRow[]): number {
   for (let i = 0; i < rows.length; i++) {
     if (!isRaceLocked(rows[i].race.raceStartAt)) return i;
@@ -62,7 +65,7 @@ function indexOfVigenteForExpansion(rows: MergedRow[]): number {
   return Math.max(0, rows.length - 1);
 }
 
-function defaultExpandedRaceId(rows: MergedRow[]): string | null {
+function defaultExpandedUpcomingId(rows: MergedRow[]): string | null {
   if (rows.length === 0) return null;
   return rows[indexOfVigenteForExpansion(rows)].race.id;
 }
@@ -71,13 +74,7 @@ function filledCount(placements: (number | null)[]): number {
   return placements.filter((p) => p != null).length;
 }
 
-function DriverCell({
-  num,
-  names,
-}: {
-  num: number | null;
-  names: Map<number, string>;
-}) {
+function DriverCell({ num, names }: { num: number | null; names: Map<number, string> }) {
   if (num == null) return <span className="f1-pred-cell-muted">—</span>;
   const name = names.get(num);
   return (
@@ -93,11 +90,20 @@ export default function F1PredictionsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedRaceId, setExpandedRaceId] = useState<string | null>(null);
-  const [editingRaceId, setEditingRaceId] = useState<string | null>(null);
-  const [draft, setDraft] = useState<(number | null)[]>(emptyPlacements());
-  const [snapshot, setSnapshot] = useState<(number | null)[]>(emptyPlacements());
-  const [saving, setSaving] = useState(false);
+  const [pastSectionExpanded, setPastSectionExpanded] = useState(false);
+  const [expandedPastRaceId, setExpandedPastRaceId] = useState<string | null>(null);
+  const [generatingRaceId, setGeneratingRaceId] = useState<string | null>(null);
   const [namesBySession, setNamesBySession] = useState<Map<number, Map<number, string>>>(new Map());
+
+  const { upcomingRows, pastRows } = useMemo(() => {
+    const upcoming: MergedRow[] = [];
+    const past: MergedRow[] = [];
+    for (const r of rows) {
+      if (isRacePast(r.race.raceStartAt)) past.push(r);
+      else upcoming.push(r);
+    }
+    return { upcomingRows: upcoming, pastRows: past };
+  }, [rows]);
 
   const reload = useCallback(async () => {
     setError("");
@@ -105,7 +111,7 @@ export default function F1PredictionsPanel() {
     setRows(mergeRaces(races, predictions));
     const sessions = [...new Set(races.map((r) => r.sessionKey))];
     const entries = await Promise.all(
-      sessions.map(async (sk) => [sk, await fetchOpenF1DriverNames(sk)] as const)
+      sessions.map(async (sk) => [sk, await fetchPublicF1Drivers(sk)] as const)
     );
     setNamesBySession(new Map(entries));
   }, []);
@@ -128,64 +134,103 @@ export default function F1PredictionsPanel() {
   }, [reload]);
 
   useEffect(() => {
-    setExpandedRaceId(defaultExpandedRaceId(rows));
-  }, [rows]);
+    setExpandedRaceId(defaultExpandedUpcomingId(upcomingRows));
+  }, [upcomingRows]);
 
-  const dirty = useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(snapshot),
-    [draft, snapshot]
-  );
-
-  function cancelEdit() {
-    setEditingRaceId(null);
-    setDraft(emptyPlacements());
-    setSnapshot(emptyPlacements());
+  function toggleUpcomingAccordion(raceId: string) {
+    setExpandedRaceId((id) => (id === raceId ? null : raceId));
   }
 
-  function toggleAccordion(raceId: string) {
-    if (expandedRaceId === raceId) {
-      if (editingRaceId === raceId && dirty) {
-        if (!window.confirm("Hay cambios sin guardar. ¿Cerrar la carrera y descartarlos?")) return;
-      }
-      if (editingRaceId === raceId) cancelEdit();
-      setExpandedRaceId(null);
-      return;
-    }
-    if (editingRaceId && editingRaceId !== raceId && dirty) {
-      if (!window.confirm("Hay cambios sin guardar en otra carrera. ¿Descartarlos y abrir esta?")) return;
-      cancelEdit();
-    } else if (editingRaceId && editingRaceId !== raceId) {
-      cancelEdit();
-    }
-    setExpandedRaceId(raceId);
+  function togglePastSection() {
+    setPastSectionExpanded((v) => {
+      if (v) setExpandedPastRaceId(null);
+      return !v;
+    });
   }
 
-  function requestEdit(raceId: string) {
-    if (expandedRaceId !== raceId) setExpandedRaceId(raceId);
-    if (editingRaceId && editingRaceId !== raceId && dirty) {
-      if (!window.confirm("Hay cambios sin guardar en otra carrera. ¿Descartarlos y editar esta?")) return;
-    }
-    const row = rows.find((r) => r.race.id === raceId);
-    if (!row) return;
-    const pl = [...row.placements];
-    setSnapshot(pl);
-    setDraft(pl);
-    setEditingRaceId(raceId);
+  function togglePastRaceAccordion(raceId: string) {
+    setExpandedPastRaceId((id) => (id === raceId ? null : raceId));
   }
 
-  async function saveEdit() {
-    if (!editingRaceId) return;
-    setSaving(true);
+  async function generateAi(raceId: string) {
+    setGeneratingRaceId(raceId);
     setError("");
     try {
-      await putF1Prediction(editingRaceId, draft);
+      await postF1GenerateAiPrediction(raceId);
       await reload();
-      cancelEdit();
     } catch (e) {
       setError(formatApiError(e));
     } finally {
-      setSaving(false);
+      setGeneratingRaceId(null);
     }
+  }
+
+  function renderRaceBody(row: MergedRow, opts: { showGenerateAi: boolean }) {
+    const { race } = row;
+    const locked = isRaceLocked(race.raceStartAt);
+    const official = race.officialTop10 != null && race.officialTop10.length === 10 ? race.officialTop10 : null;
+    const names = namesBySession.get(race.sessionKey) ?? new Map();
+    const generating = generatingRaceId === race.id;
+
+    return (
+      <>
+        <div className="f1-race-card-head f1-race-card-head--panel">
+          <div className="f1-race-card-actions">
+            {opts.showGenerateAi && !locked ? (
+              <button
+                type="button"
+                className="btn-primary btn-sm"
+                disabled={generating || generatingRaceId != null}
+                title={
+                  generatingRaceId != null && generatingRaceId !== race.id
+                    ? "Esperá a que termine la otra generación."
+                    : undefined
+                }
+                onClick={() => void generateAi(race.id)}
+              >
+                {generating ? "Generando…" : "Generar con IA"}
+              </button>
+            ) : null}
+          </div>
+          {locked ? (
+            <p className="f1-race-panel-note">La ventana de predicción de esta carrera ya cerró.</p>
+          ) : null}
+        </div>
+
+        <div className="f1-pos-table-wrap">
+          <table className="f1-pos-table">
+            <thead>
+              <tr>
+                <th>Pos</th>
+                <th>Tu predicción</th>
+                {official ? <th>Oficial</th> : null}
+              </tr>
+            </thead>
+            <tbody>
+              {POS_LABELS.map((label, i) => (
+                <tr key={label}>
+                  <td className="f1-pos-label">{label}</td>
+                  <td>
+                    <DriverCell num={row.placements[i] ?? null} names={names} />
+                  </td>
+                  {official ? (
+                    <td>
+                      <DriverCell num={official[i] ?? null} names={names} />
+                    </td>
+                  ) : null}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {opts.showGenerateAi && !locked ? (
+          <p className="f1-race-panel-note" style={{ marginTop: "0.75rem" }}>
+            La predicción se arma con la IA según las pautas guardadas en el Laboratorio F1 para esta carrera.
+          </p>
+        ) : null}
+      </>
+    );
   }
 
   if (loading) {
@@ -198,11 +243,6 @@ export default function F1PredictionsPanel() {
 
   return (
     <div className="f1-predictions">
-      <p className="f1-predictions-lead">
-        Se muestra expandida la <strong>próxima carrera con predicción vigente</strong> (la más cercana donde aún podés
-        cargar o editar). El resto queda colapsado: abrí cada una para ver o modificar. Una edición a la vez; podés
-        enviar hasta 1 hora antes de la salida a pista.
-      </p>
       {error ? (
         <div className="auth-error" role="alert">
           {error}
@@ -215,20 +255,17 @@ export default function F1PredictionsPanel() {
         </p>
       ) : (
         <div className="f1-predictions-accordions">
-          {rows.map((row) => {
+          {upcomingRows.map((row) => {
             const { race } = row;
-            const locked = isRaceLocked(race.raceStartAt);
             const expanded = expandedRaceId === race.id;
-            const isEditing = editingRaceId === race.id;
-            const otherEditing = editingRaceId != null && editingRaceId !== race.id;
+            const locked = isRaceLocked(race.raceStartAt);
             const official =
               race.officialTop10 != null && race.officialTop10.length === 10 ? race.officialTop10 : null;
-            const names = namesBySession.get(race.sessionKey) ?? new Map();
+            const nFilled = filledCount(row.placements);
             const pts =
               official && row.placements.some((p) => p != null)
                 ? scoreF1PlacementsClient(row.placements, official)
                 : null;
-            const nFilled = filledCount(row.placements);
 
             return (
               <section key={race.id} className="f1-race-accordion prode-accordion prode-actions-full">
@@ -238,7 +275,7 @@ export default function F1PredictionsPanel() {
                   aria-expanded={expanded}
                   aria-controls={`f1-race-panel-${race.id}`}
                   id={`f1-race-trigger-${race.id}`}
-                  onClick={() => toggleAccordion(race.id)}
+                  onClick={() => toggleUpcomingAccordion(race.id)}
                 >
                   <span className="prode-accordion-title">{raceLabel(race)}</span>
                   <span className="prode-accordion-meta">
@@ -263,112 +300,94 @@ export default function F1PredictionsPanel() {
                     role="region"
                     aria-labelledby={`f1-race-trigger-${race.id}`}
                   >
-                    <div className="f1-race-card-head f1-race-card-head--panel">
-                      <div className="f1-race-card-actions">
-                        {!isEditing && !locked ? (
-                          <button
-                            type="button"
-                            className="btn-secondary btn-sm"
-                            disabled={otherEditing}
-                            title={
-                              otherEditing ? "Guardá o cancelá la edición de la otra carrera primero." : undefined
-                            }
-                            onClick={() => requestEdit(race.id)}
-                          >
-                            {row.placements.every((p) => p == null) ? "Completar predicción" : "Editar"}
-                          </button>
-                        ) : null}
-                        {isEditing ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-primary btn-sm"
-                              disabled={saving}
-                              onClick={() => void saveEdit()}
-                            >
-                              {saving ? "Guardando…" : "Guardar"}
-                            </button>
-                            <button type="button" className="btn-secondary btn-sm" disabled={saving} onClick={cancelEdit}>
-                              Cancelar
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                      {locked ? (
-                        <p className="f1-race-panel-note">La ventana de predicción de esta carrera ya cerró.</p>
-                      ) : null}
-                    </div>
-
-                    <div className="f1-pos-table-wrap">
-                      <table className="f1-pos-table">
-                        <thead>
-                          <tr>
-                            <th>Pos</th>
-                            <th>Tu predicción</th>
-                            {official ? <th>Oficial</th> : null}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {POS_LABELS.map((label, i) => (
-                            <tr key={label}>
-                              <td className="f1-pos-label">{label}</td>
-                              <td>
-                                {isEditing && !locked ? (
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={99}
-                                    step={1}
-                                    className="f1-pos-input"
-                                    value={draft[i] ?? ""}
-                                    placeholder="—"
-                                    onChange={(e) => {
-                                      const raw = e.target.value.trim();
-                                      if (raw === "") {
-                                        setDraft((d) => {
-                                          const n = [...d];
-                                          n[i] = null;
-                                          return n;
-                                        });
-                                        return;
-                                      }
-                                      const num = parseInt(raw, 10);
-                                      setDraft((d) => {
-                                          const n = [...d];
-                                          n[i] = Number.isFinite(num) && num >= 1 && num <= 99 ? num : null;
-                                          return n;
-                                        });
-                                    }}
-                                    aria-label={`${label} piloto número`}
-                                  />
-                                ) : (
-                                  <DriverCell num={row.placements[i] ?? null} names={names} />
-                                )}
-                              </td>
-                              {official ? (
-                                <td>
-                                  <DriverCell num={official[i] ?? null} names={names} />
-                                </td>
-                              ) : null}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-
-                    {isEditing && !locked ? (
-                      <p className="f1-race-editor-hint">
-                        Referencia (sesión #{race.sessionKey}):{" "}
-                        {names.size > 0
-                          ? "nombres desde OpenF1."
-                          : "si no ves nombres, puede ser CORS; usá el dorsal."}
-                      </p>
-                    ) : null}
+                    {renderRaceBody(row, { showGenerateAi: true })}
                   </div>
                 ) : null}
               </section>
             );
           })}
+
+          {pastRows.length > 0 ? (
+            <section className="f1-race-accordion prode-accordion prode-actions-full f1-past-races-outer">
+              <button
+                type="button"
+                className="prode-accordion-trigger f1-race-accordion-trigger"
+                aria-expanded={pastSectionExpanded}
+                aria-controls="f1-past-races-panel"
+                id="f1-past-races-trigger"
+                onClick={() => togglePastSection()}
+              >
+                <span className="prode-accordion-title">Carreras pasadas</span>
+                <span className="prode-accordion-meta">
+                  {pastRows.length} {pastRows.length === 1 ? "carrera" : "carreras"}
+                </span>
+                <span className="prode-accordion-chevron" aria-hidden>
+                  {pastSectionExpanded ? "▼" : "▶"}
+                </span>
+              </button>
+              {pastSectionExpanded ? (
+                <div
+                  className="prode-accordion-panel f1-race-accordion-panel f1-past-races-panel-inner"
+                  id="f1-past-races-panel"
+                  role="region"
+                  aria-labelledby="f1-past-races-trigger"
+                >
+                  {pastRows.map((row) => {
+                    const { race } = row;
+                    const expanded = expandedPastRaceId === race.id;
+                    const official =
+                      race.officialTop10 != null && race.officialTop10.length === 10 ? race.officialTop10 : null;
+                    const nFilled = filledCount(row.placements);
+                    const pts =
+                      official && row.placements.some((p) => p != null)
+                        ? scoreF1PlacementsClient(row.placements, official)
+                        : null;
+
+                    return (
+                      <section
+                        key={race.id}
+                        className="f1-race-accordion f1-race-accordion--nested prode-accordion prode-actions-full"
+                      >
+                        <button
+                          type="button"
+                          className="prode-accordion-trigger f1-race-accordion-trigger"
+                          aria-expanded={expanded}
+                          aria-controls={`f1-race-panel-${PAST_SECTION_ID}-${race.id}`}
+                          id={`f1-race-trigger-${PAST_SECTION_ID}-${race.id}`}
+                          onClick={() => togglePastRaceAccordion(race.id)}
+                        >
+                          <span className="prode-accordion-title">{raceLabel(race)}</span>
+                          <span className="prode-accordion-meta">
+                            {new Date(race.raceStartAt).toLocaleString("es-AR", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })}
+                            {" · "}
+                            {nFilled}/10
+                            {official ? " · Resultado" : ""}
+                            {pts != null ? ` · ${pts} pts` : ""}
+                          </span>
+                          <span className="prode-accordion-chevron" aria-hidden>
+                            {expanded ? "▼" : "▶"}
+                          </span>
+                        </button>
+                        {expanded ? (
+                          <div
+                            className="prode-accordion-panel f1-race-accordion-panel"
+                            id={`f1-race-panel-${PAST_SECTION_ID}-${race.id}`}
+                            role="region"
+                            aria-labelledby={`f1-race-trigger-${PAST_SECTION_ID}-${race.id}`}
+                          >
+                            {renderRaceBody(row, { showGenerateAi: false })}
+                          </div>
+                        ) : null}
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       )}
     </div>

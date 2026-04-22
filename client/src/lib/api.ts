@@ -520,6 +520,34 @@ export async function putF1Prediction(
   });
 }
 
+/** Pilotos de la sesión vía backend (evita CORS de OpenF1 en el navegador). */
+export async function fetchPublicF1Drivers(sessionKey: number): Promise<Map<number, string>> {
+  const map = new Map<number, string>();
+  const url = `${API_BASE}/public/f1/drivers?session_key=${encodeURIComponent(String(sessionKey))}`;
+  try {
+    const res = await fetch(url);
+    const data = await parseJson<{ drivers?: { driverNumber: number; name: string }[] } & { error?: string }>(
+      res,
+      url
+    );
+    if (!res.ok) return map;
+    for (const d of data.drivers ?? []) {
+      if (typeof d.driverNumber === "number" && typeof d.name === "string" && d.name.trim()) {
+        map.set(d.driverNumber, d.name.trim());
+      }
+    }
+  } catch {
+    /* red / HTML */
+  }
+  return map;
+}
+
+export async function postF1GenerateAiPrediction(
+  raceId: string
+): Promise<{ id: string; raceId: string; placements: (number | null)[] }> {
+  return fetchAuth(`/f1/predictions/${encodeURIComponent(raceId)}/generate-ai`, { method: "POST" });
+}
+
 export type F1SummaryByRace = {
   raceId: string;
   sessionKey: number;

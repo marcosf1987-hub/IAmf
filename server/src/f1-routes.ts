@@ -1,14 +1,19 @@
+import { randomUUID } from "node:crypto";
 import type { Express, Request, Response } from "express";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthedRequest } from "./auth";
 import { requireAuth } from "./auth";
+import { parseAiF1Top10Placements } from "./ai-parse";
+import { chat } from "./ai-provider";
+import { buildF1Top10Prompt, validateF1Top10AgainstRoster } from "./f1-ai-generate";
 import {
   aggregateF1PointsByUser,
   normalizePlacements,
   officialTop10DriverNumbers,
   scoreF1Placements,
 } from "./f1-scoring";
-import { syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
+import { decrypt } from "./crypto-util";
+import { fetchOpenF1DriversForSession, syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
 import { z } from "zod";
 
 const f1PlacementsBodySchema = z.object({
@@ -33,6 +38,10 @@ function readF1GuidelinesMap(raw: Prisma.JsonValue): Record<string, string> {
     if (typeof v === "string") out[k] = v;
   }
   return out;
+}
+
+function isF1PredictionWindowClosed(raceStartAt: Date): boolean {
+  return Date.now() >= raceStartAt.getTime() - 60 * 60 * 1000;
 }
 
 export function registerF1Routes(app: Express, prisma: PrismaClient): void {
@@ -79,6 +88,26 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("GET /public/f1/races:", err);
+      res.status(500).json({ error: "server_error" });
+    }
+  });
+
+  app.get("/public/f1/drivers", async (req, res) => {
+    try {
+      const raw = req.query.session_key;
+      const sk = raw !== undefined && raw !== "" ? parseInt(String(raw), 10) : NaN;
+      if (!Number.isFinite(sk)) {
+        res.status(400).json({ error: "invalid_session_key" });
+        return;
+      }
+      const list = await fetchOpenF1DriversForSession(sk);
+      res.setHeader("Cache-Control", "public, max-age=300");
+      res.status(200).json({
+        drivers: list.map((d) => ({ driverNumber: d.driverNumber, name: d.label })),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("GET /public/f1/drivers:", err);
       res.status(500).json({ error: "server_error" });
     }
   });
@@ -205,6 +234,114 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
       // eslint-disable-next-line no-console
       console.error("PUT /f1/predictions/:raceId:", err);
       res.status(500).json({ error: "server_error" });
+    }
+  });
+
+  app.post("/f1/predictions/:raceId/generate-ai", requireAuth, async (req, res) => {
+    const { userId, companyId } = (req as AuthedRequest).auth;
+    const raceId = routeRaceId(req);
+    if (!raceId) {
+      res.status(400).json({ error: "invalid_race" });
+      return;
+    }
+    try {
+      const race = await prisma.f1Race.findUnique({ where: { id: raceId } });
+      if (!race) {
+        res.status(404).json({ error: "race_not_found" });
+        return;
+      }
+      if (isF1PredictionWindowClosed(race.raceStartAt)) {
+        res.status(400).json({
+          error: "race_locked",
+          message: "La ventana de predicción ya cerró (1 h antes de la carrera).",
+        });
+        return;
+      }
+
+      const gRow = await prisma.prodeGuidelines.findUnique({
+        where: { userId },
+        select: { f1RaceGuidelines: true },
+      });
+      const map = readF1GuidelinesMap(gRow?.f1RaceGuidelines ?? {});
+      const pautas = (map[String(race.sessionKey)] ?? "").trim();
+      if (!pautas) {
+        res.status(400).json({
+          error: "f1_guidelines_required",
+          message:
+            "No hay pautas F1 guardadas para esta carrera en el Laboratorio (misma session_key). Guardá el texto en /app/f1/laboratorio antes de generar con IA.",
+        });
+        return;
+      }
+
+      const drivers = await fetchOpenF1DriversForSession(race.sessionKey);
+      const allowed = new Set(drivers.map((d) => d.driverNumber));
+
+      const aiConfig = await prisma.aiConfig.findUnique({ where: { companyId } });
+      let chatConfig: { provider?: string; apiKey: string; model: string; baseUrl?: string | null } | null = null;
+      if (aiConfig) {
+        try {
+          chatConfig = {
+            provider: aiConfig.provider,
+            apiKey: aiConfig.apiKeyEnc ? decrypt(aiConfig.apiKeyEnc) : "ollama",
+            model: aiConfig.model,
+            baseUrl: aiConfig.baseUrl,
+          };
+        } catch {
+          /* decrypt falló: se usará env en chat() si aplica */
+        }
+      }
+
+      const prompt = buildF1Top10Prompt({
+        pautas,
+        circuitShortName: race.circuitShortName,
+        countryName: race.countryName,
+        roundOrder: race.roundOrder,
+        raceStartAtIso: race.raceStartAt.toISOString(),
+        drivers,
+      });
+
+      const result = await chat(prompt, chatConfig);
+      const batchId = randomUUID();
+      await prisma.promptLog.create({
+        data: {
+          userId,
+          batchId,
+          provider: aiConfig?.provider ?? process.env.AI_PROVIDER ?? "openai",
+          model: result.model,
+          promptText: prompt,
+          responseText: result.text,
+          tokensIn: result.tokensIn ?? undefined,
+          tokensOut: result.tokensOut ?? undefined,
+        },
+      });
+
+      const nums = parseAiF1Top10Placements(result.text);
+      if (!nums || !validateF1Top10AgainstRoster(nums, allowed)) {
+        res.status(422).json({
+          error: "ai_parse_failed",
+          message:
+            "La IA no devolvió 10 dorsales válidos y únicos de la parrilla (o el JSON no se pudo leer). Reintentá o ajustá las pautas en el Laboratorio F1.",
+        });
+        return;
+      }
+
+      const placements = nums;
+      const pred = await prisma.f1Prediction.upsert({
+        where: { userId_raceId: { userId, raceId } },
+        create: { userId, raceId, placements: placements as unknown as Prisma.InputJsonValue },
+        update: { placements: placements as unknown as Prisma.InputJsonValue },
+      });
+
+      res.status(200).json({
+        id: pred.id,
+        raceId: pred.raceId,
+        placements: normalizePlacements(pred.placements),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("POST /f1/predictions/:raceId/generate-ai:", err);
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: "server_error", message: msg });
     }
   });
 
