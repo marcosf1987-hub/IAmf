@@ -233,7 +233,17 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     const secret = googleClientSecret();
     const redir = redirectUri();
     if (!clientId || !secret || !redir) {
-      res.status(503).json({ error: "oauth_not_configured", provider: "google" });
+      const missing: string[] = [];
+      if (!apiPublicBase()) missing.push("OAUTH_PUBLIC_BASE_URL");
+      if (!clientId) missing.push("OAUTH_GOOGLE_CLIENT_ID");
+      if (!secret) missing.push("OAUTH_GOOGLE_CLIENT_SECRET");
+      res.status(503).json({
+        error: "oauth_not_configured",
+        provider: "google",
+        missing,
+        hint: "Definí esas variables en el servicio backend (mismo entorno), guardá y redeploy.",
+        oauthConfigFormat: 2,
+      });
       return;
     }
     const state = randomBytes(24).toString("hex");

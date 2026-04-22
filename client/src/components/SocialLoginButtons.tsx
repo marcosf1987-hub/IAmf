@@ -3,7 +3,8 @@ import { fetchOAuthConfig, googleOAuthStartUrl } from "../lib/api";
 
 /**
  * Bloque «Continuar con Google» en login / signup.
- * Siempre visible: el enlace solo está activo cuando el backend confirma OAuth listo.
+ * El enlace a `/auth/oauth/google/start` siempre es clicable (aunque el config diga que falten variables)
+ * para poder depurar la respuesta del API en el navegador.
  */
 export default function SocialLoginButtons() {
   const [checked, setChecked] = useState(false);
@@ -40,28 +41,27 @@ export default function SocialLoginButtons() {
         <span>o</span>
       </div>
       <div className="auth-oauth-buttons">
-        {checked && googleReady ? (
-          <a className="btn-oauth btn-oauth-google" href={startUrl}>
-            Continuar con Google
-          </a>
-        ) : (
-          <button
-            type="button"
-            className="btn-oauth btn-oauth-google btn-oauth--disabled"
-            disabled
-            title={
-              !checked
-                ? "Comprobando configuración…"
-                : "El servidor no tiene Google OAuth configurado (OAUTH_* y FRONTEND_URL)."
-            }
-          >
-            Continuar con Google
-          </button>
-        )}
+        <a
+          className={`btn-oauth btn-oauth-google${checked && !googleReady ? " btn-oauth--unconfigured" : ""}`}
+          href={startUrl}
+          title={
+            checked && !googleReady
+              ? "El config indica variables faltantes; igual podés abrir el start y ver el JSON o la redirección."
+              : undefined
+          }
+        >
+          Continuar con Google
+        </a>
       </div>
       <p className="auth-oauth-hint">
         {!checked && "Comprobando si el inicio con Google está disponible…"}
         {checked && googleReady && "Te redirigimos a Google y volvés a la app con tu sesión iniciada."}
+        {checked && !googleReady && !fetchFailed && (
+          <span className="auth-oauth-hint auth-oauth-hint--muted" style={{ display: "block", marginTop: "0.35rem" }}>
+            Podés clicar el botón igual: si falta configuración verás JSON (p. ej. <code>oauth_not_configured</code>) o
+            el error en la pestaña Red del navegador.
+          </span>
+        )}
         {checked && !googleReady && !fetchFailed && oauthFmt !== 2 && (
           <span className="auth-oauth-hint auth-oauth-hint--muted">
             El API no devuelve la versión nueva de configuración OAuth. Hacé <strong>Redeploy</strong> del

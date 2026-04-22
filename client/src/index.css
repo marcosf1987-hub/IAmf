@@ -1171,6 +1171,12 @@ button.btn-oauth--disabled:hover {
   background: var(--bg-input);
 }
 
+/* Enlace Google cuando el config aún no está OK (sigue siendo clicable para depurar). */
+a.btn-oauth--unconfigured {
+  border-style: dashed;
+  opacity: 0.92;
+}
+
 .auth-oauth-hint {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;
