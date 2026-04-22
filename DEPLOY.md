@@ -149,7 +149,11 @@ Si no estás seguro, borrá el campo y escribilo a mano.
    | `JWT_SECRET` | Una frase larga y aleatoria (ej. 32 caracteres mezclando letras y números). **No** la compartas. |
    | `OPENAI_API_KEY` | Tu clave de OpenAI (la misma que usás en local en `.env`). |
    | `AI_MODEL` | `gpt-4o-mini` (o el que uses). |
-   | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Útil para enlaces por email e invitaciones. |
+   | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Necesaria para volver del login con Google (`/oauth/callback`) y para enlaces por email. |
+   | `OAUTH_PUBLIC_BASE_URL` | URL pública de **este** API (sin `/` final), la misma que el dominio público del backend en Railway. |
+   | `OAUTH_GOOGLE_CLIENT_ID` y `OAUTH_GOOGLE_CLIENT_SECRET` | Credenciales OAuth 2.0 **Web** de Google Cloud. En Google, URI de redirección autorizada: `https://<tu-api>/auth/oauth/google/callback` (en local: `http://localhost:4000/auth/oauth/google/callback` si probás contra el API en el puerto 4000). |
+
+   **Nota:** en `server/.env.example` no listamos valores `OAUTH_*=…` para no forzar secretos en build (Railpack). Los nombres exactos son los de la tabla.
 
    **No hace falta** poner `PORT` a mano: Railway lo asigna solo.
 

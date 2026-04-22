@@ -35,6 +35,47 @@ function resolveApiBase(): string {
   return base;
 }
 
+/** URL absoluta para iniciar OAuth con Google (mismo host que el API). */
+export function googleOAuthStartUrl(): string {
+  return `${resolveApiBase()}/auth/oauth/google/start`;
+}
+
+/** Si el servidor tiene Google OAuth listo (variables + URL pública del API). */
+export async function fetchOAuthConfig(): Promise<{
+  google: boolean;
+  fetchFailed: boolean;
+  googleClientIdSet?: boolean;
+  googleClientSecretSet?: boolean;
+  oauthPublicBaseSet?: boolean;
+}> {
+  const base = resolveApiBase();
+  const url = `${base}/auth/oauth/config?_=${Date.now()}`;
+  try {
+    const res = await fetch(url, { cache: "no-store", credentials: "omit" });
+    const text = await res.text();
+    if (!res.ok) return { google: false, fetchFailed: true };
+    try {
+      const j = JSON.parse(text) as {
+        google?: unknown;
+        googleClientIdSet?: unknown;
+        googleClientSecretSet?: unknown;
+        oauthPublicBaseSet?: unknown;
+      };
+      return {
+        google: Boolean(j.google),
+        fetchFailed: false,
+        googleClientIdSet: Boolean(j.googleClientIdSet),
+        googleClientSecretSet: Boolean(j.googleClientSecretSet),
+        oauthPublicBaseSet: Boolean(j.oauthPublicBaseSet),
+      };
+    } catch {
+      return { google: false, fetchFailed: true };
+    }
+  } catch {
+    return { google: false, fetchFailed: true };
+  }
+}
+
 const API_BASE = resolveApiBase();
 
 /** True si el build de producción no incluyó la URL del API (el login fallará). */
@@ -302,7 +343,7 @@ export type PlatformCompanyRow = {
 
 export type PlatformOverview = {
   platformCompany: { id: string; name: string } | null;
-  /** Usuarios activos en org platform-internal (registro público), sin super_admin */
+  /** Usuarios activos en org platform-internal (registro público y Google), sin super_admin */
   publicPoolUserCount: number;
   universalLeague: {
     id: string;

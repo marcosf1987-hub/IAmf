@@ -155,7 +155,7 @@ export default function PlatformAdminPage() {
     <div className="page-content">
       <h1>Administración de plataforma</h1>
       <p className="page-subtitle">
-        Pool público (registro abierto), liga universal, empresas B2B, cupos y accesos de administradores.
+        Pool público (registro abierto y Google), liga universal, empresas B2B, cupos y accesos de administradores.
       </p>
       <p className="page-subtitle" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
         <strong>IA del pool público</strong> se configura en el bloque siguiente (usuarios en{" "}
@@ -172,7 +172,7 @@ export default function PlatformAdminPage() {
           <AiConfigTab
             config={platformAiConfig}
             title="IA del pool público"
-            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
+            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público y Google). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
             successMessage="Configuración de IA del pool guardada."
             onSave={async (data) => {
               const { config } = await updatePlatformAiConfig(data);
@@ -185,7 +185,7 @@ export default function PlatformAdminPage() {
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Pool público y liga universal</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
-          Quienes se registran sin invitación de empresa quedan en la org{" "}
+          Quienes se registran sin invitación de empresa o entran con Google quedan en la org{" "}
           <code className="platform-slug-code">platform-internal</code>, entran en la{" "}
           <strong>Liga universal</strong> (ranking entre ese pool). Quienes aceptan invitación B2B solo pertenecen a
           su empresa.

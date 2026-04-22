@@ -18,6 +18,7 @@ import { ensureUniversalLeagueMembership } from "./universal-league";
 import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
 import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
+import { mountOAuthRoutes } from "./oauth";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -108,6 +109,7 @@ app.use(express.json({ limit: "1mb" }));
 registerB2BRoutes(app, prisma);
 registerCompetitionRoutes(app, prisma);
 registerCompetitionInviteRoutes(app, prisma);
+mountOAuthRoutes(app, prisma);
 
 /** Raíz: la API no sirve HTML; el frontend es otro servicio. Evita confusión al abrir la URL del backend en el navegador. */
 app.get("/", (_req, res) => {
@@ -239,7 +241,8 @@ app.post("/auth/login", async (req, res) => {
     if (!user.passwordHash) {
       res.status(401).json({
         error: "no_password",
-        message: "Esta cuenta no tiene contraseña en este sistema. Contactá soporte o usá invitación por email si aplica.",
+        message:
+          "Esta cuenta no tiene contraseña local. Usá «Continuar con Google» o contactá soporte si entraste por invitación.",
       });
       return;
     }
