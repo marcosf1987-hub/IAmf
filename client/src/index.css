@@ -1163,6 +1163,14 @@ a.home-logo:hover .home-logo-brand {
   border-left: 3px solid #4285f4;
 }
 
+button.btn-oauth--disabled,
+button.btn-oauth--disabled:hover {
+  cursor: not-allowed;
+  opacity: 0.55;
+  border-color: var(--border);
+  background: var(--bg-input);
+}
+
 .auth-oauth-hint {
   margin: 0.35rem 0 0;
   font-size: 0.8rem;

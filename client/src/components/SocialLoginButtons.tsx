@@ -2,11 +2,12 @@ import { useEffect, useState } from "react";
 import { fetchOAuthConfig, googleOAuthStartUrl } from "../lib/api";
 
 /**
- * Bloque opcional «Continuar con Google» en login / signup.
- * Solo se muestra si el backend expone `/auth/oauth/config` con `google: true`.
+ * Bloque «Continuar con Google» en login / signup.
+ * Siempre visible: el enlace solo está activo cuando el backend confirma OAuth listo.
  */
 export default function SocialLoginButtons() {
-  const [ready, setReady] = useState(false);
+  const [checked, setChecked] = useState(false);
+  const [googleReady, setGoogleReady] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
 
   useEffect(() => {
@@ -15,28 +16,13 @@ export default function SocialLoginButtons() {
       const cfg = await fetchOAuthConfig();
       if (cancelled) return;
       setFetchFailed(cfg.fetchFailed);
-      setReady(cfg.google);
+      setGoogleReady(cfg.google);
+      setChecked(true);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
-
-  if (!ready && !fetchFailed) {
-    return null;
-  }
-
-  if (!ready && fetchFailed) {
-    return (
-      <div className="auth-oauth">
-        <p className="auth-oauth-hint auth-oauth-hint--muted">
-          No se pudo comprobar el inicio con Google. Revisá la conexión o <code>VITE_API_URL</code>.
-        </p>
-      </div>
-    );
-  }
-
-  if (!ready) return null;
 
   const startUrl = googleOAuthStartUrl();
 
@@ -46,12 +32,36 @@ export default function SocialLoginButtons() {
         <span>o</span>
       </div>
       <div className="auth-oauth-buttons">
-        <a className="btn-oauth btn-oauth-google" href={startUrl}>
-          Continuar con Google
-        </a>
+        {checked && googleReady ? (
+          <a className="btn-oauth btn-oauth-google" href={startUrl}>
+            Continuar con Google
+          </a>
+        ) : (
+          <button
+            type="button"
+            className="btn-oauth btn-oauth-google btn-oauth--disabled"
+            disabled
+            title={
+              !checked
+                ? "Comprobando configuración…"
+                : "El servidor no tiene Google OAuth configurado (OAUTH_* y FRONTEND_URL)."
+            }
+          >
+            Continuar con Google
+          </button>
+        )}
       </div>
       <p className="auth-oauth-hint">
-        Te redirigimos a Google y volvés a la app con tu sesión iniciada.
+        {!checked && "Comprobando si el inicio con Google está disponible…"}
+        {checked && googleReady && "Te redirigimos a Google y volvés a la app con tu sesión iniciada."}
+        {checked && !googleReady && !fetchFailed &&
+          "En este entorno Google no está activo todavía: en el backend hacen falta OAUTH_PUBLIC_BASE_URL, OAUTH_GOOGLE_CLIENT_ID y OAUTH_GOOGLE_CLIENT_SECRET (y FRONTEND_URL para volver del login)."}
+        {checked && fetchFailed && (
+          <>
+            No se pudo contactar al API para comprobar Google. Revisá la conexión o{" "}
+            <code>VITE_API_URL</code> en el build del frontend.
+          </>
+        )}
       </p>
     </div>
   );
