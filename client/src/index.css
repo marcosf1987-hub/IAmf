@@ -988,6 +988,22 @@ a.home-logo:hover .home-logo-brand {
   gap: 1.25rem;
 }
 
+.f1-predictions-accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.f1-race-accordion-panel .f1-race-card-head--panel {
+  margin-bottom: 0.75rem;
+}
+
+.f1-race-panel-note {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
 .f1-race-card {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);

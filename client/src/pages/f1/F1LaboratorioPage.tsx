@@ -14,6 +14,20 @@ function raceLabel(r: F1RaceSummary): string {
   return c || co || `Ronda ${r.roundOrder}`;
 }
 
+/** Carreras desde hoy 00:00 (hora local), no las ya corridas en el calendario. */
+function startOfTodayLocal(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function racesFromTodayOnwards(list: F1RaceSummary[]): F1RaceSummary[] {
+  const start = startOfTodayLocal().getTime();
+  return [...list]
+    .filter((r) => new Date(r.raceStartAt).getTime() >= start)
+    .sort((a, b) => new Date(a.raceStartAt).getTime() - new Date(b.raceStartAt).getTime());
+}
+
 export default function F1LaboratorioPage() {
   const [races, setRaces] = useState<F1RaceSummary[]>([]);
   const [sessionKey, setSessionKey] = useState<number | null>(null);
@@ -29,15 +43,13 @@ export default function F1LaboratorioPage() {
     setError("");
     try {
       const [{ races }, gRes] = await Promise.all([fetchF1Races(), fetchF1Guidelines()]);
-      const sorted = [...races].sort(
-        (a, b) => new Date(a.raceStartAt).getTime() - new Date(b.raceStartAt).getTime()
-      );
-      setRaces(sorted);
+      const upcoming = racesFromTodayOnwards(races);
+      setRaces(upcoming);
       const m = gRes.bySessionKey ?? {};
       setMap(m);
       setSessionKey((prev) => {
-        if (prev != null && sorted.some((r) => r.sessionKey === prev)) return prev;
-        return sorted[0]?.sessionKey ?? null;
+        if (prev != null && upcoming.some((r) => r.sessionKey === prev)) return prev;
+        return upcoming[0]?.sessionKey ?? null;
       });
       setSaved(false);
     } catch (e) {
@@ -89,7 +101,9 @@ export default function F1LaboratorioPage() {
         {loading ? (
           <p className="placeholder-text">Cargando calendario…</p>
         ) : races.length === 0 ? (
-          <p className="placeholder-text">No hay carreras en la base. Revisá la sincronización OpenF1.</p>
+          <p className="placeholder-text">
+            No hay carreras programadas desde hoy en adelante en el calendario, o la base está vacía. Revisá OpenF1.
+          </p>
         ) : (
           <div className="guidelines-phase-block">
             <label htmlFor="f1-lab-race" className="guidelines-phase-label">
@@ -116,7 +130,8 @@ export default function F1LaboratorioPage() {
               ))}
             </select>
             <p className="guidelines-phase-hint">
-              Session key: <code>{sessionKey ?? "—"}</code>
+              Solo carreras con fecha de carrera <strong>desde hoy</strong> (hora local). Session key:{" "}
+              <code>{sessionKey ?? "—"}</code>
               {raceMeta ? ` · ${raceLabel(raceMeta)}` : ""}
             </p>
             <textarea
