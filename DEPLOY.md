@@ -150,8 +150,8 @@ Si no estás seguro, borrá el campo y escribilo a mano.
    | `OPENAI_API_KEY` | Tu clave de OpenAI (la misma que usás en local en `.env`). |
    | `AI_MODEL` | `gpt-4o-mini` (o el que uses). |
    | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Necesaria para volver del login con Google (`/oauth/callback`) y para enlaces por email. |
-   | `OAUTH_PUBLIC_BASE_URL` | URL pública de **este** API (sin `/` final), la misma que el dominio público del backend en Railway. |
-   | `OAUTH_GOOGLE_CLIENT_ID` y `OAUTH_GOOGLE_CLIENT_SECRET` | Credenciales OAuth 2.0 **Web** de Google Cloud. En Google, URI de redirección autorizada: `https://<tu-api>/auth/oauth/google/callback` (en local: `http://localhost:4000/auth/oauth/google/callback` si probás contra el API en el puerto 4000). |
+   | `OAUTH_PUBLIC_BASE_URL` | URL pública de **este** API (sin `/` final), la misma que el dominio público del backend en Railway. **Alias aceptados por el código:** `API_PUBLIC_BASE_URL` o `PUBLIC_URL` (mismo significado). |
+   | `OAUTH_GOOGLE_CLIENT_ID` y `OAUTH_GOOGLE_CLIENT_SECRET` | Credenciales OAuth 2.0 **Web** de Google Cloud. En Google, URI de redirección autorizada: `https://<tu-api>/auth/oauth/google/callback` (en local: `http://localhost:4000/auth/oauth/google/callback` si probás contra el API en el puerto 4000). **Alias del secreto:** `GOOGLE_CLIENT_SECRET` o `GOOGLE_OAUTH_CLIENT_SECRET`. |
 
    **Nota:** en `server/.env.example` no listamos valores `OAUTH_*=…` para no forzar secretos en build (Railpack). Los nombres exactos son los de la tabla. El código del API referencia esos nombres como literales en `oauth.ts` para que Railway/Railpack los inyecten en el contenedor en runtime (si no aparecen en el bundle, a veces el proceso no las ve aunque estén en el panel).
 

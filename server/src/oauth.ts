@@ -18,6 +18,12 @@ type OauthProcessEnv = NodeJS.ProcessEnv & {
   OAUTH_GOOGLE_CLIENT_ID?: string;
   OAUTH_GOOGLE_CLIENT_SECRET?: string;
   FRONTEND_URL?: string;
+  /** Alias opcional si en Railway usaste otro nombre (mismo valor: URL pública del API). */
+  API_PUBLIC_BASE_URL?: string;
+  PUBLIC_URL?: string;
+  /** Alias opcional del secreto de cliente Google. */
+  GOOGLE_CLIENT_SECRET?: string;
+  GOOGLE_OAUTH_CLIENT_SECRET?: string;
 };
 
 function pe(): OauthProcessEnv {
@@ -28,6 +34,10 @@ function readOauthPublicBase(): string {
   const v =
     pe().OAUTH_PUBLIC_BASE_URL?.trim() ||
     process.env["OAUTH_PUBLIC_BASE_URL"]?.trim() ||
+    pe().API_PUBLIC_BASE_URL?.trim() ||
+    process.env["API_PUBLIC_BASE_URL"]?.trim() ||
+    pe().PUBLIC_URL?.trim() ||
+    process.env["PUBLIC_URL"]?.trim() ||
     envString(EK.oauthPublicBase)?.trim() ||
     "";
   return v.replace(/\/+$/, "");
@@ -38,11 +48,14 @@ function readGoogleClientIdRaw(): string | undefined {
 }
 
 function readGoogleClientSecretRaw(): string | undefined {
-  return (
-    pe().OAUTH_GOOGLE_CLIENT_SECRET ??
-    process.env["OAUTH_GOOGLE_CLIENT_SECRET"] ??
-    envString(EK.googleSecret)
-  );
+  const a = pe().OAUTH_GOOGLE_CLIENT_SECRET?.trim();
+  const b = process.env["OAUTH_GOOGLE_CLIENT_SECRET"]?.trim();
+  const c = pe().GOOGLE_CLIENT_SECRET?.trim();
+  const d = process.env["GOOGLE_CLIENT_SECRET"]?.trim();
+  const e = pe().GOOGLE_OAUTH_CLIENT_SECRET?.trim();
+  const f = process.env["GOOGLE_OAUTH_CLIENT_SECRET"]?.trim();
+  const g = envString(EK.googleSecret)?.trim();
+  return a || b || c || d || e || f || g || undefined;
 }
 
 function readFrontendUrlRaw(): string | undefined {
@@ -241,7 +254,16 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         error: "oauth_not_configured",
         provider: "google",
         missing,
-        hint: "Definí esas variables en el servicio backend (mismo entorno), guardá y redeploy.",
+        hint:
+          "Definí esas variables en el servicio Node del API (no en Postgres ni en el frontend). Guardá y redeploy. También podés usar los nombres alternativos en `aliases`.",
+        aliases: {
+          publicBaseUrl: ["OAUTH_PUBLIC_BASE_URL", "API_PUBLIC_BASE_URL", "PUBLIC_URL"],
+          clientSecret: [
+            "OAUTH_GOOGLE_CLIENT_SECRET",
+            "GOOGLE_CLIENT_SECRET",
+            "GOOGLE_OAUTH_CLIENT_SECRET",
+          ],
+        },
         oauthConfigFormat: 2,
       });
       return;
@@ -362,4 +384,10 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       redirectFrontend(res, { error: codeMsg });
     }
   });
+
+  const snap = getOAuthConfigJson();
+  if (!snap.google) {
+    // eslint-disable-next-line no-console
+    console.warn("[oauth] Google OAuth no operativo al arrancar (flags sin secretos):", snap);
+  }
 }
