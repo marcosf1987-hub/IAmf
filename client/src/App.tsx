@@ -17,10 +17,16 @@ import AcceptLeagueInvitePage from "./pages/AcceptLeagueInvitePage";
 import MisLigasPage from "./pages/MisLigasPage";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
+import F1Layout from "./pages/f1/F1Layout";
+import F1HubPage from "./pages/f1/F1HubPage";
+import F1PrediccionesPage from "./pages/f1/F1PrediccionesPage";
+import F1LaboratorioPage from "./pages/f1/F1LaboratorioPage";
+import F1ResultadosPage from "./pages/f1/F1ResultadosPage";
 
 export default function App() {
   return (
     <Routes>
+      <Route path="/f1" element={<Navigate to="/app/f1" replace />} />
       <Route path="/" element={<HomePage />} />
       <Route path="/terms" element={<TermsOfServicePage />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -40,6 +46,12 @@ export default function App() {
         <Route path="perfil" element={<PerfilPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="platform" element={<PlatformAdminPage />} />
+        <Route path="f1" element={<F1Layout />}>
+          <Route index element={<F1HubPage />} />
+          <Route path="predicciones" element={<F1PrediccionesPage />} />
+          <Route path="laboratorio" element={<F1LaboratorioPage />} />
+          <Route path="resultados" element={<F1ResultadosPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

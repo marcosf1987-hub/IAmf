@@ -15,7 +15,6 @@ import {
 import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
-import F1PredictionsPanel from "../components/F1PredictionsPanel";
 
 const STAGE_LABELS: Record<string, string> = {
   group: "Fase de grupos",
@@ -219,7 +218,6 @@ export default function ProdePage() {
   const [groupIaStatus, setGroupIaStatus] = useState<Record<string, "idle" | "loading" | "done" | "error">>({});
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
-  const [disciplineTab, setDisciplineTab] = useState<"fifa" | "f1">("fifa");
 
   const sections = useMemo(() => buildProdeSections(matches), [matches]);
 
@@ -256,10 +254,6 @@ export default function ProdePage() {
   function toggleSection(id: string) {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
   }
-
-  useEffect(() => {
-    if (location.hash === "#f1") setDisciplineTab("f1");
-  }, [location.hash]);
 
   useEffect(() => {
     async function load() {
@@ -450,51 +444,13 @@ export default function ProdePage() {
     <div className="page-content page-content--prode prode-page">
       <header className="prode-page-header">
         <div className="prode-page-header-inner">
-          <h1 className="prode-page-title">
-            {disciplineTab === "fifa" ? "Prode FIFA 2026" : "Fórmula 1"}
-          </h1>
+          <h1 className="prode-page-title">Prode FIFA 2026</h1>
           <p className="page-subtitle prode-page-subtitle">
-            {disciplineTab === "fifa" ? (
-              <>
-                Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora
-                antes del primer partido de cada fase para generar o regenerar.
-              </>
-            ) : (
-              <>
-                Completá el top 10 (dorsal del piloto) por carrera. Podés editar hasta 1 hora antes de cada carrera.
-                Los resultados se sincronizan desde OpenF1.
-              </>
-            )}
+            Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
+            del primer partido de cada fase para generar o regenerar.
           </p>
         </div>
       </header>
-
-      <div className="prode-discipline-tabs" role="tablist" aria-label="Disciplina">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={disciplineTab === "fifa"}
-          className={`prode-discipline-tab ${disciplineTab === "fifa" ? "prode-discipline-tab--active" : ""}`}
-          onClick={() => {
-            setDisciplineTab("fifa");
-            window.history.replaceState(null, "", "/app/prode");
-          }}
-        >
-          Mundial
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={disciplineTab === "f1"}
-          className={`prode-discipline-tab ${disciplineTab === "f1" ? "prode-discipline-tab--active" : ""}`}
-          onClick={() => {
-            setDisciplineTab("f1");
-            window.history.replaceState(null, "", "/app/prode#f1");
-          }}
-        >
-          F1
-        </button>
-      </div>
 
       {error ? (
         <div className="auth-error" role="alert">
@@ -502,11 +458,7 @@ export default function ProdePage() {
         </div>
       ) : null}
 
-      {disciplineTab === "f1" ? (
-        <F1PredictionsPanel />
-      ) : null}
-
-      {disciplineTab === "fifa" && matches.length === 0 && !loading && (
+      {matches.length === 0 && !loading && (
         <div className="prode-seed-hint" role="status">
           <h2 className="prode-seed-hint-title">No hay partidos en la base de datos</h2>
           <p>
@@ -530,8 +482,6 @@ npx prisma db seed`}
         </div>
       )}
 
-      {disciplineTab === "fifa" ? (
-        <>
       {/* Sin sección de grupos: el bloque queda arriba del stack. Con grupos: va dentro de la sección, justo sobre la rejilla de tarjetas. */}
       {groupSections.length === 0 && prodeGenerateBlock}
 
@@ -631,8 +581,6 @@ npx prisma db seed`}
           </div>
         )}
       </div>
-        </>
-      ) : null}
     </div>
   );
 }

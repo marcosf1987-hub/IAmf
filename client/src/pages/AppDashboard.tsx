@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import UpcomingRacesCarousel from "../components/UpcomingRacesCarousel";
+import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { useAuth } from "../contexts/AuthContext";
 import {
   fetchMyCompetitions,
   fetchMyResults,
   fetchProdeStatus,
-  fetchPublicF1Races,
   fetchResultsDashboard,
   type CompetitionQuota,
-  type F1RaceSummary,
   type MineCompetitionsResponse,
   type ProdeStatus,
   type ResultsDashboard,
@@ -20,34 +18,12 @@ import { getCurrentPhase, formatDaysLeft } from "../lib/prode-phases";
 const WORLD_CUP_START = new Date("2026-06-11T19:00:00Z");
 
 const TIPS = [
-  "¿Sabías que un buen prompt debe incluir un rol? Prueba con: «Actúa como ingeniero de carrera F1 y ponderá degradación de neumáticos…»",
-  "Da contexto de sesión: por ejemplo «En Mónaco priorizá calificación y tráfico; en Spa el clima y el desgaste en sectores largos». La IA mantiene coherencia entre tus pronósticos de top 10.",
-  "Pedí formato explícito: «Devolvé solo una lista ordenada P1–P10 con número de dorsal». Así evitás texto libre que no entre en el formulario de carrera.",
-  "Controlá el tono: temperatura baja (0.2) para picks conservadores según parrilla; más alta si querés sorpresas tipo lluvia o safety car tardío.",
-  "Limitá alucinaciones: «Usá solo pilotos confirmados en la parrilla de esta sesión» o «No inventes dorsales» ayuda cuando el modelo mezcla temporadas.",
+  "¿Sabías que un buen prompt debe incluir un rol? Prueba empezando con: «Actúa como un experto en estadísticas...»",
+  "Da ejemplos a la IA: si quieres un formato específico, incluye un caso previo en tu prompt. Por ejemplo: «Básate en el resultado de la final 2022 (Arg 3 - Fra 3) para entender cómo ponderar el tiempo extra». La IA aprende mejor con referencias.",
+  "Controla la creatividad: ¿quieres un análisis lógico o una sorpresa mundialista? Si usas una temperatura baja (0.2), la IA será conservadora y estadística. Con una temperatura alta (0.8), buscará resultados más disruptivos.",
+  "Pídele que razone: antes del resultado final, escribe: «Explica tu razonamiento paso a paso antes de dar el marcador». Esto obliga a la IA a analizar variables lógicas antes de «arriesgar» un número.",
+  "Evita alucinaciones: sé específico con lo que no quieres. Por ejemplo: «No consideres partidos amistosos de hace más de 5 años». Poner límites claros ayuda a que la IA no se pierda en datos irrelevantes.",
 ];
-
-function f1RaceHeadline(r: F1RaceSummary): string {
-  const c = r.circuitShortName?.trim();
-  const co = r.countryName?.trim();
-  if (c && co) return `${c} · ${co}`;
-  return c || co || `Ronda ${r.roundOrder}`;
-}
-
-function formatF1Countdown(iso: string): string {
-  const end = new Date(iso).getTime();
-  if (Number.isNaN(end)) return "—";
-  const t = end - Date.now();
-  if (t <= 0) return "En curso o finalizada";
-  const s = Math.floor(t / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m`;
-  if (h > 0) return `${h}h ${m}m ${sec}s`;
-  return `${m}m ${sec}s`;
-}
 
 function canCreateMoreLeagues(q: CompetitionQuota): boolean {
   if (q.scope === "user") {
@@ -288,35 +264,6 @@ export default function AppDashboard() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tipIndex] = useState(() => Math.floor(Math.random() * TIPS.length));
-  const [nextF1Race, setNextF1Race] = useState<F1RaceSummary | null>(null);
-  const [f1CountdownLabel, setF1CountdownLabel] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const year = new Date().getUTCFullYear();
-        const { races } = await fetchPublicF1Races(year, 12);
-        if (!cancelled) setNextF1Race(races[0] ?? null);
-      } catch {
-        if (!cancelled) setNextF1Race(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!nextF1Race) {
-      setF1CountdownLabel("");
-      return;
-    }
-    const tick = () => setF1CountdownLabel(formatF1Countdown(nextF1Race.raceStartAt));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [nextF1Race]);
 
   useEffect(() => {
     async function load() {
@@ -462,40 +409,14 @@ export default function AppDashboard() {
 
       <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
         <span id="dashboard-tip-label" className="dashboard-tip-label">
-          Tip del día (F1 / prompts)
+          Tip del día
         </span>
         <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
       </section>
 
       {showLeaguesPanel && <DashboardMyLeaguesPanel mine={mine} />}
 
-      <section className="dashboard-f1-countdown" aria-labelledby="dashboard-f1-countdown-title">
-        <h2 id="dashboard-f1-countdown-title" className="dashboard-section-heading">
-          Próxima carrera F1
-        </h2>
-        {nextF1Race ? (
-          <div className="dashboard-f1-countdown-inner">
-            <p className="dashboard-f1-countdown-race">{f1RaceHeadline(nextF1Race)}</p>
-            <p className="dashboard-f1-countdown-digits" aria-live="polite">
-              {f1CountdownLabel || formatF1Countdown(nextF1Race.raceStartAt)}
-            </p>
-            <p className="dashboard-f1-countdown-sub">
-              Salida:{" "}
-              {new Date(nextF1Race.raceStartAt).toLocaleString("es-AR", {
-                dateStyle: "full",
-                timeStyle: "short",
-              })}
-            </p>
-          </div>
-        ) : (
-          <p className="dashboard-f1-countdown-empty">
-            No hay carreras próximas sincronizadas. Cuando el backend cargue el calendario OpenF1, verás la cuenta
-            regresiva aquí.
-          </p>
-        )}
-      </section>
-
-      <UpcomingRacesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
+      <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
 
       <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
         <h2 id="dashboard-cards-heading" className="dashboard-section-heading">
