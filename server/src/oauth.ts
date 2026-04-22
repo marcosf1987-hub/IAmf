@@ -8,6 +8,30 @@ import { ensureUniversalLeagueMembership } from "./universal-league";
 
 const PROVIDER_GOOGLE = "google";
 
+/**
+ * Lectura con `process.env["NOMBRE_EXACTO"]` además de EK/charCode.
+ * Railpack (Railway) suele inyectar en el contenedor solo variables cuyo nombre
+ * aparece como literal en el JS compilado; si solo usamos nombres armados en runtime,
+ * OAUTH_* puede llegar vacío aunque esté definida en el panel.
+ */
+function readOauthPublicBase(): string {
+  const v =
+    process.env["OAUTH_PUBLIC_BASE_URL"]?.trim() || envString(EK.oauthPublicBase)?.trim() || "";
+  return v.replace(/\/+$/, "");
+}
+
+function readGoogleClientIdRaw(): string | undefined {
+  return process.env["OAUTH_GOOGLE_CLIENT_ID"] ?? envString(EK.googleId);
+}
+
+function readGoogleClientSecretRaw(): string | undefined {
+  return process.env["OAUTH_GOOGLE_CLIENT_SECRET"] ?? envString(EK.googleSecret);
+}
+
+function readFrontendUrlRaw(): string | undefined {
+  return process.env["FRONTEND_URL"] ?? envString(EK.frontend);
+}
+
 function parseCookie(header: string | undefined): Record<string, string> {
   const out: Record<string, string> = {};
   if (!header) return out;
@@ -22,11 +46,11 @@ function parseCookie(header: string | undefined): Record<string, string> {
 }
 
 function frontendBase(): string {
-  return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
+  return (readFrontendUrlRaw()?.trim() || "http://localhost:5173").replace(/\/+$/, "");
 }
 
 function apiPublicBase(): string {
-  return (envString(EK.oauthPublicBase)?.trim() || "").replace(/\/+$/, "");
+  return readOauthPublicBase();
 }
 
 function redirectUri(): string {
@@ -44,11 +68,11 @@ function normalizeClientId(raw: string | undefined): string {
 }
 
 function googleClientId(): string {
-  return normalizeClientId(envString(EK.googleId));
+  return normalizeClientId(readGoogleClientIdRaw());
 }
 
 function googleClientSecret(): string {
-  return (envString(EK.googleSecret) ?? "").trim();
+  return (readGoogleClientSecretRaw() ?? "").trim();
 }
 
 const STATE_COOKIE = "pp_oauth_google_state";
@@ -180,6 +204,7 @@ export function getOAuthConfigJson(): {
 
 export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/auth/oauth/config", (_req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "no-store, max-age=0");
     res.status(200).json(getOAuthConfigJson());
   });
 

@@ -9,6 +9,9 @@ export default function SocialLoginButtons() {
   const [checked, setChecked] = useState(false);
   const [googleReady, setGoogleReady] = useState(false);
   const [fetchFailed, setFetchFailed] = useState(false);
+  const [idSet, setIdSet] = useState<boolean | undefined>();
+  const [secretSet, setSecretSet] = useState<boolean | undefined>();
+  const [baseSet, setBaseSet] = useState<boolean | undefined>();
 
   useEffect(() => {
     let cancelled = false;
@@ -17,6 +20,9 @@ export default function SocialLoginButtons() {
       if (cancelled) return;
       setFetchFailed(cfg.fetchFailed);
       setGoogleReady(cfg.google);
+      setIdSet(cfg.googleClientIdSet);
+      setSecretSet(cfg.googleClientSecretSet);
+      setBaseSet(cfg.oauthPublicBaseSet);
       setChecked(true);
     })();
     return () => {
@@ -54,8 +60,32 @@ export default function SocialLoginButtons() {
       <p className="auth-oauth-hint">
         {!checked && "Comprobando si el inicio con Google está disponible…"}
         {checked && googleReady && "Te redirigimos a Google y volvés a la app con tu sesión iniciada."}
-        {checked && !googleReady && !fetchFailed &&
-          "En este entorno Google no está activo todavía: en el backend hacen falta OAUTH_PUBLIC_BASE_URL, OAUTH_GOOGLE_CLIENT_ID y OAUTH_GOOGLE_CLIENT_SECRET (y FRONTEND_URL para volver del login)."}
+        {checked && !googleReady && !fetchFailed && (
+          <>
+            {(() => {
+              const missing: string[] = [];
+              if (baseSet === false) missing.push("OAUTH_PUBLIC_BASE_URL");
+              if (idSet === false) missing.push("OAUTH_GOOGLE_CLIENT_ID");
+              if (secretSet === false) missing.push("OAUTH_GOOGLE_CLIENT_SECRET");
+              if (missing.length > 0) {
+                return (
+                  <>
+                    El API indica que en el proceso del servidor no llega valor para:{" "}
+                    <strong>{missing.join(", ")}</strong>. Revisá que estén en el servicio del{" "}
+                    <strong>backend</strong> (mismo entorno), guardá y <strong>Redeploy</strong>.
+                  </>
+                );
+              }
+              return (
+                <>
+                  Si ya cargaste las variables en Railway, hacé <strong>Redeploy</strong> del backend:
+                  el último deploy debe incluir el código que lee <code>OAUTH_*</code> como literales
+                  en el servidor.
+                </>
+              );
+            })()}
+          </>
+        )}
         {checked && fetchFailed && (
           <>
             No se pudo contactar al API para comprobar Google. Revisá la conexión o{" "}
