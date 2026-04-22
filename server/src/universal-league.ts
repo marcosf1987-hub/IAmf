@@ -19,7 +19,7 @@ async function allocateInviteCode(prisma: PrismaClient): Promise<string> {
 }
 
 /**
- * Usuarios nuevos por registro público u OAuth (empresa platform-internal).
+ * Usuarios nuevos por registro público (empresa platform-internal).
  * No aplica a quien entra solo por invitación B2B (otra empresa).
  * Super admin de plataforma no entra en la liga automática.
  */

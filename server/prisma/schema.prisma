@@ -65,7 +65,7 @@ model AiConfig {
 model User {
   id           String     @id @default(cuid())
   email        String     @unique
-  /// Null si el usuario solo entra con OAuth (Google)
+  /// Null si la cuenta no usa contraseña local (casos legacy o flujos especiales).
   passwordHash String?
   fullName     String?
   role         UserRole   @default(member)
@@ -75,7 +75,6 @@ model User {
   companyId String
   company   Company @relation(fields: [companyId], references: [id])
 
-  oauthAccounts           OAuthAccount[]
   loginEvents             LoginEvent[]
   promptLogs              PromptLog[]
   predictions             Prediction[]
@@ -166,19 +165,6 @@ model Invitation {
 
   @@index([companyId])
   @@index([email])
-}
-
-/// Cuentas vinculadas a proveedores OAuth (sub / id del proveedor)
-model OAuthAccount {
-  id             String   @id @default(cuid())
-  provider       String
-  providerUserId String
-  userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt      DateTime @default(now())
-
-  @@unique([provider, providerUserId])
-  @@index([userId])
 }
 
 model ProdeGuidelines {

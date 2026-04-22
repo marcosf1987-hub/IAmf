@@ -11,7 +11,6 @@ import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } fro
 import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
-import { mountOAuthRoutes } from "./oauth";
 import { registerB2BRoutes } from "./b2b-routes";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
@@ -106,7 +105,6 @@ app.use(
 );
 app.use(express.json({ limit: "1mb" }));
 
-mountOAuthRoutes(app, prisma);
 registerB2BRoutes(app, prisma);
 registerCompetitionRoutes(app, prisma);
 registerCompetitionInviteRoutes(app, prisma);
@@ -240,8 +238,8 @@ app.post("/auth/login", async (req, res) => {
 
     if (!user.passwordHash) {
       res.status(401).json({
-        error: "oauth_only",
-        message: "Esta cuenta usa inicio de sesión con Google, Meta o Microsoft.",
+        error: "no_password",
+        message: "Esta cuenta no tiene contraseña en este sistema. Contactá soporte o usá invitación por email si aplica.",
       });
       return;
     }

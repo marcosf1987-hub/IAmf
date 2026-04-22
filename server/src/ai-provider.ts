@@ -3,7 +3,7 @@
  * Soporta OpenAI, Gemini, Grok y APIs compatibles.
  *
  * No cargar `.env` aquí con `override: true`: en producción puede pisar variables
- * que ya inyectó Railway (p. ej. OAuth) si existe un `.env` en el directorio de trabajo.
+ * que ya inyectó Railway si existe un `.env` en el directorio de trabajo.
  * `import "dotenv/config"` en `index.ts` alcanza para desarrollo local.
  */
 import OpenAI from "openai";

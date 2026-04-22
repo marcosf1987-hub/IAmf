@@ -149,11 +149,7 @@ Si no estás seguro, borrá el campo y escribilo a mano.
    | `JWT_SECRET` | Una frase larga y aleatoria (ej. 32 caracteres mezclando letras y números). **No** la compartas. |
    | `OPENAI_API_KEY` | Tu clave de OpenAI (la misma que usás en local en `.env`). |
    | `AI_MODEL` | `gpt-4o-mini` (o el que uses). |
-   | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Necesaria para OAuth y enlaces por email. |
-   | `OAUTH_PUBLIC_BASE_URL` | URL pública de **este** API (sin `/` final), la misma que el dominio de Railway del backend. |
-   | `OAUTH_GOOGLE_CLIENT_ID` y `OAUTH_GOOGLE_CLIENT_SECRET` | Credenciales **Web** de Google Cloud (OAuth 2.0). Redirect URI en Google: `https://<tu-api>/auth/oauth/google/callback`. |
-
-   **Nota:** en el repositorio, `server/.env.example` **no** lista nombres `OAUTH_*=…` porque el build de Railway (Railpack) las interpretaba como secretos obligatorios en la fase de build. Además, `server/railpack.json` declara `"secrets": []` para que el build no exija mounts BuildKit por cada variable. Los nombres exactos de OAuth son los de la tabla de arriba.
+   | `FRONTEND_URL` | URL pública del sitio (sin `/` final), ej. `https://www.promptplay.pro`. Útil para enlaces por email e invitaciones. |
 
    **No hace falta** poner `PORT` a mano: Railway lo asigna solo.
 
@@ -294,7 +290,7 @@ Railway **siempre** construye lo que está en **GitHub**, no lo que tenés solo 
 - Si no ves “deploy desde Git”: hacé un **push** vacío para forzar evento nuevo: `git commit --allow-empty -m "chore: trigger railway"` y `git push`.
 - Si Railway muestra **cambios de variables sin aplicar**, revisá y **aplicá** esos cambios antes de esperar que el build pase.
 
-El repo incluye `server/railpack.json` con `"secrets": []` para que Railpack **no** trate todas las variables del servicio como secretos obligatorios de BuildKit durante `docker build` (evita errores del tipo `secret OAUTH_GOOGLE_CLIENT_SECRET: not found` cuando el build en realidad no necesita esas claves).
+El repo incluye `server/railpack.json` con `"secrets": []` para que Railpack **no** trate todas las variables del servicio como secretos obligatorios de BuildKit durante `docker build` cuando el build no necesita montar secretos por variable.
 
 Abajo tenés **dónde** escribir los comandos y **qué** hacer, paso a paso, sin asumir experiencia previa.
 

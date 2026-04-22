@@ -1,6 +1,6 @@
 /**
  * One-off: usuarios `member` (y `super_admin` si hubiera) que quedaron en la empresa `demo`
- * (p. ej. OAuth antes del cambio a platform-internal) se mueven a `platform-internal`
+ * antes de mover el pool público a `platform-internal` se mueven a `platform-internal`
  * y entran en la liga universal.
  *
  * Solo mueve `member`. No mueve `org_admin` de demo (p. ej. admin@demo.com del seed).

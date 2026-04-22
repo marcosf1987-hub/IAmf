@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
-import SocialLoginButtons from "../components/SocialLoginButtons";
 import { useAuth } from "../contexts/AuthContext";
 import { isProductionApiUrlMissing } from "../lib/api";
 
@@ -85,7 +84,6 @@ export default function LoginPage() {
             {loading ? "Entrando…" : "Entrar"}
           </button>
         </form>
-        <SocialLoginButtons />
         <p className="auth-footer">
           ¿No tienes cuenta? <Link to="/signup">Registrarse</Link>
         </p>

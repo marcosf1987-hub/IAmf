@@ -35,53 +35,6 @@ function resolveApiBase(): string {
   return base;
 }
 
-/** URL absoluta para iniciar OAuth con Google (mismo host que el API). */
-export function googleOAuthStartUrl(): string {
-  return `${resolveApiBase()}/auth/oauth/google/start`;
-}
-
-/** Estado de Google OAuth según el servidor. `fetchFailed` = no se pudo leer el API (red, CORS, caché, etc.). */
-export async function fetchOAuthConfig(): Promise<{
-  google: boolean;
-  fetchFailed: boolean;
-  googleClientIdSet?: boolean;
-  googleClientSecretSet?: boolean;
-  googleClientSecretEnvKeyPresent?: boolean;
-  googleClientSecretTrimmedLength?: number;
-}> {
-  const base = resolveApiBase();
-  const url = `${base}/auth/oauth/config?_=${Date.now()}`;
-  try {
-    // GET simple: sin cabeceras extra (evitan preflight CORS). Anti-caché: no-store + ?_= en la URL.
-    const res = await fetch(url, { cache: "no-store", credentials: "omit" });
-    const text = await res.text();
-    if (!res.ok) return { google: false, fetchFailed: true };
-    try {
-      const j = JSON.parse(text) as {
-        google?: unknown;
-        googleClientIdSet?: unknown;
-        googleClientSecretSet?: unknown;
-        googleClientSecretEnvKeyPresent?: unknown;
-        googleClientSecretTrimmedLength?: unknown;
-      };
-      return {
-        google: Boolean(j.google),
-        fetchFailed: false,
-        googleClientIdSet: Boolean(j.googleClientIdSet),
-        googleClientSecretSet: Boolean(j.googleClientSecretSet),
-        googleClientSecretEnvKeyPresent:
-          typeof j.googleClientSecretEnvKeyPresent === "boolean" ? j.googleClientSecretEnvKeyPresent : undefined,
-        googleClientSecretTrimmedLength:
-          typeof j.googleClientSecretTrimmedLength === "number" ? j.googleClientSecretTrimmedLength : undefined,
-      };
-    } catch {
-      return { google: false, fetchFailed: true };
-    }
-  } catch {
-    return { google: false, fetchFailed: true };
-  }
-}
-
 const API_BASE = resolveApiBase();
 
 /** True si el build de producción no incluyó la URL del API (el login fallará). */
@@ -349,7 +302,7 @@ export type PlatformCompanyRow = {
 
 export type PlatformOverview = {
   platformCompany: { id: string; name: string } | null;
-  /** Usuarios activos en org platform-internal (público + OAuth), sin super_admin */
+  /** Usuarios activos en org platform-internal (registro público), sin super_admin */
   publicPoolUserCount: number;
   universalLeague: {
     id: string;
