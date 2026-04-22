@@ -9,27 +9,44 @@ import { ensureUniversalLeagueMembership } from "./universal-league";
 const PROVIDER_GOOGLE = "google";
 
 /**
- * Lectura con `process.env["NOMBRE_EXACTO"]` además de EK/charCode.
- * Railpack (Railway) suele inyectar en el contenedor solo variables cuyo nombre
- * aparece como literal en el JS compilado; si solo usamos nombres armados en runtime,
- * OAUTH_* puede llegar vacío aunque esté definida en el panel.
+ * Variables OAuth / front: leer con **nombre literal** en el bundle (bracket y dot).
+ * Railpack/Railway a veces no inyecta claves que no aparecen en el JS compilado;
+ * los nombres `EK` solos no alcanzaban.
  */
+type OauthProcessEnv = NodeJS.ProcessEnv & {
+  OAUTH_PUBLIC_BASE_URL?: string;
+  OAUTH_GOOGLE_CLIENT_ID?: string;
+  OAUTH_GOOGLE_CLIENT_SECRET?: string;
+  FRONTEND_URL?: string;
+};
+
+function pe(): OauthProcessEnv {
+  return process.env as OauthProcessEnv;
+}
+
 function readOauthPublicBase(): string {
   const v =
-    process.env["OAUTH_PUBLIC_BASE_URL"]?.trim() || envString(EK.oauthPublicBase)?.trim() || "";
+    pe().OAUTH_PUBLIC_BASE_URL?.trim() ||
+    process.env["OAUTH_PUBLIC_BASE_URL"]?.trim() ||
+    envString(EK.oauthPublicBase)?.trim() ||
+    "";
   return v.replace(/\/+$/, "");
 }
 
 function readGoogleClientIdRaw(): string | undefined {
-  return process.env["OAUTH_GOOGLE_CLIENT_ID"] ?? envString(EK.googleId);
+  return pe().OAUTH_GOOGLE_CLIENT_ID ?? process.env["OAUTH_GOOGLE_CLIENT_ID"] ?? envString(EK.googleId);
 }
 
 function readGoogleClientSecretRaw(): string | undefined {
-  return process.env["OAUTH_GOOGLE_CLIENT_SECRET"] ?? envString(EK.googleSecret);
+  return (
+    pe().OAUTH_GOOGLE_CLIENT_SECRET ??
+    process.env["OAUTH_GOOGLE_CLIENT_SECRET"] ??
+    envString(EK.googleSecret)
+  );
 }
 
 function readFrontendUrlRaw(): string | undefined {
-  return process.env["FRONTEND_URL"] ?? envString(EK.frontend);
+  return pe().FRONTEND_URL ?? process.env["FRONTEND_URL"] ?? envString(EK.frontend);
 }
 
 function parseCookie(header: string | undefined): Record<string, string> {
@@ -189,6 +206,8 @@ export function getOAuthConfigJson(): {
   googleClientIdSet: boolean;
   googleClientSecretSet: boolean;
   oauthPublicBaseSet: boolean;
+  /** Solo para comprobar que el front llama al API actualizado (no secretos). */
+  oauthConfigFormat: number;
 } {
   const id = googleClientId();
   const secret = googleClientSecret();
@@ -199,6 +218,7 @@ export function getOAuthConfigJson(): {
     googleClientIdSet: Boolean(id),
     googleClientSecretSet: Boolean(secret),
     oauthPublicBaseSet: Boolean(base),
+    oauthConfigFormat: 2,
   };
 }
 

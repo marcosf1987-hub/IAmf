@@ -47,6 +47,8 @@ export async function fetchOAuthConfig(): Promise<{
   googleClientIdSet?: boolean;
   googleClientSecretSet?: boolean;
   oauthPublicBaseSet?: boolean;
+  /** 2 = API con lectura literal de OAUTH_* (Railway). Si falta, redeploy del backend. */
+  oauthConfigFormat?: number;
 }> {
   const base = resolveApiBase();
   const url = `${base}/auth/oauth/config?_=${Date.now()}`;
@@ -60,6 +62,7 @@ export async function fetchOAuthConfig(): Promise<{
         googleClientIdSet?: unknown;
         googleClientSecretSet?: unknown;
         oauthPublicBaseSet?: unknown;
+        oauthConfigFormat?: unknown;
       };
       return {
         google: Boolean(j.google),
@@ -67,6 +70,7 @@ export async function fetchOAuthConfig(): Promise<{
         googleClientIdSet: Boolean(j.googleClientIdSet),
         googleClientSecretSet: Boolean(j.googleClientSecretSet),
         oauthPublicBaseSet: Boolean(j.oauthPublicBaseSet),
+        oauthConfigFormat: typeof j.oauthConfigFormat === "number" ? j.oauthConfigFormat : undefined,
       };
     } catch {
       return { google: false, fetchFailed: true };

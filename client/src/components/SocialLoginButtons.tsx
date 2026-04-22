@@ -12,6 +12,7 @@ export default function SocialLoginButtons() {
   const [idSet, setIdSet] = useState<boolean | undefined>();
   const [secretSet, setSecretSet] = useState<boolean | undefined>();
   const [baseSet, setBaseSet] = useState<boolean | undefined>();
+  const [oauthFmt, setOauthFmt] = useState<number | undefined>();
 
   useEffect(() => {
     let cancelled = false;
@@ -23,6 +24,7 @@ export default function SocialLoginButtons() {
       setIdSet(cfg.googleClientIdSet);
       setSecretSet(cfg.googleClientSecretSet);
       setBaseSet(cfg.oauthPublicBaseSet);
+      setOauthFmt(cfg.oauthConfigFormat);
       setChecked(true);
     })();
     return () => {
@@ -60,7 +62,14 @@ export default function SocialLoginButtons() {
       <p className="auth-oauth-hint">
         {!checked && "Comprobando si el inicio con Google está disponible…"}
         {checked && googleReady && "Te redirigimos a Google y volvés a la app con tu sesión iniciada."}
-        {checked && !googleReady && !fetchFailed && (
+        {checked && !googleReady && !fetchFailed && oauthFmt !== 2 && (
+          <span className="auth-oauth-hint auth-oauth-hint--muted">
+            El API no devuelve la versión nueva de configuración OAuth. Hacé <strong>Redeploy</strong> del
+            servicio <strong>backend</strong> en Railway (último código de <code>main</code>) y probá de
+            nuevo.
+          </span>
+        )}
+        {checked && !googleReady && !fetchFailed && oauthFmt === 2 && (
           <>
             {(() => {
               const missing: string[] = [];
@@ -78,9 +87,9 @@ export default function SocialLoginButtons() {
               }
               return (
                 <>
-                  Si ya cargaste las variables en Railway, hacé <strong>Redeploy</strong> del backend:
-                  el último deploy debe incluir el código que lee <code>OAUTH_*</code> como literales
-                  en el servidor.
+                  Si ya cargaste las variables en Railway, hacé <strong>Redeploy</strong> del backend
+                  (reiniciar el proceso) y probá con ventana privada o <kbd>Ctrl</kbd>+<kbd>F5</kbd> en
+                  esta página.
                 </>
               );
             })()}
