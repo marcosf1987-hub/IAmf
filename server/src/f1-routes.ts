@@ -100,7 +100,11 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
         res.status(400).json({ error: "invalid_session_key" });
         return;
       }
-      const list = await fetchOpenF1DriversForSession(sk);
+      const race = await prisma.f1Race.findUnique({
+        where: { sessionKey: sk },
+        select: { meetingKey: true },
+      });
+      const list = await fetchOpenF1DriversForSession(sk, race?.meetingKey ?? null);
       res.setHeader("Cache-Control", "public, max-age=300");
       res.status(200).json({
         drivers: list.map((d) => ({ driverNumber: d.driverNumber, name: d.label })),
@@ -201,6 +205,41 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
+  /** Prompts de generación top-10 F1 (mismo criterio que el texto enviado a la IA). */
+  app.get("/f1/me/prompt-logs", requireAuth, async (req, res) => {
+    const { userId } = (req as AuthedRequest).auth;
+    try {
+      const logs = await prisma.promptLog.findMany({
+        where: {
+          userId,
+          promptText: { contains: "Eres un analista de Fórmula 1" },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 80,
+        select: {
+          id: true,
+          promptText: true,
+          responseText: true,
+          model: true,
+          createdAt: true,
+        },
+      });
+      res.status(200).json({
+        prompts: logs.map((l) => ({
+          id: l.id,
+          promptText: l.promptText,
+          responseText: l.responseText,
+          model: l.model ?? "",
+          createdAt: l.createdAt.toISOString(),
+        })),
+      });
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("GET /f1/me/prompt-logs:", err);
+      res.status(500).json({ error: "server_error" });
+    }
+  });
+
   app.put("/f1/predictions/:raceId", requireAuth, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     const raceId = routeRaceId(req);
@@ -273,7 +312,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
         return;
       }
 
-      const drivers = await fetchOpenF1DriversForSession(race.sessionKey);
+      const drivers = await fetchOpenF1DriversForSession(race.sessionKey, race.meetingKey);
       const allowed = new Set(drivers.map((d) => d.driverNumber));
 
       const aiConfig = await prisma.aiConfig.findUnique({ where: { companyId } });

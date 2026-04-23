@@ -532,9 +532,12 @@ export async function fetchPublicF1Drivers(sessionKey: number): Promise<Map<numb
     );
     if (!res.ok) return map;
     for (const d of data.drivers ?? []) {
-      if (typeof d.driverNumber === "number" && typeof d.name === "string" && d.name.trim()) {
-        map.set(d.driverNumber, d.name.trim());
-      }
+      const num =
+        typeof d.driverNumber === "number" && Number.isFinite(d.driverNumber)
+          ? d.driverNumber
+          : parseInt(String((d as { driverNumber?: unknown }).driverNumber ?? ""), 10);
+      const name = typeof d.name === "string" ? d.name.trim() : "";
+      if (Number.isFinite(num) && num >= 1 && name) map.set(num, name);
     }
   } catch {
     /* red / HTML */
@@ -942,6 +945,11 @@ export async function sendChatPrompt(prompt: string): Promise<{ response: string
 
 export async function fetchMyPrompts(): Promise<{ prompts: PromptLog[] }> {
   return fetchAuth("/prompts/me");
+}
+
+/** Historial de llamadas a la IA para predicción top-10 F1 (Laboratorio / predicciones). */
+export async function fetchF1AiPromptLogs(): Promise<{ prompts: PromptLog[] }> {
+  return fetchAuth("/f1/me/prompt-logs");
 }
 
 export type ProdeGuidelinesByPhase = {

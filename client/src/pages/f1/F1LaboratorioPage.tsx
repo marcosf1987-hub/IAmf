@@ -1,11 +1,26 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import {
+  fetchF1AiPromptLogs,
   fetchF1Guidelines,
   fetchF1Races,
   putF1RaceGuideline,
   type F1RaceSummary,
+  type PromptLog,
 } from "../../lib/api";
+
+const F1_PAUTAS_BLOCK = "--- PAUTAS DEL USUARIO (Laboratorio F1) ---\n";
+
+/** Extrae las pautas del Laboratorio embebidas en el prompt enviado a la IA. */
+function extractF1LabGuidelinesFromPrompt(promptText: string): string | null {
+  const i = promptText.indexOf(F1_PAUTAS_BLOCK);
+  if (i === -1) return null;
+  const after = promptText.slice(i + F1_PAUTAS_BLOCK.length);
+  const j = after.indexOf("\n---\n");
+  const raw = j >= 0 ? after.slice(0, j) : after;
+  const t = raw.trim();
+  return t.length > 0 ? t : null;
+}
 
 function raceLabel(r: F1RaceSummary): string {
   const c = r.circuitShortName?.trim();
@@ -29,6 +44,7 @@ function racesFromTodayOnwards(list: F1RaceSummary[]): F1RaceSummary[] {
 }
 
 export default function F1LaboratorioPage() {
+  const location = useLocation();
   const [races, setRaces] = useState<F1RaceSummary[]>([]);
   const [sessionKey, setSessionKey] = useState<number | null>(null);
   const [map, setMap] = useState<Record<string, string>>({});
@@ -37,6 +53,9 @@ export default function F1LaboratorioPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [promptLogs, setPromptLogs] = useState<PromptLog[]>([]);
+  const [promptLogsLoading, setPromptLogsLoading] = useState(true);
+  const [promptLogsError, setPromptLogsError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -61,9 +80,37 @@ export default function F1LaboratorioPage() {
     }
   }, []);
 
+  const reloadPromptLogs = useCallback(async () => {
+    setPromptLogsLoading(true);
+    setPromptLogsError("");
+    try {
+      const res = await fetchF1AiPromptLogs();
+      setPromptLogs(res.prompts ?? []);
+    } catch (e) {
+      setPromptLogsError(e instanceof Error ? e.message : "No se pudo cargar el historial de prompts");
+      setPromptLogs([]);
+    } finally {
+      setPromptLogsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    void reloadPromptLogs();
+  }, [location.pathname, reloadPromptLogs]);
+
+  useEffect(() => {
+    function onVis() {
+      if (document.visibilityState === "visible" && location.pathname.includes("/f1/laboratorio")) {
+        void reloadPromptLogs();
+      }
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [location.pathname, reloadPromptLogs]);
 
   useEffect(() => {
     if (sessionKey == null) return;
@@ -162,6 +209,53 @@ export default function F1LaboratorioPage() {
           </Link>
         </div>
       </form>
+
+      <section className="ia-versions f1-lab-prompt-history" aria-labelledby="f1-lab-prompts-heading">
+        <h2 id="f1-lab-prompts-heading">Historial de prompts (IA F1)</h2>
+        <p className="ia-prediction-history-note">
+          Cada vez que generás el top 10 con IA desde Predicciones F1, el servidor guarda el prompt y la respuesta del
+          modelo. Solo vos podés ver estos registros.
+        </p>
+        {promptLogsLoading ? <p className="placeholder-text">Cargando historial…</p> : null}
+        {promptLogsError ? <div className="auth-error">{promptLogsError}</div> : null}
+        {!promptLogsLoading && !promptLogsError && promptLogs.length === 0 ? (
+          <p className="placeholder-text">
+            Aún no hay prompts de F1. Aparecerán después de usar &quot;Generar con IA&quot; en Predicciones F1 (con
+            pautas guardadas para esa carrera).
+          </p>
+        ) : null}
+        {!promptLogsLoading && promptLogs.length > 0 ? (
+          <ul className="f1-lab-prompt-log-list">
+            {promptLogs.map((log) => {
+              const guidelines = extractF1LabGuidelinesFromPrompt(log.promptText);
+              return (
+                <li key={log.id} className="f1-lab-prompt-log-item">
+                  <details className="f1-lab-prompt-details">
+                    <summary className="f1-lab-prompt-summary">
+                      <span className="f1-lab-prompt-summary-date">
+                        {new Date(log.createdAt).toLocaleString("es-AR")}
+                      </span>
+                      <span className="f1-lab-prompt-summary-model">{log.model || "modelo"}</span>
+                    </summary>
+                    <div className="ia-batch-prompt-block">
+                      {guidelines != null ? (
+                        <>
+                          <p className="ia-batch-prompt-label">Pautas del Laboratorio (en esa ejecución)</p>
+                          <pre className="ia-batch-prompt-pre">{guidelines}</pre>
+                        </>
+                      ) : null}
+                      <p className="ia-batch-prompt-label">Prompt completo</p>
+                      <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{log.promptText}</pre>
+                      <p className="ia-batch-prompt-label">Respuesta de la IA</p>
+                      <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{log.responseText}</pre>
+                    </div>
+                  </details>
+                </li>
+              );
+            })}
+          </ul>
+        ) : null}
+      </section>
     </div>
   );
 }

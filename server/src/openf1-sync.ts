@@ -23,31 +23,58 @@ type OpenF1Driver = {
   driver_number?: number;
   full_name?: string;
   name_acronym?: string;
+  broadcast_name?: string;
 };
 
 export type OpenF1DriverEntry = { driverNumber: number; label: string };
 
-/** Pilotos de la sesión (OpenF1); para prompts IA y API pública. */
-export async function fetchOpenF1DriversForSession(sessionKey: number): Promise<OpenF1DriverEntry[]> {
-  const url = `${OPENF1}/drivers?session_key=${sessionKey}`;
+function driverNumberFromOpenF1Row(d: OpenF1Driver): number | null {
+  const raw = d.driver_number;
+  const n = typeof raw === "number" && Number.isFinite(raw) ? raw : parseInt(String(raw ?? ""), 10);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return n;
+}
+
+function labelFromOpenF1Row(d: OpenF1Driver, n: number): string {
+  if (typeof d.full_name === "string" && d.full_name.trim()) return d.full_name.trim();
+  if (typeof d.broadcast_name === "string" && d.broadcast_name.trim()) return d.broadcast_name.trim();
+  if (typeof d.name_acronym === "string" && d.name_acronym.trim()) return d.name_acronym.trim();
+  return `#${n}`;
+}
+
+async function fetchOpenF1DriversFromQuery(query: string): Promise<OpenF1DriverEntry[]> {
+  const url = `${OPENF1}/drivers?${query}`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const rows = (await res.json()) as OpenF1Driver[];
   if (!Array.isArray(rows)) return [];
   const out: OpenF1DriverEntry[] = [];
   for (const d of rows) {
-    const n = typeof d.driver_number === "number" ? d.driver_number : parseInt(String(d.driver_number), 10);
-    if (!Number.isFinite(n) || n < 1) continue;
-    const label =
-      typeof d.full_name === "string" && d.full_name.trim()
-        ? d.full_name.trim()
-        : typeof d.name_acronym === "string" && d.name_acronym.trim()
-          ? d.name_acronym.trim()
-          : `#${n}`;
-    out.push({ driverNumber: n, label });
+    const n = driverNumberFromOpenF1Row(d);
+    if (n == null) continue;
+    out.push({ driverNumber: n, label: labelFromOpenF1Row(d, n) });
   }
-  out.sort((a, b) => a.driverNumber - b.driverNumber);
   return out;
+}
+
+/**
+ * Pilotos OpenF1 para la carrera. Si `session_key` aún no tiene parrilla (carreras futuras),
+ * se reintenta con `meeting_key` del mismo fin de semana.
+ */
+export async function fetchOpenF1DriversForSession(
+  sessionKey: number,
+  meetingKey?: number | null
+): Promise<OpenF1DriverEntry[]> {
+  const byNum = new Map<number, OpenF1DriverEntry>();
+  for (const e of await fetchOpenF1DriversFromQuery(`session_key=${sessionKey}`)) {
+    byNum.set(e.driverNumber, e);
+  }
+  if (byNum.size === 0 && meetingKey != null && Number.isFinite(meetingKey)) {
+    for (const e of await fetchOpenF1DriversFromQuery(`meeting_key=${meetingKey}`)) {
+      byNum.set(e.driverNumber, e);
+    }
+  }
+  return [...byNum.values()].sort((a, b) => a.driverNumber - b.driverNumber);
 }
 
 function isMainGrandPrixRace(s: OpenF1Session): boolean {
