@@ -39,16 +39,7 @@ export default function ContextChoicePage() {
       <div className="context-choice-cards">
         <button type="button" className="context-choice-card context-choice-card--football" onClick={chooseFootball}>
           <div className="context-choice-card-media" aria-hidden>
-            <span className="context-choice-card-badge context-choice-card-badge--live">
-              <span className="context-choice-badge-dot" />
-              Evento en vivo
-            </span>
-            <span className="context-choice-card-badge context-choice-card-badge--tag">
-              <span className="context-choice-badge-icon" aria-hidden>
-                🏆
-              </span>
-              FIFA WORLD CUP 2026
-            </span>
+            <span className="context-choice-card-badge context-choice-card-badge--tag">FIFA WORLD CUP 2026</span>
             <div className="context-choice-card-media-shine" />
             <div className="context-choice-card-overlay">
               <span className="context-choice-overlay-line">
@@ -62,27 +53,12 @@ export default function ContextChoicePage() {
             <p className="context-choice-card-desc">
               Configurá tu IA goleadora y dominá el campo con prompts estratégicos.
             </p>
-            <div className="context-choice-meter" role="presentation">
-              <div className="context-choice-meter-fill context-choice-meter-fill--football" />
-              <span className="context-choice-meter-label">85% lleno · listo para competir</span>
-            </div>
           </div>
         </button>
 
         <button type="button" className="context-choice-card context-choice-card--f1" onClick={chooseF1}>
           <div className="context-choice-card-media" aria-hidden>
-            <span className="context-choice-card-badge context-choice-card-badge--velocity">
-              <span className="context-choice-badge-bolt" aria-hidden>
-                ⚡
-              </span>
-              Alta velocidad
-            </span>
-            <span className="context-choice-card-badge context-choice-card-badge--tag">
-              <span className="context-choice-badge-icon" aria-hidden>
-                F1
-              </span>
-              F1 WORLD CHAMPIONSHIP
-            </span>
+            <span className="context-choice-card-badge context-choice-card-badge--tag">F1 WORLD CHAMPIONSHIP</span>
             <div className="context-choice-card-media-shine context-choice-card-media-shine--f1" />
             <div className="context-choice-card-overlay">
               <span className="context-choice-overlay-line">

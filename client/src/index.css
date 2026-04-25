@@ -5800,41 +5800,10 @@ a.btn-oauth--unconfigured {
   color: var(--text);
 }
 
-.context-choice-card-badge--live {
-  top: 0.85rem;
-  left: 0.85rem;
-  color: #ffe6a8;
-  border-color: rgba(233, 165, 36, 0.35);
-}
-
-.context-choice-badge-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #4ade80;
-  box-shadow: 0 0 8px #4ade80;
-}
-
-.context-choice-card-badge--velocity {
-  top: 0.85rem;
-  left: 0.85rem;
-  color: #b8d4ff;
-  border-color: rgba(120, 170, 255, 0.35);
-}
-
-.context-choice-badge-bolt {
-  font-size: 0.75rem;
-}
-
 .context-choice-card-badge--tag {
   bottom: 4.25rem;
   left: 0.85rem;
   max-width: calc(100% - 1.7rem);
-}
-
-.context-choice-badge-icon {
-  font-size: 0.75rem;
-  line-height: 1;
 }
 
 .context-choice-card-overlay {
@@ -5877,32 +5846,6 @@ a.btn-oauth--unconfigured {
   font-size: 0.88rem;
   color: var(--text-muted);
   line-height: 1.5;
-}
-
-.context-choice-meter {
-  margin-top: 0.9rem;
-  height: 5px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-  position: relative;
-  overflow: hidden;
-}
-
-.context-choice-meter-fill--football {
-  width: 85%;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #e9a524, #7fd4a0);
-}
-
-.context-choice-meter-label {
-  display: block;
-  margin-top: 0.4rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
 }
 
 .context-choice-footer {
