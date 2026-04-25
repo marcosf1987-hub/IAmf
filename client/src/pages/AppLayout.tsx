@@ -18,6 +18,43 @@ function navClass(pathname: string, item: NavItem): string {
   return isNavCurrent(pathname, item) ? "app-nav-link--current" : "";
 }
 
+type HeaderAccountProps = {
+  user: NonNullable<ReturnType<typeof useAuth>["user"]>;
+  logout: () => void | Promise<void>;
+  onAfterNavigate?: () => void;
+  className?: string;
+};
+
+function HeaderAccountSection({ user, logout, onAfterNavigate, className }: HeaderAccountProps) {
+  return (
+    <div className={className}>
+      {user.role === "org_admin" && (
+        <Link to="/app/admin" className="nav-admin" onClick={onAfterNavigate}>
+          Admin
+        </Link>
+      )}
+      {user.role === "super_admin" && (
+        <Link to="/app/platform" className="nav-admin" onClick={onAfterNavigate}>
+          Plataforma
+        </Link>
+      )}
+      <div className="app-user">
+        <span>{user.fullName || user.email}</span>
+        <button
+          type="button"
+          onClick={() => {
+            logout();
+            onAfterNavigate?.();
+          }}
+          className="btn-logout"
+        >
+          Salir
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function MenuIconFootball() {
   return (
     <svg className="app-menu-discipline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
@@ -160,31 +197,12 @@ export default function AppLayout() {
               </Link>
             ))}
           </nav>
-          <div className="app-header-right">
-            {user.role === "org_admin" && (
-              <Link to="/app/admin" className="nav-admin" onClick={() => setMenuOpen(false)}>
-                Admin
-              </Link>
-            )}
-            {user.role === "super_admin" && (
-              <Link to="/app/platform" className="nav-admin" onClick={() => setMenuOpen(false)}>
-                Plataforma
-              </Link>
-            )}
-            <div className="app-user">
-              <span>{user.fullName || user.email}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  logout();
-                  setMenuOpen(false);
-                }}
-                className="btn-logout"
-              >
-                Salir
-              </button>
-            </div>
-          </div>
+          <HeaderAccountSection
+            user={user}
+            logout={logout}
+            onAfterNavigate={() => setMenuOpen(false)}
+            className="app-header-right app-header-right--mobile-drawer"
+          />
         </div>
       </header>
       <main id="main-content" className="app-main" tabIndex={-1}>

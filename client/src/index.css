@@ -5538,6 +5538,40 @@ a.btn-oauth--unconfigured {
   background: linear-gradient(90deg, transparent, rgba(255, 77, 77, 0.2), transparent);
 }
 
+.app-header-start {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-right: 1rem;
+}
+
+.app-header-right--desktop-bar {
+  margin-left: 0;
+}
+
+@media (max-width: 768px) {
+  .app-header-right--desktop-bar {
+    display: none !important;
+  }
+}
+
+.app-header-right--mobile-drawer {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .app-header-right--mobile-drawer {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) {
+  .app-header-menu {
+    justify-content: flex-end;
+  }
+}
+
 .app-header-lead {
   display: flex;
   align-items: center;
