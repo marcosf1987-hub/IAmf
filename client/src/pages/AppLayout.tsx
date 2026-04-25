@@ -145,8 +145,16 @@ export default function AppLayout() {
         Saltar al contenido
       </a>
       <header className={`app-header${arenaPicker ? " app-header--arena-picker" : ""}`}>
-        <div className="app-header-lead">
+        <div className="app-header-start">
           {!arenaPicker ? <DisciplineSwitcher /> : null}
+          <HeaderAccountSection
+            user={user}
+            logout={logout}
+            onAfterNavigate={() => setMenuOpen(false)}
+            className="app-header-right app-header-right--desktop-bar"
+          />
+        </div>
+        <div className="app-header-lead">
           {arenaPicker ? (
             <div className="app-logo app-logo--arena-static" aria-label="Promptplay">
               <span className="app-logo-brand">Promptplay</span>
