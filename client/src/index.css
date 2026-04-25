@@ -5941,29 +5941,6 @@ a.btn-oauth--unconfigured {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
 }
 
-.dashboard-super-teaser {
-  margin: 0 0 1.25rem;
-  padding: 0.85rem 1.1rem;
-  border-radius: var(--radius-lg);
-  border: 1px dashed var(--border);
-  background: rgba(0, 0, 0, 0.15);
-  max-width: 48rem;
-}
-
-.dashboard-super-teaser-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  margin: 0 0 0.35rem;
-  font-family: var(--font-display);
-}
-
-.dashboard-super-teaser-desc {
-  margin: 0;
-  font-size: 0.82rem;
-  color: var(--text-muted);
-  line-height: 1.45;
-}
-
 .ia-mundial-scope-note {
   margin: -0.25rem 0 1.25rem;
   max-width: 48rem;

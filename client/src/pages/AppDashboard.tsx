@@ -475,18 +475,6 @@ export default function AppDashboard() {
         </p>
       </header>
 
-      {company != null ? (
-        <section className="dashboard-super-teaser" aria-labelledby="dashboard-super-teaser-title">
-          <h2 id="dashboard-super-teaser-title" className="dashboard-super-teaser-title">
-            Ranking Super-Prompters · empresa
-          </h2>
-          <p className="dashboard-super-teaser-desc">
-            Próximamente: una sola tabla que combine aciertos del Mundial y de F1 para que RRHH vea adopción cruzada y
-            los equipos suban motivados en ambos juegos.
-          </p>
-        </section>
-      ) : null}
-
       <div className="dashboard-mode-tabs" role="tablist" aria-label="Vista de inicio por disciplina">
         <button
           type="button"
