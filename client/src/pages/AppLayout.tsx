@@ -66,6 +66,7 @@ export default function AppLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuFirstLinkRef = useRef<HTMLAnchorElement>(null);
 
+  const arenaPicker = pathname.startsWith("/app/contexto");
   const navItems = discipline === "f1" ? NAV_F1 : NAV_FOOTBALL;
   const logoHref = discipline === "f1" ? "/app/f1" : "/app";
   const logoSub = discipline === "f1" ? "Fórmula 1" : "Mundial 2026";
@@ -106,13 +107,19 @@ export default function AppLayout() {
       <a href="#main-content" className="skip-link">
         Saltar al contenido
       </a>
-      <header className="app-header">
+      <header className={`app-header${arenaPicker ? " app-header--arena-picker" : ""}`}>
         <div className="app-header-lead">
-          <DisciplineSwitcher />
-          <Link to={logoHref} className="app-logo" onClick={() => setMenuOpen(false)}>
-            <span className="app-logo-brand">Promptplay</span>
-            <span className="app-logo-sub">{logoSub}</span>
-          </Link>
+          {!arenaPicker ? <DisciplineSwitcher /> : null}
+          {arenaPicker ? (
+            <div className="app-logo app-logo--arena-static" aria-label="Promptplay">
+              <span className="app-logo-brand">Promptplay</span>
+            </div>
+          ) : (
+            <Link to={logoHref} className="app-logo" onClick={() => setMenuOpen(false)}>
+              <span className="app-logo-brand">Promptplay</span>
+              <span className="app-logo-sub">{logoSub}</span>
+            </Link>
+          )}
         </div>
         <button
           type="button"
@@ -124,6 +131,8 @@ export default function AppLayout() {
         >
           {menuOpen ? (
             <span className="icon-close" />
+          ) : arenaPicker ? (
+            <span className="icon-menu" />
           ) : discipline === "f1" ? (
             <MenuIconF1 />
           ) : (

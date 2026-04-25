@@ -5643,44 +5643,77 @@ a.btn-oauth--unconfigured {
   height: 22px;
 }
 
-/* Pantalla de elección de contexto (primer ingreso del día) */
-.context-choice-page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: clamp(1rem, 4vw, 2.5rem) var(--page-padding-x) 3rem;
+/* Header mínimo en pantalla de elección de arena */
+.app-header--arena-picker .app-nav {
+  display: none;
 }
 
-.context-choice-header {
+.app-header--arena-picker .app-header-menu {
+  flex: 1;
+  justify-content: flex-end;
+}
+
+.app-logo--arena-static {
+  text-decoration: none;
+  cursor: default;
+}
+
+/* Pantalla de elección de contexto — “Arena” (referencia visual Promptplay) */
+.context-choice-page {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: clamp(0.5rem, 2vw, 1.25rem) var(--page-padding-x) clamp(2rem, 5vw, 3.5rem);
+}
+
+.context-choice-hero {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: clamp(1.5rem, 4vw, 2.5rem);
+}
+
+.context-choice-eyebrow {
+  margin: 0 0 0.65rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #e9a524;
 }
 
 .context-choice-title {
   font-family: var(--font-display);
-  font-size: clamp(1.35rem, 3vw, 1.75rem);
-  font-weight: 700;
-  margin: 0 0 0.75rem;
-  line-height: 1.25;
+  font-size: clamp(1.65rem, 4.5vw, 2.35rem);
+  font-weight: 800;
+  margin: 0 0 0.85rem;
+  line-height: 1.12;
+  letter-spacing: -0.03em;
+}
+
+.context-choice-title-accent {
+  font-style: italic;
+  font-weight: 800;
+  color: #8ec9ff;
+  text-shadow: 0 0 48px rgba(126, 200, 255, 0.35);
 }
 
 .context-choice-lead {
   margin: 0 auto;
-  max-width: 40rem;
-  color: var(--text-muted);
-  font-size: 0.95rem;
+  max-width: 34rem;
+  color: var(--text-secondary);
+  font-size: clamp(0.9rem, 2.2vw, 1.02rem);
   line-height: 1.55;
 }
 
 .context-choice-cards {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1.25rem;
+  gap: 1.35rem;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 820px) {
   .context-choice-cards {
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+    gap: 1.75rem;
+    align-items: stretch;
   }
 }
 
@@ -5688,57 +5721,155 @@ a.btn-oauth--unconfigured {
   display: flex;
   flex-direction: column;
   text-align: left;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.25rem;
   overflow: hidden;
-  background: var(--bg-card);
+  background: rgba(8, 14, 36, 0.65);
   padding: 0;
   cursor: pointer;
   color: inherit;
   font: inherit;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.18s ease;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
 }
 
 .context-choice-card:hover {
-  border-color: var(--accent-border);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  transform: translateY(-2px);
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  transform: translateY(-3px);
 }
 
-.context-choice-card-visual {
-  height: 7.5rem;
-  background-size: cover;
-  background-position: center;
+.context-choice-card:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 3px;
 }
 
-.context-choice-card-visual--stadium {
-  background-image: linear-gradient(135deg, rgba(30, 80, 40, 0.95), rgba(10, 40, 90, 0.9)),
-    radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.15), transparent 50%);
+.context-choice-card-media {
+  position: relative;
+  min-height: clamp(12.5rem, 42vw, 17rem);
+  overflow: hidden;
 }
 
-.context-choice-card-visual--track {
-  background-image: linear-gradient(135deg, rgba(60, 10, 10, 0.95), rgba(20, 20, 28, 0.95)),
-    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255, 60, 40, 0.25), transparent 55%);
+.context-choice-card--football .context-choice-card-media {
+  background:
+    radial-gradient(circle at 18% 88%, rgba(255, 255, 255, 0.14) 0%, transparent 42%),
+    radial-gradient(ellipse 90% 70% at 50% 115%, rgba(40, 120, 70, 0.5), transparent 55%),
+    radial-gradient(circle at 82% 18%, rgba(255, 220, 150, 0.12), transparent 38%),
+    linear-gradient(175deg, #0a1f3d 0%, #0c2748 35%, #082818 100%);
 }
 
-.context-choice-card-body {
-  padding: 1.1rem 1.25rem 1.35rem;
+.context-choice-card--f1 .context-choice-card-media {
+  background:
+    linear-gradient(105deg, transparent 0%, transparent 46%, rgba(255, 50, 40, 0.07) 48%, transparent 52%),
+    repeating-linear-gradient(
+      -12deg,
+      transparent,
+      transparent 14px,
+      rgba(255, 255, 255, 0.02) 14px,
+      rgba(255, 255, 255, 0.02) 15px
+    ),
+    radial-gradient(ellipse 100% 65% at 50% 100%, rgba(180, 30, 25, 0.45), transparent 58%),
+    linear-gradient(155deg, #140808 0%, #0a0a12 45%, #1a0606 100%);
 }
 
-.context-choice-card-kicker {
-  font-size: 0.7rem;
+.context-choice-card-media-shine {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(125deg, rgba(255, 255, 255, 0.07) 0%, transparent 42%);
+  pointer-events: none;
+}
+
+.context-choice-card-media-shine--f1 {
+  background: linear-gradient(125deg, rgba(255, 80, 60, 0.12) 0%, transparent 45%);
+}
+
+.context-choice-card-badge {
+  position: absolute;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--accent);
+  background: rgba(4, 8, 20, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
 }
 
-.context-choice-card-title {
+.context-choice-card-badge--live {
+  top: 0.85rem;
+  left: 0.85rem;
+  color: #ffe6a8;
+  border-color: rgba(233, 165, 36, 0.35);
+}
+
+.context-choice-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 8px #4ade80;
+}
+
+.context-choice-card-badge--velocity {
+  top: 0.85rem;
+  left: 0.85rem;
+  color: #b8d4ff;
+  border-color: rgba(120, 170, 255, 0.35);
+}
+
+.context-choice-badge-bolt {
+  font-size: 0.75rem;
+}
+
+.context-choice-card-badge--tag {
+  bottom: 4.25rem;
+  left: 0.85rem;
+  max-width: calc(100% - 1.7rem);
+}
+
+.context-choice-badge-icon {
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.context-choice-card-overlay {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 1.1rem 1rem 1.15rem;
+  background: linear-gradient(to top, rgba(3, 6, 16, 0.92) 0%, rgba(3, 6, 16, 0.55) 55%, transparent 100%);
+  z-index: 1;
+}
+
+.context-choice-overlay-line {
+  display: block;
   font-family: var(--font-display);
-  font-size: 1.15rem;
+  font-size: clamp(1.05rem, 2.8vw, 1.35rem);
+  font-weight: 800;
+  line-height: 1.25;
+  color: #fff;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.65);
+}
+
+.context-choice-overlay-strong {
+  font-weight: 800;
+}
+
+.context-choice-overlay-sep {
+  font-weight: 600;
+  opacity: 0.75;
+}
+
+.context-choice-overlay-sub {
   font-weight: 700;
-  margin: 0.35rem 0 0.5rem;
-  line-height: 1.3;
+}
+
+.context-choice-card-foot {
+  padding: 1rem 1.15rem 1.2rem;
 }
 
 .context-choice-card-desc {
@@ -5748,17 +5879,35 @@ a.btn-oauth--unconfigured {
   line-height: 1.5;
 }
 
-.context-choice-card-cta {
-  display: inline-block;
-  margin-top: 1rem;
-  font-size: 0.8rem;
-  font-weight: 700;
-  color: var(--primary);
+.context-choice-meter {
+  margin-top: 0.9rem;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.context-choice-meter-fill--football {
+  width: 85%;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #e9a524, #7fd4a0);
+}
+
+.context-choice-meter-label {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
 .context-choice-footer {
   text-align: center;
-  margin-top: 2rem;
+  margin-top: 2.25rem;
 }
 
 .context-choice-skip {
