@@ -45,7 +45,7 @@ export default function ContextChoicePage() {
               <span className="context-choice-overlay-line">
                 <span className="context-choice-overlay-strong">Mundial 2026</span>
                 <span className="context-choice-overlay-sep"> — </span>
-                <span className="context-choice-overlay-sub">Entrená la IA goleadora</span>
+                <span className="context-choice-overlay-sub">Entrena la IA ganadora</span>
               </span>
             </div>
           </div>
@@ -64,7 +64,7 @@ export default function ContextChoicePage() {
               <span className="context-choice-overlay-line">
                 <span className="context-choice-overlay-strong">Fórmula 1</span>
                 <span className="context-choice-overlay-sep"> — </span>
-                <span className="context-choice-overlay-sub">Predecí el podio con tu mejor prompt</span>
+                <span className="context-choice-overlay-sub">Predice el podio con tu prompt</span>
               </span>
             </div>
           </div>
