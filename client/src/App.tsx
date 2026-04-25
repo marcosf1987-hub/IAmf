@@ -4,7 +4,6 @@ import LoginPage from "./pages/LoginPage";
 import SignupPage from "./pages/SignupPage";
 import OAuthCallbackPage from "./pages/OAuthCallbackPage";
 import AppLayout from "./pages/AppLayout";
-import AppDashboard from "./pages/AppDashboard";
 import ProdePage from "./pages/ProdePage";
 import IAPage from "./pages/IAPage";
 import ResultadosPage from "./pages/ResultadosPage";
@@ -22,6 +21,9 @@ import F1HubPage from "./pages/f1/F1HubPage";
 import F1PrediccionesPage from "./pages/f1/F1PrediccionesPage";
 import F1LaboratorioPage from "./pages/f1/F1LaboratorioPage";
 import F1ResultadosPage from "./pages/f1/F1ResultadosPage";
+import { AppDisciplineProvider } from "./contexts/AppDisciplineContext";
+import ContextChoicePage from "./pages/ContextChoicePage";
+import DashboardEntry from "./pages/DashboardEntry";
 
 export default function App() {
   return (
@@ -36,8 +38,16 @@ export default function App() {
       <Route path="/invite/accept" element={<AcceptInvitePage />} />
       <Route path="/invite/liga/accept" element={<AcceptLeagueInvitePage />} />
       <Route path="/oauth/callback" element={<OAuthCallbackPage />} />
-      <Route path="/app" element={<AppLayout />}>
-        <Route index element={<AppDashboard />} />
+      <Route
+        path="/app"
+        element={
+          <AppDisciplineProvider>
+            <AppLayout />
+          </AppDisciplineProvider>
+        }
+      >
+        <Route index element={<DashboardEntry />} />
+        <Route path="contexto" element={<ContextChoicePage />} />
         <Route path="prode" element={<ProdePage />} />
         <Route path="ia" element={<IAPage />} />
         <Route path="resultados" element={<ResultadosPage />} />

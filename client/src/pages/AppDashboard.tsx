@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
+import UpcomingRacesCarousel from "../components/UpcomingRacesCarousel";
+import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
 import {
+  fetchF1MyPredictions,
+  fetchF1MySummary,
   fetchMyCompetitions,
   fetchMyResults,
   fetchProdeStatus,
@@ -225,6 +229,113 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
   );
 }
 
+function F1CarLabelIcon() {
+  return (
+    <span className="card-icon-svg" aria-hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 14h18l-1.5-5h-15L3 14z" />
+        <path d="M5 14v3h3v-3M16 14v3h3v-3" />
+        <circle cx="7.5" cy="17.5" r="1.5" />
+        <circle cx="16.5" cy="17.5" r="1.5" />
+        <path d="M7 10V8M17 10V8" strokeLinecap="round" />
+      </svg>
+    </span>
+  );
+}
+
+const F1_DASH_TIPS = [
+  "En el Laboratorio F1 podés fijar **posición en parrilla**, clima y **estrategia de neumáticos** por gran premio.",
+  "Sumá **historial del circuito**: victorias previas del líder, incidentes en la primera curva o safety car frecuente.",
+  "Pedí a la IA que considere **degradación de gomas** y ventana de paradas bajo SC; son variables que mueven el top 10.",
+];
+
+function DashboardF1Tab() {
+  const [summary, setSummary] = useState<{ totalPoints: number } | null>(null);
+  const [predRaces, setPredRaces] = useState(0);
+  const [f1Err, setF1Err] = useState("");
+  const [tipIx] = useState(() => Math.floor(Math.random() * F1_DASH_TIPS.length));
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setF1Err("");
+      try {
+        const [s, preds] = await Promise.all([fetchF1MySummary(), fetchF1MyPredictions()]);
+        if (cancelled) return;
+        setSummary({ totalPoints: s.totalPoints });
+        const n = preds.predictions.filter((p) => p.placements.some((x) => x != null)).length;
+        setPredRaces(n);
+      } catch {
+        if (!cancelled) {
+          setSummary({ totalPoints: 0 });
+          setPredRaces(0);
+          setF1Err("No se pudo cargar el resumen F1.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <>
+      {f1Err ? <div className="auth-error dashboard-load-error">{f1Err}</div> : null}
+      <div className="resultados-metrics dashboard-home-metrics" aria-label="Resumen F1">
+        <div className="resultados-metric">
+          <span className="resultados-metric-value">{summary != null ? summary.totalPoints : "—"}</span>
+          <span className="resultados-metric-label">Puntos F1</span>
+        </div>
+        <div className="resultados-metric">
+          <span className="resultados-metric-value">{predRaces}</span>
+          <span className="resultados-metric-label">Carreras con predicción</span>
+        </div>
+      </div>
+
+      <section className="dashboard-tip" aria-labelledby="dashboard-f1-tip-label">
+        <span id="dashboard-f1-tip-label" className="dashboard-tip-label">
+          Tip F1
+        </span>
+        <p className="dashboard-tip-text">{F1_DASH_TIPS[tipIx]}</p>
+      </section>
+
+      <UpcomingRacesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
+
+      <section className="dashboard-cards-wrap" aria-labelledby="dashboard-f1-cards-heading">
+        <h2 id="dashboard-f1-cards-heading" className="dashboard-section-heading">
+          Accesos rápidos · F1
+        </h2>
+        <div className="dashboard-cards">
+          <Link to="/app/f1" className="dashboard-card">
+            <F1CarLabelIcon />
+            <h3>Hub F1</h3>
+            <p>Resumen del módulo y enlaces útiles</p>
+          </Link>
+          <Link to="/app/f1/predicciones" className="dashboard-card">
+            <TrophyIcon />
+            <h3>Predicciones top 10</h3>
+            <p>Generá con IA según tus pautas del laboratorio</p>
+          </Link>
+          <Link to="/app/f1/laboratorio" className="dashboard-card">
+            <ChartIcon />
+            <h3>Laboratorio · F1</h3>
+            <p>Pautas por carrera (session_key OpenF1)</p>
+          </Link>
+          <Link to="/app/f1/resultados" className="dashboard-card">
+            <ChartIcon />
+            <h3>Resultados F1</h3>
+            <p>Puntos por gran premio cuando haya oficial</p>
+          </Link>
+        </div>
+      </section>
+
+      <Link to="/app/f1/laboratorio" className="resultados-fab">
+        Ajustar pautas F1 para la próxima carrera
+      </Link>
+    </>
+  );
+}
+
 function DashboardSkeleton() {
   return (
     <div className="dashboard dashboard-skeleton" aria-busy="true" aria-label="Cargando tu resumen">
@@ -257,6 +368,18 @@ const EMPTY_DASH: ResultsDashboard = {
 
 export default function AppDashboard() {
   const { user, company } = useAuth();
+  const { discipline, setDiscipline } = useAppDiscipline();
+  const [dashTab, setDashTab] = useState<"football" | "f1">(() => (discipline === "f1" ? "f1" : "football"));
+
+  useEffect(() => {
+    setDashTab(discipline === "f1" ? "f1" : "football");
+  }, [discipline]);
+
+  function selectDashboardTab(next: "football" | "f1") {
+    setDashTab(next);
+    setDiscipline(next === "f1" ? "f1" : "football");
+  }
+
   const [prodeStatus, setProdeStatus] = useState<ProdeStatus | null>(null);
   const [mine, setMine] = useState<MineCompetitionsResponse | null>(null);
   const [resultsDash, setResultsDash] = useState<ResultsDashboard | null>(null);
@@ -339,16 +462,60 @@ export default function AppDashboard() {
           Hola, {displayName} <WaveIcon />
         </h1>
         <p className="dashboard-model-status">
-          <span className="dashboard-model-status-label">Estado del modelo:</span> {getModelStatusText()}
+          {dashTab === "f1" ? (
+            <>
+              <span className="dashboard-model-status-label">Modo F1:</span> pautas por carrera en el laboratorio y
+              top 10 con IA antes de la salida.
+            </>
+          ) : (
+            <>
+              <span className="dashboard-model-status-label">Estado del modelo:</span> {getModelStatusText()}
+            </>
+          )}
         </p>
       </header>
 
+      {company != null ? (
+        <section className="dashboard-super-teaser" aria-labelledby="dashboard-super-teaser-title">
+          <h2 id="dashboard-super-teaser-title" className="dashboard-super-teaser-title">
+            Ranking Super-Prompters · empresa
+          </h2>
+          <p className="dashboard-super-teaser-desc">
+            Próximamente: una sola tabla que combine aciertos del Mundial y de F1 para que RRHH vea adopción cruzada y
+            los equipos suban motivados en ambos juegos.
+          </p>
+        </section>
+      ) : null}
+
+      <div className="dashboard-mode-tabs" role="tablist" aria-label="Vista de inicio por disciplina">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={dashTab === "football"}
+          className={`dashboard-mode-tab${dashTab === "football" ? " dashboard-mode-tab--active" : ""}`}
+          onClick={() => selectDashboardTab("football")}
+        >
+          Mundial 2026
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={dashTab === "f1"}
+          className={`dashboard-mode-tab${dashTab === "f1" ? " dashboard-mode-tab--active" : ""}`}
+          onClick={() => selectDashboardTab("f1")}
+        >
+          Fórmula 1
+        </button>
+      </div>
+
       {loadError && <div className="auth-error dashboard-load-error">{loadError}</div>}
 
-      {!hasAnyLeague && <DashboardNextStepNoLeague />}
-      {hasAnyLeague && !modelReady && <DashboardNextStepWithLeague prodeStatus={prodeStatus} />}
+      {dashTab === "football" ? (
+        <>
+          {!hasAnyLeague && <DashboardNextStepNoLeague />}
+          {hasAnyLeague && !modelReady && <DashboardNextStepWithLeague prodeStatus={prodeStatus} />}
 
-      {showResultsStrip && (
+          {showResultsStrip && (
         <>
           <div className="resultados-metrics dashboard-home-metrics" aria-label="Resumen de resultados">
             <div className="resultados-metric">
@@ -405,64 +572,68 @@ export default function AppDashboard() {
             )}
           </section>
         </>
-      )}
+          )}
 
-      <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
-        <span id="dashboard-tip-label" className="dashboard-tip-label">
-          Tip del día
-        </span>
-        <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
-      </section>
-
-      {showLeaguesPanel && <DashboardMyLeaguesPanel mine={mine} />}
-
-      <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
-
-      <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
-        <h2 id="dashboard-cards-heading" className="dashboard-section-heading">
-          Accesos rápidos
-        </h2>
-        <div className="dashboard-cards">
-          <div className="dashboard-card dashboard-card-score">
-            <TrophyIcon />
-            <span className="dashboard-score-value">
-              {worldCupStarted && totalHits !== null
-                ? totalHits
-                : getCurrentPhase()
-                  ? `Faltan ${formatDaysLeft(getCurrentPhase()!.deadline)} días`
-                  : "Cerrado"}
+          <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
+            <span id="dashboard-tip-label" className="dashboard-tip-label">
+              Tip del día
             </span>
-            <span className="dashboard-score-label">
-              {worldCupStarted ? "Puntaje global" : "Para el cierre de carga"}
-            </span>
-          </div>
-          <Link to="/app/prode" className="dashboard-card">
-            <FootballIcon />
-            <h3>Mis predicciones</h3>
-            <p>Partidos y marcadores que generó tu IA</p>
-          </Link>
-          <Link to="/app/resultados" className="dashboard-card">
-            <ChartIcon />
-            <h3>Mis resultados</h3>
-            <p>Puntaje y posición en el ranking de la empresa</p>
-          </Link>
-          <Link to="/app/ligas" className="dashboard-card">
-            <UsersLeagueIcon />
-            <h3>Ligas &amp; Comunidad</h3>
-            <p>Ligas privadas, códigos de invitación y ranking por grupo</p>
-          </Link>
-          <Link to="/app/perfil" className="dashboard-card">
-            <UserCircleIcon />
-            <h3>Mi usuario</h3>
-            <p>Datos de cuenta, alias en rankings y cierre de sesión</p>
-          </Link>
-        </div>
-      </section>
+            <p className="dashboard-tip-text">{TIPS[tipIndex]}</p>
+          </section>
 
-      {modelReady && (
-        <Link to="/app/ia" className="resultados-fab">
-          Ajustar mi Prompt para la próxima fase
-        </Link>
+          {showLeaguesPanel && mine != null ? <DashboardMyLeaguesPanel mine={mine} /> : null}
+
+          <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
+
+          <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
+            <h2 id="dashboard-cards-heading" className="dashboard-section-heading">
+              Accesos rápidos
+            </h2>
+            <div className="dashboard-cards">
+              <div className="dashboard-card dashboard-card-score">
+                <TrophyIcon />
+                <span className="dashboard-score-value">
+                  {worldCupStarted && totalHits !== null
+                    ? totalHits
+                    : getCurrentPhase()
+                      ? `Faltan ${formatDaysLeft(getCurrentPhase()!.deadline)} días`
+                      : "Cerrado"}
+                </span>
+                <span className="dashboard-score-label">
+                  {worldCupStarted ? "Puntaje global" : "Para el cierre de carga"}
+                </span>
+              </div>
+              <Link to="/app/prode" className="dashboard-card">
+                <FootballIcon />
+                <h3>Mis predicciones</h3>
+                <p>Partidos y marcadores que generó tu IA</p>
+              </Link>
+              <Link to="/app/resultados" className="dashboard-card">
+                <ChartIcon />
+                <h3>Mis resultados</h3>
+                <p>Puntaje y posición en el ranking de la empresa</p>
+              </Link>
+              <Link to="/app/ligas" className="dashboard-card">
+                <UsersLeagueIcon />
+                <h3>Ligas &amp; Comunidad</h3>
+                <p>Ligas privadas, códigos de invitación y ranking por grupo</p>
+              </Link>
+              <Link to="/app/perfil" className="dashboard-card">
+                <UserCircleIcon />
+                <h3>Mi usuario</h3>
+                <p>Datos de cuenta, alias en rankings y cierre de sesión</p>
+              </Link>
+            </div>
+          </section>
+
+          {modelReady ? (
+            <Link to="/app/ia" className="resultados-fab">
+              Ajustar mi Prompt para la próxima fase
+            </Link>
+          ) : null}
+        </>
+      ) : (
+        <DashboardF1Tab />
       )}
     </div>
   );

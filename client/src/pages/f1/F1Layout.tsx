@@ -8,10 +8,10 @@ export default function F1Layout() {
   return (
     <div className="page-content page-content--f1 f1-section">
       <header className="f1-section-header">
-        <p className="f1-section-badge">Apartado provisional</p>
         <h1 className="f1-section-title">Fórmula 1</h1>
         <p className="f1-section-lead">
-          Todo el contenido F1 vive bajo <code>/app/f1</code>. La app principal sigue siendo la del Mundial.
+          Predicciones, laboratorio de prompts por gran premio y resultados. Cambiá de disciplina cuando quieras con
+          el selector junto al logo.
         </p>
       </header>
       <nav className="f1-subnav" aria-label="Secciones F1">

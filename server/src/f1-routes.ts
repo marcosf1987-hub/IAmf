@@ -5,7 +5,11 @@ import type { AuthedRequest } from "./auth";
 import { requireAuth } from "./auth";
 import { parseAiF1Top10Placements } from "./ai-parse";
 import { chat } from "./ai-provider";
-import { buildF1Top10Prompt, validateF1Top10AgainstRoster } from "./f1-ai-generate";
+import {
+  buildF1Top10Prompt,
+  F1_PROMPT_LOG_SIGNATURE,
+  validateF1Top10AgainstRoster,
+} from "./f1-ai-generate";
 import {
   aggregateF1PointsByUser,
   normalizePlacements,
@@ -212,7 +216,11 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
       const logs = await prisma.promptLog.findMany({
         where: {
           userId,
-          promptText: { contains: "Eres un analista de Fórmula 1" },
+          OR: [
+            { promptText: { contains: F1_PROMPT_LOG_SIGNATURE } },
+            { promptText: { contains: "Eres un analista de Fórmula 1" } },
+            { promptText: { contains: "Laboratorio F1" } },
+          ],
         },
         orderBy: { createdAt: "desc" },
         take: 80,

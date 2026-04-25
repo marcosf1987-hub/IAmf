@@ -1,5 +1,9 @@
 import type { OpenF1DriverEntry } from "./openf1-sync";
 
+/** Firma estable para localizar en `PromptLog` las generaciones F1 (sin depender de acentos en “Fórmula”). */
+export const F1_PROMPT_LOG_SIGNATURE =
+  "Respondé ÚNICAMENTE con un array JSON de exactamente 10 números enteros";
+
 export function buildF1Top10Prompt(params: {
   pautas: string;
   circuitShortName: string | null;
@@ -27,7 +31,7 @@ Salida a pista (referencia): ${params.raceStartAtIso}
 Pilotos disponibles en OpenF1 para esta sesión (si hay listado, tu predicción SOLO puede usar esos dorsales, cada uno una sola vez, en orden P1→P10):
 ${roster}
 
-Respondé ÚNICAMENTE con un array JSON de exactamente 10 números enteros, sin markdown ni texto fuera del JSON. Índice 0 = ganador (P1), índice 1 = P2, … hasta P10.
+${F1_PROMPT_LOG_SIGNATURE}, sin markdown ni texto fuera del JSON. Índice 0 = ganador (P1), índice 1 = P2, … hasta P10.
 Ejemplo válido: [1,81,44,4,63,16,55,31,10,22]`;
 }
 

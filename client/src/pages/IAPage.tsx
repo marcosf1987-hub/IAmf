@@ -36,79 +36,7 @@ import {
   type BatchPromptLine,
   type PredictionHistoryEntry,
 } from "../lib/api";
-
-const PAUTAS_MARKER_LEGACY = "TENÉ EN CUENTA ESTAS PAUTAS DEL USUARIO: ";
-const PAUTAS_BLOCK_START = "--- PAUTAS DEL USUARIO (toda esta etapa) ---\n";
-
-/** Extrae el texto guardado en el Laboratorio desde el prompt completo (formato actual o histórico del servidor). */
-function extractGuidelinesFromPrompt(promptText: string): string | null {
-  const newIdx = promptText.indexOf(PAUTAS_BLOCK_START);
-  if (newIdx !== -1) {
-    const after = promptText.slice(newIdx + PAUTAS_BLOCK_START.length);
-    const end = after.indexOf("\n---\n");
-    const raw = end >= 0 ? after.slice(0, end) : after;
-    const t = raw.trim();
-    return t.length > 0 ? t : null;
-  }
-  const idx = promptText.indexOf(PAUTAS_MARKER_LEGACY);
-  if (idx === -1) return null;
-  const after = promptText.slice(idx + PAUTAS_MARKER_LEGACY.length);
-  const end = after.indexOf("\n\nResponde");
-  const raw = end >= 0 ? after.slice(0, end) : after;
-  const t = raw.trim();
-  return t.length > 0 ? t : null;
-}
-
-function IaBatchPromptBlock({ lines }: { lines?: BatchPromptLine[] }) {
-  if (!lines?.length) {
-    return (
-      <div className="ia-batch-prompt-block ia-batch-prompt-block--empty">
-        <p className="ia-batch-prompt-note">
-          No hay texto de prompt guardado para este lote (generaciones anteriores a esta función, o migración{" "}
-          <code>batchId</code> en PromptLog sin aplicar).
-        </p>
-      </div>
-    );
-  }
-
-  const sample = lines[0];
-  const guidelines = extractGuidelinesFromPrompt(sample.promptText);
-  const isChampionOnlySample = sample.promptText.includes("campeón y subcampeón");
-
-  return (
-    <div className="ia-batch-prompt-block">
-      <h4 className="ia-batch-prompt-subtitle">Prompt enviado a la IA</h4>
-      {guidelines != null ? (
-        <>
-          <p className="ia-batch-prompt-label">Pautas del Laboratorio (en esa ejecución)</p>
-          <pre className="ia-batch-prompt-pre">{guidelines}</pre>
-        </>
-      ) : (
-        <p className="ia-batch-prompt-muted">
-          Este lote no incluyó pautas del Laboratorio (el texto guardado estaba vacío al generar).
-        </p>
-      )}
-      <p className="ia-batch-prompt-label">
-        {isChampionOnlySample
-          ? "Texto completo — campeón/subcampeón"
-          : "Texto completo — primer partido del lote (cada partido repite la misma lógica y pautas)"}
-      </p>
-      <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{sample.promptText}</pre>
-      {lines.length > 1 && (
-        <details className="ia-batch-prompt-details">
-          <summary>Ver los {lines.length} prompts de este lote</summary>
-          <ol className="ia-batch-prompt-all">
-            {lines.map((l, i) => (
-              <li key={`${l.createdAt}-${i}`}>
-                <pre className="ia-batch-prompt-pre">{l.promptText}</pre>
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-    </div>
-  );
-}
+import { IaBatchPromptBlock } from "../components/IaBatchPromptBlock";
 
 const PHASE_LABELS: Record<string, string> = {
   groups: "Fase de grupos",
@@ -276,6 +204,10 @@ export default function IAPage() {
   return (
     <div className="page-content">
       <h1>Laboratorio de Lógica Predictiva</h1>
+      <p className="ia-mundial-scope-note">
+        Este espacio es <strong>solo para el Prode del Mundial 2026</strong> (fases, marcadores y campeón). La Fórmula 1
+        tiene laboratorio e historial de prompts <strong>independientes</strong> en <code>/app/f1/laboratorio</code>.
+      </p>
 
       {error && <div className="auth-error">{error}</div>}
 

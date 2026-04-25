@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { IaBatchPromptBlock, extractF1GuidelinesFromPrompt } from "../../components/IaBatchPromptBlock";
 import {
   fetchF1AiPromptLogs,
   fetchF1Guidelines,
@@ -8,19 +9,6 @@ import {
   type F1RaceSummary,
   type PromptLog,
 } from "../../lib/api";
-
-const F1_PAUTAS_BLOCK = "--- PAUTAS DEL USUARIO (Laboratorio F1) ---\n";
-
-/** Extrae las pautas del Laboratorio embebidas en el prompt enviado a la IA. */
-function extractF1LabGuidelinesFromPrompt(promptText: string): string | null {
-  const i = promptText.indexOf(F1_PAUTAS_BLOCK);
-  if (i === -1) return null;
-  const after = promptText.slice(i + F1_PAUTAS_BLOCK.length);
-  const j = after.indexOf("\n---\n");
-  const raw = j >= 0 ? after.slice(0, j) : after;
-  const t = raw.trim();
-  return t.length > 0 ? t : null;
-}
 
 function raceLabel(r: F1RaceSummary): string {
   const c = r.circuitShortName?.trim();
@@ -56,6 +44,7 @@ export default function F1LaboratorioPage() {
   const [promptLogs, setPromptLogs] = useState<PromptLog[]>([]);
   const [promptLogsLoading, setPromptLogsLoading] = useState(true);
   const [promptLogsError, setPromptLogsError] = useState("");
+  const [expandedF1Logs, setExpandedF1Logs] = useState<Record<string, boolean>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -112,6 +101,10 @@ export default function F1LaboratorioPage() {
     return () => document.removeEventListener("visibilitychange", onVis);
   }, [location.pathname, reloadPromptLogs]);
 
+  function toggleF1Log(id: string) {
+    setExpandedF1Logs((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
   useEffect(() => {
     if (sessionKey == null) return;
     setText(map[String(sessionKey)] ?? "");
@@ -140,11 +133,13 @@ export default function F1LaboratorioPage() {
     <div className="f1-page-inner">
       <h2 className="f1-page-title">Laboratorio F1</h2>
       <p className="f1-page-lead">
-        Pautas por carrera (OpenF1 <code>session_key</code>). Son la base para futuras generaciones con IA por gran
-        premio.
+        Pautas por carrera (OpenF1 <code>session_key</code>). Son la base para generar el top 10 con IA en Predicciones
+        F1. El historial de prompts de F1 no se mezcla con el del Mundial.
       </p>
       {error ? <div className="auth-error">{error}</div> : null}
-      <form onSubmit={handleSubmit} className="guidelines-form">
+      <div className="ia-layout f1-lab-layout">
+        <div className="ia-main">
+          <form onSubmit={handleSubmit} className="guidelines-form">
         {loading ? (
           <p className="placeholder-text">Cargando calendario…</p>
         ) : races.length === 0 ? (
@@ -208,52 +203,82 @@ export default function F1LaboratorioPage() {
             Ir a predicciones F1
           </Link>
         </div>
-      </form>
+          </form>
+        </div>
+
+        <aside className="ia-sidebar f1-lab-sidebar" aria-label="Ideas para variables en tus pautas F1">
+          <h3 className="ia-resources-title">Datos que podés mencionar</h3>
+          <div className="ia-resources-widgets">
+            <div className="ia-widget">
+              <h3>Parrilla y clasificación</h3>
+              <p className="ia-widget-placeholder">
+                Posición de salida, penalidades en la grilla, motor nuevo o caja de cambios.
+              </p>
+            </div>
+            <div className="ia-widget">
+              <h3>Neumáticos y degradación</h3>
+              <p className="ia-widget-placeholder">
+                Compuesto medio vs duro, temperatura de pista, stint largo o undercut probables.
+              </p>
+            </div>
+            <div className="ia-widget">
+              <h3>Historial del circuito</h3>
+              <p className="ia-widget-placeholder">
+                DRS, adelantamientos en T1, safety cars frecuentes, clima típico del fin de semana.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
 
       <section className="ia-versions f1-lab-prompt-history" aria-labelledby="f1-lab-prompts-heading">
-        <h2 id="f1-lab-prompts-heading">Historial de prompts (IA F1)</h2>
+        <h2 id="f1-lab-prompts-heading">Control de versiones (log)</h2>
         <p className="ia-prediction-history-note">
-          Cada vez que generás el top 10 con IA desde Predicciones F1, el servidor guarda el prompt y la respuesta del
-          modelo. Solo vos podés ver estos registros.
+          Historial de <strong>tus generaciones con IA</strong> para el top 10 de cada gran premio (mismo estilo que el
+          log del Laboratorio del Mundial). Solo vos podés verlo: está en tu cuenta y{" "}
+          <strong>no se comparte</strong> con otros usuarios.
         </p>
         {promptLogsLoading ? <p className="placeholder-text">Cargando historial…</p> : null}
         {promptLogsError ? <div className="auth-error">{promptLogsError}</div> : null}
         {!promptLogsLoading && !promptLogsError && promptLogs.length === 0 ? (
           <p className="placeholder-text">
-            Aún no hay prompts de F1. Aparecerán después de usar &quot;Generar con IA&quot; en Predicciones F1 (con
-            pautas guardadas para esa carrera).
+            Aún no hay movimientos registrados. Aparecerán cuando uses &quot;Generar con IA&quot; en Predicciones F1
+            (con pautas guardadas en esta sección para esa carrera).
           </p>
         ) : null}
         {!promptLogsLoading && promptLogs.length > 0 ? (
-          <ul className="f1-lab-prompt-log-list">
+          <div className="ia-history-timeline">
             {promptLogs.map((log) => {
-              const guidelines = extractF1LabGuidelinesFromPrompt(log.promptText);
+              const expanded = expandedF1Logs[log.id] ?? false;
               return (
-                <li key={log.id} className="f1-lab-prompt-log-item">
-                  <details className="f1-lab-prompt-details">
-                    <summary className="f1-lab-prompt-summary">
-                      <span className="f1-lab-prompt-summary-date">
-                        {new Date(log.createdAt).toLocaleString("es-AR")}
-                      </span>
-                      <span className="f1-lab-prompt-summary-model">{log.model || "modelo"}</span>
-                    </summary>
-                    <div className="ia-batch-prompt-block">
-                      {guidelines != null ? (
-                        <>
-                          <p className="ia-batch-prompt-label">Pautas del Laboratorio (en esa ejecución)</p>
-                          <pre className="ia-batch-prompt-pre">{guidelines}</pre>
-                        </>
-                      ) : null}
-                      <p className="ia-batch-prompt-label">Prompt completo</p>
-                      <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{log.promptText}</pre>
-                      <p className="ia-batch-prompt-label">Respuesta de la IA</p>
-                      <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{log.responseText}</pre>
-                    </div>
-                  </details>
-                </li>
+                <div key={log.id} className="ia-history-batch">
+                  <button
+                    type="button"
+                    className="ia-history-batch-trigger"
+                    aria-expanded={expanded}
+                    onClick={() => toggleF1Log(log.id)}
+                  >
+                    <span className="ia-history-batch-title">Generación con IA · F1 Top 10</span>
+                    <span className="ia-history-batch-meta">{log.model?.trim() || "modelo"}</span>
+                    <span className="ia-history-batch-date">
+                      {new Date(log.createdAt).toLocaleString("es-AR")}
+                    </span>
+                    <span className="ia-history-batch-chevron" aria-hidden>
+                      {expanded ? "▼" : "▶"}
+                    </span>
+                  </button>
+                  {expanded ? (
+                    <IaBatchPromptBlock
+                      lines={[{ promptText: log.promptText, createdAt: log.createdAt }]}
+                      extractGuidelines={extractF1GuidelinesFromPrompt}
+                      fullPromptDetailLabel="Texto completo — predicción top 10 (parrilla)"
+                      responseText={log.responseText}
+                    />
+                  ) : null}
+                </div>
               );
             })}
-          </ul>
+          </div>
         ) : null}
       </section>
     </div>

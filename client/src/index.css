@@ -1015,49 +1015,10 @@ a.home-logo:hover .home-logo-brand {
   border-top: 1px solid var(--border);
 }
 
-.f1-lab-prompt-log-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.f1-lab-prompt-summary {
-  cursor: pointer;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 0.5rem 1rem;
-  padding: 0.5rem 0.65rem;
-  border-radius: var(--radius-md);
-  background: var(--bg-elevated, var(--bg-card));
-  border: 1px solid var(--border);
-  font-size: 0.9rem;
-}
-
-.f1-lab-prompt-summary-date {
-  font-weight: 600;
-}
-
-.f1-lab-prompt-summary-model {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.f1-lab-prompt-details[open] .f1-lab-prompt-summary {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
-}
-
-.f1-lab-prompt-details .ia-batch-prompt-block {
+/* Misma línea de tiempo que /app/ia: el bloque expandido queda pegado al trigger del lote */
+.f1-lab-prompt-history .ia-history-batch .ia-batch-prompt-block {
   margin-top: 0;
-  border: 1px solid var(--border);
-  border-top: none;
-  border-radius: 0 0 var(--radius-md) var(--radius-md);
-  padding: 0.75rem 1rem 1rem;
+  border-radius: 0 0 var(--radius-md, 8px) var(--radius-md, 8px);
 }
 
 .f1-race-accordion-panel .f1-race-card-head--panel {
@@ -5557,4 +5518,320 @@ a.btn-oauth--unconfigured {
 .platform-companies-table .platform-companies-col-narrow {
   text-align: center;
   white-space: nowrap;
+}
+
+/* --- Disciplina (Mundial vs F1): tema y selector --- */
+:root[data-app-discipline="f1"] {
+  --accent: #ff4d4d;
+  --accent-dim: rgba(255, 77, 77, 0.12);
+  --accent-border: rgba(255, 120, 110, 0.45);
+  --primary: #ffb4a8;
+  --primary-container: #3d1814;
+  --on-primary: #2d0a08;
+  --btn-primary-bg: #e53935;
+  --btn-primary-fg: #0c0202;
+  --btn-primary-bg-hover: #ff6e60;
+  --focus-ring: 2px solid rgba(255, 120, 110, 0.85);
+}
+
+.app-layout--discipline-f1 .app-header::after {
+  background: linear-gradient(90deg, transparent, rgba(255, 77, 77, 0.2), transparent);
+}
+
+.app-header-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-right: 1.75rem;
+}
+
+.app-logo {
+  margin-right: 0;
+}
+
+.discipline-switcher {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.discipline-switcher-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.discipline-switcher-trigger:hover {
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.discipline-switcher-icon {
+  display: flex;
+  align-items: center;
+}
+
+.discipline-switcher-svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.discipline-switcher-label {
+  max-width: 7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.discipline-switcher-chevron {
+  font-size: 0.65rem;
+  opacity: 0.75;
+  margin-left: 0.1rem;
+}
+
+.discipline-switcher-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 80;
+  min-width: 11rem;
+  margin: 0;
+  padding: 0.35rem;
+  list-style: none;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-header);
+}
+
+.discipline-switcher-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: none;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+
+.discipline-switcher-option:hover {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.discipline-switcher-option .discipline-switcher-svg {
+  flex-shrink: 0;
+}
+
+.app-menu-discipline-icon {
+  width: 22px;
+  height: 22px;
+}
+
+/* Pantalla de elección de contexto (primer ingreso del día) */
+.context-choice-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: clamp(1rem, 4vw, 2.5rem) var(--page-padding-x) 3rem;
+}
+
+.context-choice-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.context-choice-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+  font-weight: 700;
+  margin: 0 0 0.75rem;
+  line-height: 1.25;
+}
+
+.context-choice-lead {
+  margin: 0 auto;
+  max-width: 40rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
+.context-choice-cards {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+}
+
+@media (min-width: 768px) {
+  .context-choice-cards {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+}
+
+.context-choice-card {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  background: var(--bg-card);
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.context-choice-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+}
+
+.context-choice-card-visual {
+  height: 7.5rem;
+  background-size: cover;
+  background-position: center;
+}
+
+.context-choice-card-visual--stadium {
+  background-image: linear-gradient(135deg, rgba(30, 80, 40, 0.95), rgba(10, 40, 90, 0.9)),
+    radial-gradient(circle at 70% 40%, rgba(255, 255, 255, 0.15), transparent 50%);
+}
+
+.context-choice-card-visual--track {
+  background-image: linear-gradient(135deg, rgba(60, 10, 10, 0.95), rgba(20, 20, 28, 0.95)),
+    radial-gradient(ellipse 80% 50% at 50% 100%, rgba(255, 60, 40, 0.25), transparent 55%);
+}
+
+.context-choice-card-body {
+  padding: 1.1rem 1.25rem 1.35rem;
+}
+
+.context-choice-card-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.context-choice-card-title {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0.35rem 0 0.5rem;
+  line-height: 1.3;
+}
+
+.context-choice-card-desc {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.context-choice-card-cta {
+  display: inline-block;
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.context-choice-footer {
+  text-align: center;
+  margin-top: 2rem;
+}
+
+.context-choice-skip {
+  font-size: 0.85rem;
+}
+
+/* Dashboard: pestañas y teaser B2B */
+.dashboard-mode-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin: 0 0 1.5rem;
+  border-radius: var(--radius-xl);
+  background: var(--surface-container-high);
+  border: 1px solid var(--border);
+}
+
+.dashboard-mode-tab {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.dashboard-mode-tab:hover {
+  color: var(--text);
+}
+
+.dashboard-mode-tab--active {
+  background: var(--bg-card);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dashboard-super-teaser {
+  margin: 0 0 1.25rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+  background: rgba(0, 0, 0, 0.15);
+  max-width: 48rem;
+}
+
+.dashboard-super-teaser-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+}
+
+.dashboard-super-teaser-desc {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.ia-mundial-scope-note {
+  margin: -0.25rem 0 1.25rem;
+  max-width: 48rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.f1-lab-layout .ia-main .guidelines-form {
+  border: 1px solid var(--border);
+  padding: 1.25rem 1.5rem;
+  background: rgba(0, 0, 0, 0.12);
 }
