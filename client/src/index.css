@@ -1892,15 +1892,19 @@ a.btn-oauth--unconfigured {
 .app-header-menu {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex: 1;
-  gap: 2rem;
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+  min-width: 0;
 }
 
 .app-nav {
   display: flex;
+  flex: 1;
+  min-width: 0;
   gap: 1.5rem;
   align-items: center;
+  flex-wrap: wrap;
 }
 .app-nav a {
   font-family: var(--font-display);
@@ -1926,7 +1930,6 @@ a.btn-oauth--unconfigured {
 @media (max-width: 1100px) {
   .app-nav {
     gap: 1.1rem;
-    flex-wrap: wrap;
   }
 }
 
@@ -5538,12 +5541,12 @@ a.btn-oauth--unconfigured {
   background: linear-gradient(90deg, transparent, rgba(255, 77, 77, 0.2), transparent);
 }
 
-.app-header-start {
+.app-header-end {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 0.75rem 1rem;
-  margin-right: 1rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .app-header-right--desktop-bar {
@@ -5553,6 +5556,21 @@ a.btn-oauth--unconfigured {
 @media (max-width: 768px) {
   .app-header-right--desktop-bar {
     display: none !important;
+  }
+
+  .app-header-end {
+    margin-left: 0;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    order: -1;
+    padding-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .app-header--arena-picker .app-header-end {
+    display: none;
   }
 }
 
@@ -5566,18 +5584,11 @@ a.btn-oauth--unconfigured {
   }
 }
 
-@media (min-width: 769px) {
-  .app-header-menu {
-    justify-content: flex-end;
-  }
-}
-
 .app-header-lead {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  margin-right: 1.75rem;
+  flex-shrink: 0;
+  margin-right: clamp(0.75rem, 2vw, 1.5rem);
 }
 
 .app-logo {
@@ -5645,6 +5656,11 @@ a.btn-oauth--unconfigured {
   border: 1px solid var(--border);
   background: var(--bg-card);
   box-shadow: var(--shadow-header);
+}
+
+.app-header-end .discipline-switcher-menu {
+  left: auto;
+  right: 0;
 }
 
 .discipline-switcher-option {

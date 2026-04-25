@@ -80,19 +80,19 @@ function MenuIconF1() {
 
 const NAV_FOOTBALL: NavItem[] = [
   { to: "/app", label: "Inicio", end: true },
-  { to: "/app/prode", label: "Mis predicciones" },
-  { to: "/app/ia", label: "Laboratorio · Mundial" },
-  { to: "/app/resultados", label: "Mis resultados" },
-  { to: "/app/ligas", label: "Mis ligas" },
+  { to: "/app/prode", label: "Predicciones" },
+  { to: "/app/ia", label: "Laboratorio" },
+  { to: "/app/resultados", label: "Resultados" },
+  { to: "/app/ligas", label: "Ligas" },
   { to: "/app/perfil", label: "Mi usuario" },
 ];
 
 const NAV_F1: NavItem[] = [
   { to: "/app/f1", label: "Inicio", end: true },
   { to: "/app/f1/predicciones", label: "Predicciones" },
-  { to: "/app/f1/laboratorio", label: "Laboratorio · F1" },
+  { to: "/app/f1/laboratorio", label: "Laboratorio" },
   { to: "/app/f1/resultados", label: "Resultados" },
-  { to: "/app/ligas", label: "Mis ligas" },
+  { to: "/app/ligas", label: "Ligas" },
   { to: "/app/perfil", label: "Mi usuario" },
 ];
 
@@ -145,15 +145,6 @@ export default function AppLayout() {
         Saltar al contenido
       </a>
       <header className={`app-header${arenaPicker ? " app-header--arena-picker" : ""}`}>
-        <div className="app-header-start">
-          {!arenaPicker ? <DisciplineSwitcher /> : null}
-          <HeaderAccountSection
-            user={user}
-            logout={logout}
-            onAfterNavigate={() => setMenuOpen(false)}
-            className="app-header-right app-header-right--desktop-bar"
-          />
-        </div>
         <div className="app-header-lead">
           {arenaPicker ? (
             <div className="app-logo app-logo--arena-static" aria-label="Promptplay">
@@ -205,6 +196,15 @@ export default function AppLayout() {
               </Link>
             ))}
           </nav>
+          <div className="app-header-end">
+            {!arenaPicker ? <DisciplineSwitcher /> : null}
+            <HeaderAccountSection
+              user={user}
+              logout={logout}
+              onAfterNavigate={() => setMenuOpen(false)}
+              className="app-header-right app-header-right--desktop-bar"
+            />
+          </div>
           <HeaderAccountSection
             user={user}
             logout={logout}
