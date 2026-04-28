@@ -31,7 +31,7 @@ export default function ContextChoicePage() {
           Seleccioná tu <em className="context-choice-title-accent">Arena</em>
         </h1>
         <p className="context-choice-lead">
-          Elegí el ecosistema donde querés jugar, creá tus ligas y competí. Después podés cambiar de disciplina con el
+          Elige el ecosistema donde quieres jugar, crea tus ligas y compite. Después podrás cambiar de disciplina con el
           selector junto al logo.
         </p>
       </header>
@@ -51,7 +51,7 @@ export default function ContextChoicePage() {
           </div>
           <div className="context-choice-card-foot">
             <p className="context-choice-card-desc">
-              Configurá tu IA goleadora y dominá el campo con prompts estratégicos.
+              Configura tu IA goleadora y domina el campo con prompts estratégicos.
             </p>
           </div>
         </button>
@@ -70,7 +70,7 @@ export default function ContextChoicePage() {
           </div>
           <div className="context-choice-card-foot">
             <p className="context-choice-card-desc">
-              Dominá la telemetría con tu prompt y llevá el top 10 a la parrilla real.
+              Domina la velocidad y predice el podio ganador.
             </p>
           </div>
         </button>
