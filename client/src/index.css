@@ -5802,24 +5802,18 @@ a.btn-oauth--unconfigured {
 
 .context-choice-card--football .context-choice-card-media {
   background:
-    radial-gradient(circle at 18% 88%, rgba(255, 255, 255, 0.14) 0%, transparent 42%),
-    radial-gradient(ellipse 90% 70% at 50% 115%, rgba(40, 120, 70, 0.5), transparent 55%),
-    radial-gradient(circle at 82% 18%, rgba(255, 220, 150, 0.12), transparent 38%),
-    linear-gradient(175deg, #0a1f3d 0%, #0c2748 35%, #082818 100%);
+    linear-gradient(180deg, rgba(4, 10, 24, 0.12) 0%, rgba(4, 10, 24, 0.34) 100%),
+    url("/arena/mundial-contexto.png");
+  background-size: cover;
+  background-position: center;
 }
 
 .context-choice-card--f1 .context-choice-card-media {
   background:
-    linear-gradient(105deg, transparent 0%, transparent 46%, rgba(255, 50, 40, 0.07) 48%, transparent 52%),
-    repeating-linear-gradient(
-      -12deg,
-      transparent,
-      transparent 14px,
-      rgba(255, 255, 255, 0.02) 14px,
-      rgba(255, 255, 255, 0.02) 15px
-    ),
-    radial-gradient(ellipse 100% 65% at 50% 100%, rgba(180, 30, 25, 0.45), transparent 58%),
-    linear-gradient(155deg, #140808 0%, #0a0a12 45%, #1a0606 100%);
+    linear-gradient(180deg, rgba(8, 10, 18, 0.1) 0%, rgba(8, 10, 18, 0.34) 100%),
+    url("/arena/f1-contexto.png");
+  background-size: cover;
+  background-position: center;
 }
 
 .context-choice-card-media-shine {
