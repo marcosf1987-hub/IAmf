@@ -146,6 +146,9 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
         const n = preds.predictions.filter((p) => p.placements.some((x) => x != null)).length;
         setPredRaces(n);
         const firstFilled = preds.predictions.find((p) => p.placements.some((x) => x != null));
+        // #region agent log
+        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H1", location: "F1HomeOverview.tsx:loadPredictions", message: "Predictions fetched for top3 context", data: { predCount: preds.predictions.length, racesWithPrediction: n, hasFirstFilled: Boolean(firstFilled), firstSessionKey: firstFilled?.race.sessionKey ?? null, firstTop3: firstFilled ? padTop3(firstFilled.placements) : null }, timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
         setPredDriverCtx(
           firstFilled
             ? {
@@ -162,6 +165,9 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
           setPredDriverCtx(null);
           setNextRace(null);
           setF1Err("No se pudo cargar el resumen F1.");
+          // #region agent log
+          fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H4", location: "F1HomeOverview.tsx:loadPredictions:catch", message: "Failed loading F1 summary/predictions/races", data: { fallbackApplied: true }, timestamp: Date.now() }) }).catch(() => {});
+          // #endregion
         }
       }
     })();
@@ -173,15 +179,24 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
   useEffect(() => {
     if (!predDriverCtx || !Number.isFinite(predDriverCtx.sessionKey)) {
       setDriverLabels(["Sin definir", "Sin definir", "Sin definir"]);
+      // #region agent log
+      fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H1", location: "F1HomeOverview.tsx:driverEffect:noContext", message: "Driver labels fallback due missing session context", data: { hasCtx: Boolean(predDriverCtx), sessionKey: predDriverCtx?.sessionKey ?? null }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
       return;
     }
     let cancelled = false;
+    // #region agent log
+    fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H2", location: "F1HomeOverview.tsx:driverEffect:beforeFetch", message: "Fetching public F1 drivers for session", data: { sessionKey: predDriverCtx.sessionKey, dorsales: predDriverCtx.dorsales }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
     fetchPublicF1Drivers(predDriverCtx.sessionKey).then((driverMap) => {
       if (cancelled) return;
       const next = predDriverCtx.dorsales.map((n) =>
         n == null ? "Sin definir" : driverMap.get(n) ?? `Piloto #${n}`
       ) as [string, string, string];
       setDriverLabels(next);
+      // #region agent log
+      fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H2", location: "F1HomeOverview.tsx:driverEffect:afterFetch", message: "Driver map resolved labels", data: { sessionKey: predDriverCtx.sessionKey, mapSize: driverMap.size, labels: next }, timestamp: Date.now() }) }).catch(() => {});
+      // #endregion
     });
     return () => {
       cancelled = true;

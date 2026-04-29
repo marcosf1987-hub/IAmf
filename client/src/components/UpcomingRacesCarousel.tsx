@@ -80,8 +80,14 @@ export default function UpcomingRacesCarousel({
         const limit = variant === "dashboard" ? 12 : 8;
         const { races: list } = await fetchPublicF1Races(year, limit);
         if (!cancelled) setRaces(list.slice(0, limit));
+        // #region agent log
+        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H3", location: "UpcomingRacesCarousel.tsx:loadRaces", message: "Upcoming races loaded", data: { variant, limit, fetched: list.length }, timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
       } catch {
         if (!cancelled) setRaces([]);
+        // #region agent log
+        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H4", location: "UpcomingRacesCarousel.tsx:loadRaces:catch", message: "Failed loading upcoming races", data: { variant }, timestamp: Date.now() }) }).catch(() => {});
+        // #endregion
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -94,6 +100,12 @@ export default function UpcomingRacesCarousel({
   const n = races.length;
   const maxSlidePair = n <= 1 ? 0 : n - 2;
   const canAdvancePair = maxSlidePair > 0;
+
+  useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H3", location: "UpcomingRacesCarousel.tsx:layoutMode", message: "Carousel layout mode evaluated", data: { variant, isDesktopPair, hideTitle, raceCount: n }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+  }, [variant, isDesktopPair, hideTitle, n]);
 
   useEffect(() => {
     if (isDesktopPair) {
