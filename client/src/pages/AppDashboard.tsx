@@ -1,18 +1,14 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import F1HomeOverview from "../components/F1HomeOverview";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
-import UpcomingRacesCarousel from "../components/UpcomingRacesCarousel";
 import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
 import {
-  fetchF1MyPredictions,
-  fetchF1MySummary,
-  fetchPublicF1Races,
   fetchMyCompetitions,
   fetchMyResults,
   fetchProdeStatus,
   fetchResultsDashboard,
-  type F1RaceSummary,
   type CompetitionQuota,
   type MineCompetitionsResponse,
   type ProdeStatus,
@@ -231,200 +227,6 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
   );
 }
 
-const F1_DASH_TIPS = [
-  "En el Laboratorio F1 podés fijar **posición en parrilla**, clima y **estrategia de neumáticos** por gran premio.",
-  "Sumá **historial del circuito**: victorias previas del líder, incidentes en la primera curva o safety car frecuente.",
-  "Pedí a la IA que considere **degradación de gomas** y ventana de paradas bajo SC; son variables que mueven el top 10.",
-];
-
-function f1RaceHeadline(r: F1RaceSummary): string {
-  const circuit = r.circuitShortName?.trim();
-  const country = r.countryName?.trim();
-  if (circuit && country) return `${circuit} · ${country}`;
-  return circuit || country || `Ronda ${r.roundOrder}`;
-}
-
-function formatF1Countdown(iso: string): string {
-  const end = new Date(iso).getTime();
-  if (Number.isNaN(end)) return "Sin datos aún";
-  const delta = end - Date.now();
-  if (delta <= 0) return "En curso o finalizada";
-  const s = Math.floor(delta / 1000);
-  const d = Math.floor(s / 86400);
-  const h = Math.floor((s % 86400) / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (d > 0) return `${d} días`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-function DashboardF1Tab({
-  ranking,
-  hasAnyLeague,
-}: {
-  ranking: { myRank: number | null; totalParticipants: number };
-  hasAnyLeague: boolean;
-}) {
-  const [summary, setSummary] = useState<{ totalPoints: number } | null>(null);
-  const [predRaces, setPredRaces] = useState(0);
-  const [top3, setTop3] = useState<(number | null)[]>([]);
-  const [nextRace, setNextRace] = useState<F1RaceSummary | null>(null);
-  const [countdown, setCountdown] = useState("Sin datos aún");
-  const [f1Err, setF1Err] = useState("");
-  const [tipIx] = useState(() => Math.floor(Math.random() * F1_DASH_TIPS.length));
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setF1Err("");
-      try {
-        const year = new Date().getUTCFullYear();
-        const [s, preds, races] = await Promise.all([fetchF1MySummary(), fetchF1MyPredictions(), fetchPublicF1Races(year, 12)]);
-        if (cancelled) return;
-        setSummary({ totalPoints: s.totalPoints });
-        const n = preds.predictions.filter((p) => p.placements.some((x) => x != null)).length;
-        setPredRaces(n);
-        const firstFilled = preds.predictions.find((p) => p.placements.some((x) => x != null));
-        setTop3(firstFilled?.placements.slice(0, 3) ?? []);
-        setNextRace(races.races[0] ?? null);
-      } catch {
-        if (!cancelled) {
-          setSummary({ totalPoints: 0 });
-          setPredRaces(0);
-          setTop3([]);
-          setNextRace(null);
-          setF1Err("No se pudo cargar el resumen F1.");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!nextRace) {
-      setCountdown("Sin datos aún");
-      return;
-    }
-    const tick = () => setCountdown(formatF1Countdown(nextRace.raceStartAt));
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [nextRace]);
-
-  const rankText =
-    ranking.myRank != null && ranking.totalParticipants > 0
-      ? `#${ranking.myRank} de ${ranking.totalParticipants}`
-      : "Sin datos aún";
-
-  return (
-    <>
-      {f1Err ? <div className="auth-error dashboard-load-error">{f1Err}</div> : null}
-      <section className="dashboard-f1-hero" aria-labelledby="dashboard-f1-hero-title">
-        <p className="dashboard-f1-hero-eyebrow">
-          {nextRace ? `Próximo evento · ${f1RaceHeadline(nextRace)}` : "Próximo evento"}
-        </p>
-        <h2 id="dashboard-f1-hero-title" className="dashboard-f1-hero-title">
-          {countdown === "En curso o finalizada" ? "El GP ya está en marcha" : `Faltan ${countdown} para el GP`}
-        </h2>
-        <p className="dashboard-f1-hero-sub">
-          {nextRace
-            ? new Date(nextRace.raceStartAt).toLocaleString("es-AR", { dateStyle: "full", timeStyle: "short" })
-            : "Cuando haya calendario disponible, verás la próxima carrera aquí."}
-        </p>
-        <div className="dashboard-f1-hero-actions">
-          <Link to="/app/ligas#ligas-crear" className="btn-primary">
-            Crear una liga
-          </Link>
-          <Link to="/app/ligas#ligas-unirse" className="btn-secondary">
-            Unirme a una liga
-          </Link>
-        </div>
-      </section>
-
-      <section className="dashboard-f1-overview" aria-label="Resumen F1 principal">
-        <article className="dashboard-f1-panel dashboard-f1-panel--predictions">
-          <div className="dashboard-f1-panel-head">
-            <h3>Mis predicciones de parrilla</h3>
-            <Link to="/app/f1/laboratorio" className="dashboard-f1-inline-link">
-              Editar
-            </Link>
-          </div>
-          <p className="dashboard-f1-panel-sub">Tu configuración actual para el top 3 de clasificación</p>
-          <ol className="dashboard-f1-top3">
-            {[0, 1, 2].map((i) => (
-              <li key={i}>
-                <span className="dashboard-f1-top3-pos">0{i + 1}</span>
-                <span className="dashboard-f1-top3-label">{top3[i] != null ? `Piloto #${top3[i]}` : "Sin definir"}</span>
-              </li>
-            ))}
-          </ol>
-          <p className="dashboard-f1-pred-count">
-            {predRaces} {predRaces === 1 ? "carrera con predicción cargada" : "carreras con predicción cargada"}
-          </p>
-        </article>
-
-        <article className="dashboard-f1-panel dashboard-f1-panel--rank">
-          <h3>Mi puesto en el campeonato</h3>
-          <p className="dashboard-f1-rank-value">{rankText}</p>
-          <div className="dashboard-f1-rank-links">
-            <Link to="/app/f1/resultados" className="dashboard-f1-rank-chip">
-              <span>Total de puntos</span>
-              <strong>{summary != null ? `${summary.totalPoints} pts` : "Sin datos aún"}</strong>
-            </Link>
-            <Link to="/app/ligas" className="dashboard-f1-rank-chip">
-              <span>Liga de amigos</span>
-              <strong>{hasAnyLeague ? "Ver mis ligas" : "Sin ligas aún"}</strong>
-            </Link>
-          </div>
-        </article>
-      </section>
-
-      <section className="dashboard-tip" aria-labelledby="dashboard-f1-tip-label">
-        <span id="dashboard-f1-tip-label" className="dashboard-tip-label">
-          Tip F1
-        </span>
-        <p className="dashboard-tip-text">{F1_DASH_TIPS[tipIx]}</p>
-      </section>
-
-      <UpcomingRacesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
-
-      <section className="dashboard-cards-wrap" aria-labelledby="dashboard-f1-cards-heading">
-        <h2 id="dashboard-f1-cards-heading" className="dashboard-section-heading">
-          Accesos rápidos
-        </h2>
-        <div className="dashboard-cards">
-          <Link to="/app/f1/predicciones" className="dashboard-card">
-            <FootballIcon />
-            <h3>Mis predicciones</h3>
-            <p>Top 10 por gran premio según tus pautas</p>
-          </Link>
-          <Link to="/app/f1/resultados" className="dashboard-card">
-            <ChartIcon />
-            <h3>Mis resultados</h3>
-            <p>Puntaje acumulado y desempeño por carrera</p>
-          </Link>
-          <Link to="/app/ligas" className="dashboard-card">
-            <UsersLeagueIcon />
-            <h3>Mis ligas</h3>
-            <p>Ligas privadas, invitaciones y clasificación</p>
-          </Link>
-          <Link to="/app/perfil" className="dashboard-card">
-            <UserCircleIcon />
-            <h3>Mi usuario</h3>
-            <p>Cuenta, alias en rankings y cierre de sesión</p>
-          </Link>
-        </div>
-      </section>
-
-      <Link to="/app/f1/laboratorio" className="resultados-fab">
-        Ajustar pautas F1 para la próxima carrera
-      </Link>
-    </>
-  );
-}
-
 function DashboardSkeleton() {
   return (
     <div className="dashboard dashboard-skeleton" aria-busy="true" aria-label="Cargando tu resumen">
@@ -536,15 +338,6 @@ export default function AppDashboard() {
           };
         })
       : [];
-  const generalLeague = mine?.competitions.find((c) => {
-    const slug = c.slug?.toLowerCase() ?? "";
-    const name = c.name?.toLowerCase() ?? "";
-    return slug.includes("general") || name.includes("general") || name.includes("campeonato");
-  });
-  const f1Ranking = {
-    myRank: generalLeague?.card.myRank ?? null,
-    totalParticipants: generalLeague?.card.totalParticipants ?? 0,
-  };
 
   if (loading) {
     return <DashboardSkeleton />;
@@ -719,7 +512,7 @@ export default function AppDashboard() {
           ) : null}
         </>
       ) : (
-        <DashboardF1Tab ranking={f1Ranking} hasAnyLeague={hasAnyLeague} />
+        <F1HomeOverview leagueSummaries={mine?.competitions} />
       )}
     </div>
   );
