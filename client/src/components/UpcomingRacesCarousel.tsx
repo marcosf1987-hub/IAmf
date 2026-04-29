@@ -59,22 +59,27 @@ const DESKTOP_PAIR_MQ = "(min-width: 900px)";
 export default function UpcomingRacesCarousel({
   variant = "marketing",
   className = "",
+  hideTitle = false,
 }: {
   variant?: Variant;
   className?: string;
+  /** Oculta el encabezado interno (cuando el padre ya muestra `dashboard-section-heading`). */
+  hideTitle?: boolean;
 }) {
   const [races, setRaces] = useState<F1RaceSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
-  const isDesktopPair = variant === "marketing" && useMediaQuery(DESKTOP_PAIR_MQ);
+  const isDesktopPair =
+    (variant === "marketing" || variant === "dashboard") && useMediaQuery(DESKTOP_PAIR_MQ);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const year = new Date().getUTCFullYear();
-        const { races: list } = await fetchPublicF1Races(year, 8);
-        if (!cancelled) setRaces(list.slice(0, 8));
+        const limit = variant === "dashboard" ? 12 : 8;
+        const { races: list } = await fetchPublicF1Races(year, limit);
+        if (!cancelled) setRaces(list.slice(0, limit));
       } catch {
         if (!cancelled) setRaces([]);
       } finally {
@@ -84,7 +89,7 @@ export default function UpcomingRacesCarousel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [variant]);
 
   const n = races.length;
   const maxSlidePair = n <= 1 ? 0 : n - 2;
@@ -137,6 +142,11 @@ export default function UpcomingRacesCarousel({
         aria-busy="true"
         aria-label="Cargando próximas carreras"
       >
+        {!hideTitle ? (
+          <div className="match-carousel-header">
+            <h2 className="match-carousel-heading">Próximas carreras F1</h2>
+          </div>
+        ) : null}
         <div className="match-carousel-shell">
           <div className="match-carousel-skeleton" />
         </div>
@@ -147,9 +157,11 @@ export default function UpcomingRacesCarousel({
   if (n === 0) {
     return (
       <section className={`match-carousel match-carousel--${variant} match-carousel--empty ${className}`.trim()}>
-        <div className="match-carousel-header">
-          <h2 className="match-carousel-heading">Próximas carreras F1</h2>
-        </div>
+        {!hideTitle ? (
+          <div className="match-carousel-header">
+            <h2 className="match-carousel-heading">Próximas carreras F1</h2>
+          </div>
+        ) : null}
         <p className="f1-carousel-empty-hint">
           No hay carreras próximas en el calendario sincronizado. El administrador puede ejecutar la sincronización
           OpenF1 si hace falta.
@@ -167,9 +179,11 @@ export default function UpcomingRacesCarousel({
       aria-label="Próximas carreras F1"
       aria-roledescription="carrusel"
     >
-      <div className="match-carousel-header">
-        <h2 className="match-carousel-heading">Próximas carreras F1</h2>
-      </div>
+      {!hideTitle ? (
+        <div className="match-carousel-header">
+          <h2 className="match-carousel-heading">Próximas carreras F1</h2>
+        </div>
+      ) : null}
 
       {isDesktopPair ? (
         <div className="match-carousel-desktop-row">

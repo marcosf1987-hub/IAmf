@@ -5,6 +5,7 @@ import {
   fetchF1MyPredictions,
   fetchF1MySummary,
   fetchMyCompetitions,
+  fetchPublicF1Drivers,
   fetchPublicF1Races,
   type F1RaceSummary,
   type MyCompetitionSummary,
@@ -90,10 +91,23 @@ type Props = {
   leagueSummaries?: MyCompetitionSummary[];
 };
 
+/** Dorsales del top 3 + session para resolver nombres vía fetchPublicF1Drivers (una sola fuente de verdad). */
+type PredDriverCtx = {
+  sessionKey: number;
+  dorsales: [number | null, number | null, number | null];
+};
+
+function padTop3(placements: (number | null)[]): [number | null, number | null, number | null] {
+  const a = placements.slice(0, 3);
+  while (a.length < 3) a.push(null);
+  return [a[0] ?? null, a[1] ?? null, a[2] ?? null];
+}
+
 export default function F1HomeOverview({ leagueSummaries }: Props) {
   const [summary, setSummary] = useState<{ totalPoints: number } | null>(null);
   const [predRaces, setPredRaces] = useState(0);
-  const [top3, setTop3] = useState<(number | null)[]>([]);
+  const [predDriverCtx, setPredDriverCtx] = useState<PredDriverCtx | null>(null);
+  const [driverLabels, setDriverLabels] = useState<[string, string, string]>(["Sin definir", "Sin definir", "Sin definir"]);
   const [nextRace, setNextRace] = useState<F1RaceSummary | null>(null);
   const [countdown, setCountdown] = useState("Sin datos aún");
   const [f1Err, setF1Err] = useState("");
@@ -132,13 +146,20 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
         const n = preds.predictions.filter((p) => p.placements.some((x) => x != null)).length;
         setPredRaces(n);
         const firstFilled = preds.predictions.find((p) => p.placements.some((x) => x != null));
-        setTop3(firstFilled?.placements.slice(0, 3) ?? []);
+        setPredDriverCtx(
+          firstFilled
+            ? {
+                sessionKey: firstFilled.race.sessionKey,
+                dorsales: padTop3(firstFilled.placements),
+              }
+            : null
+        );
         setNextRace(races.races[0] ?? null);
       } catch {
         if (!cancelled) {
           setSummary({ totalPoints: 0 });
           setPredRaces(0);
-          setTop3([]);
+          setPredDriverCtx(null);
           setNextRace(null);
           setF1Err("No se pudo cargar el resumen F1.");
         }
@@ -148,6 +169,24 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!predDriverCtx || !Number.isFinite(predDriverCtx.sessionKey)) {
+      setDriverLabels(["Sin definir", "Sin definir", "Sin definir"]);
+      return;
+    }
+    let cancelled = false;
+    fetchPublicF1Drivers(predDriverCtx.sessionKey).then((driverMap) => {
+      if (cancelled) return;
+      const next = predDriverCtx.dorsales.map((n) =>
+        n == null ? "Sin definir" : driverMap.get(n) ?? `Piloto #${n}`
+      ) as [string, string, string];
+      setDriverLabels(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [predDriverCtx]);
 
   useEffect(() => {
     if (!nextRace) {
@@ -214,7 +253,7 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
             {[0, 1, 2].map((i) => (
               <li key={i}>
                 <span className="dashboard-f1-top3-pos">0{i + 1}</span>
-                <span className="dashboard-f1-top3-label">{top3[i] != null ? `Piloto #${top3[i]}` : "Sin definir"}</span>
+                <span className="dashboard-f1-top3-label">{driverLabels[i]}</span>
               </li>
             ))}
           </ol>
@@ -246,13 +285,22 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
         <p className="dashboard-tip-text">{F1_DASH_TIPS[tipIx]}</p>
       </section>
 
-      <UpcomingRacesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
+      <section className="dashboard-f1-upcoming-wrap" aria-labelledby="dashboard-f1-upcoming-title">
+        <h2 id="dashboard-f1-upcoming-title" className="dashboard-section-heading">
+          Próximas carreras
+        </h2>
+        <UpcomingRacesCarousel
+          variant="dashboard"
+          hideTitle
+          className="dashboard-upcoming-carousel dashboard-upcoming-carousel--f1-home"
+        />
+      </section>
 
       <section className="dashboard-cards-wrap" aria-labelledby="dashboard-f1-cards-heading">
         <h2 id="dashboard-f1-cards-heading" className="dashboard-section-heading">
           Accesos rápidos
         </h2>
-        <div className="dashboard-cards">
+        <div className="dashboard-cards dashboard-cards--f1-quick">
           <Link to="/app/f1/predicciones" className="dashboard-card">
             <FootballIcon />
             <h3>Mis predicciones</h3>

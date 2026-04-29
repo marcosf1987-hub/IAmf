@@ -852,6 +852,27 @@ a.home-logo:hover .home-logo-brand {
   padding: 0 1.5rem 0.5rem;
 }
 
+.dashboard-upcoming-carousel.dashboard-upcoming-carousel--f1-home {
+  max-width: none;
+  width: 100%;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.dashboard-upcoming-carousel--f1-home .match-carousel-desktop-row {
+  max-width: none;
+}
+
+.dashboard-upcoming-carousel--f1-home .f1-carousel-empty-hint {
+  max-width: none;
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
+}
+
 @media (max-width: 768px) {
   .home-upcoming-carousel {
     padding: 0 1.25rem 2rem;
@@ -859,6 +880,11 @@ a.home-logo:hover .home-logo-brand {
 
   .dashboard-upcoming-carousel {
     padding: 0 1rem;
+  }
+
+  .dashboard-upcoming-carousel.dashboard-upcoming-carousel--f1-home {
+    padding-left: 0;
+    padding-right: 0;
   }
 
   .match-carousel-teams {
@@ -2148,13 +2174,21 @@ a.btn-oauth--unconfigured {
 }
 
 .dashboard-f1-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   margin: 0 0 1.5rem;
   padding: clamp(1.1rem, 3vw, 1.8rem);
   border-radius: var(--radius-xl);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  background:
-    linear-gradient(180deg, rgba(5, 12, 30, 0.35) 0%, rgba(5, 10, 24, 0.9) 100%),
-    linear-gradient(130deg, rgba(229, 57, 53, 0.2) 0%, rgba(27, 41, 85, 0.55) 55%, rgba(7, 17, 42, 0.88) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(5, 10, 24, 0.95);
+  background-image:
+    linear-gradient(180deg, rgba(6, 10, 22, 0.82) 0%, rgba(6, 12, 28, 0.78) 42%, rgba(4, 8, 18, 0.92) 100%),
+    linear-gradient(125deg, rgba(229, 57, 53, 0.22) 0%, rgba(20, 30, 62, 0.55) 48%, rgba(5, 12, 28, 0.88) 100%),
+    url("/f1/f1-hero-pit.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .dashboard-f1-hero-eyebrow {
@@ -2164,6 +2198,7 @@ a.btn-oauth--unconfigured {
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: #ffd0cc;
+  text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
 }
 
 .dashboard-f1-hero-title {
@@ -2172,12 +2207,15 @@ a.btn-oauth--unconfigured {
   font-size: clamp(1.7rem, 4vw, 3rem);
   line-height: 1.05;
   letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
 }
 
 .dashboard-f1-hero-sub {
   margin: 0.65rem 0 0;
-  color: var(--text-secondary);
+  color: rgba(235, 240, 255, 0.92);
   font-size: 0.92rem;
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
 }
 
 .dashboard-f1-hero-actions {
@@ -2328,6 +2366,28 @@ a.btn-oauth--unconfigured {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 1.5rem;
   max-width: 1000px;
+}
+
+.dashboard-cards.dashboard-cards--f1-quick {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-width: none;
+}
+
+@media (max-width: 900px) {
+  .dashboard-cards.dashboard-cards--f1-quick {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 540px) {
+  .dashboard-cards.dashboard-cards--f1-quick {
+    grid-template-columns: 1fr;
+  }
+}
+
+.dashboard-f1-upcoming-wrap {
+  width: 100%;
+  margin-bottom: 1.5rem;
 }
 
 .dashboard-card {
