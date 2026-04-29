@@ -1,6 +1,8 @@
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma/client";
 import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
@@ -31,6 +33,48 @@ function routeParamId(req: express.Request): string | undefined {
 
 const app = express();
 const prisma = new PrismaClient();
+
+function parseAllowedOrigins(): Set<string> {
+  const out = new Set<string>();
+  const raw = process.env.CORS_ALLOWED_ORIGINS?.trim();
+  if (raw) {
+    for (const item of raw.split(",")) {
+      const origin = item.trim().replace(/\/+$/, "");
+      if (origin) out.add(origin);
+    }
+  }
+  const frontend = process.env.FRONTEND_URL?.trim().replace(/\/+$/, "");
+  if (frontend) out.add(frontend);
+  out.add("http://localhost:5173");
+  out.add("http://127.0.0.1:5173");
+  return out;
+}
+
+const allowedOrigins = parseAllowedOrigins();
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_requests" },
+});
+
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_requests" },
+});
+
+const adminLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "too_many_requests" },
+});
 
 async function buildMeResponse(userId: string) {
   const row = await prisma.user.findUnique({
@@ -102,11 +146,36 @@ app.set("trust proxy", 1);
 // Sin allowedHeaders restringido: el preflight debe poder enviar Accept, Cache-Control, etc.
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      // requests server-to-server, health checks o curl sin Origin
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+      const normalized = origin.trim().replace(/\/+$/, "");
+      if (allowedOrigins.has(normalized)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error("cors_not_allowed"));
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );
+app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
+app.use("/auth/login", authLimiter);
+app.use("/auth/signup", authLimiter);
+app.use("/ai", aiLimiter);
+app.use("/admin", adminLimiter);
+
+app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof Error && err.message === "cors_not_allowed") {
+    res.status(403).json({ error: "cors_not_allowed" });
+    return;
+  }
+  next(err);
+});
 
 registerB2BRoutes(app, prisma);
 registerCompetitionRoutes(app, prisma);
@@ -155,7 +224,7 @@ app.get("/public/upcoming-matches", async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /public/upcoming-matches error:", err);
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -274,11 +343,7 @@ app.post("/auth/login", async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("POST /auth/login:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({
-      error: "server_error",
-      message: msg.includes("JWT_SECRET") ? "JWT_SECRET no configurado en el servidor" : msg,
-    });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -302,7 +367,7 @@ app.get("/matches", requireAuth, async (_req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /matches error:", err);
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -403,8 +468,7 @@ app.post("/ai/chat", requireAuth, async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("POST /ai/chat error:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: "ai_error", message: msg });
+    res.status(500).json({ error: "ai_error" });
   }
 });
 
@@ -941,7 +1005,7 @@ app.get("/predictions/me/history", requireAuth, async (req, res) => {
       });
       return;
     }
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -1137,11 +1201,7 @@ app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("POST /admin/sync-match-results error:", err);
-    const msg = err instanceof Error ? err.message : String(err);
-    res.status(500).json({
-      error: "sync_error",
-      message: msg,
-    });
+    res.status(500).json({ error: "sync_error" });
   }
 });
 
@@ -1738,7 +1798,7 @@ app.get("/me/prode-status", requireAuth, async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /me/prode-status error:", err);
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : "Error" });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -1758,7 +1818,7 @@ app.get("/me/guidelines", requireAuth, async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("GET /me/guidelines error:", err);
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : "Error" });
+    res.status(500).json({ error: "server_error" });
   }
 });
 
@@ -1798,7 +1858,7 @@ app.patch("/me/guidelines", requireAuth, async (req, res) => {
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("PATCH /me/guidelines error:", err);
-    res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : "Error" });
+    res.status(500).json({ error: "server_error" });
   }
 });
 

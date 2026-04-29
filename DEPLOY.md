@@ -195,7 +195,11 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
 
 ## Parte I — CORS y errores típicos
 
-- El backend permite CORS desde cualquier origen (adecuado para API + SPA en otro dominio).
+- El backend usa **allowlist de CORS**. Debes configurar:
+  - `CORS_ALLOWED_ORIGINS` (CSV, sin `/` final), por ejemplo:
+    - `http://localhost:5173,https://www.promptplay.pro`
+  - Opcionalmente también toma `FRONTEND_URL` como origen permitido.
+- Requests sin header `Origin` (health checks, curl) están permitidos.
 - Si el frontend dice que la API devolvió HTML: revisá que `VITE_API_URL` sea exactamente la URL del backend y que **vuelvas a desplegar** el frontend después de cambiar esa variable (Vite “hornea” la URL en el build).
 
 ---
