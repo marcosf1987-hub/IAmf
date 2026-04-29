@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PrismaClient } from "@prisma/client";
-import { signAccessToken, verifyAccessToken, type AuthedRequest } from "./auth";
+import { signAccessToken, verifyAccessToken, getAccessTokenFromRequest, type AuthedRequest } from "./auth";
 import { hashPassword } from "./password";
 import {
   adminAiConfigSchema,
@@ -12,7 +12,9 @@ import {
   platformResetOrgAdminPasswordSchema,
 } from "./validators";
 import { encrypt } from "./crypto-util";
+import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { setSessionCookies } from "./session-cookie";
 import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
@@ -38,9 +40,8 @@ export async function requireSuperAdmin(
   next: NextFunction
 ): Promise<void> {
   try {
-    const header = req.header("authorization") ?? "";
-    const [scheme, token] = header.split(" ");
-    if (scheme?.toLowerCase() !== "bearer" || !token) {
+    const token = getAccessTokenFromRequest(req);
+    if (!token) {
       res.status(401).json({ error: "missing_token" });
       return;
     }
@@ -238,7 +239,13 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       role: user.role,
       companyId: user.companyId,
     });
-    res.status(201).json({ token: access, user });
+    const me = await buildMeResponse(prisma, user.id);
+    if (!me) {
+      res.status(500).json({ error: "server_error" });
+      return;
+    }
+    setSessionCookies(res, access);
+    res.status(201).json(me);
   });
 
   app.get("/org/usage", orgAuth, async (req, res) => {

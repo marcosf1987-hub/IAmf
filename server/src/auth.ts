@@ -1,5 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { jwtAccessTokenMaxAgeSeconds } from "./jwt-config";
+import { ACCESS_COOKIE_NAME, parseCookieHeader } from "./session-cookie";
 
 /** Roles en JWT (alineados con Prisma `UserRole`). */
 export type AppRole = "super_admin" | "org_admin" | "member";
@@ -16,20 +18,9 @@ function getJwtSecret(): string {
   return secret;
 }
 
-/** Segundos hasta expiración (solo número → compatible con todos los @types/jsonwebtoken). */
-function jwtExpiresInSeconds(): number {
-  const raw = process.env.JWT_EXPIRES_IN?.trim();
-  if (!raw) return 7 * 24 * 60 * 60;
-  if (/^\d+$/.test(raw)) return parseInt(raw, 10);
-  const days = /^(\d+)d$/i.exec(raw);
-  if (days) return parseInt(days[1], 10) * 24 * 60 * 60;
-  return 7 * 24 * 60 * 60;
-}
-
 export function signAccessToken(payload: AuthTokenPayload): string {
-  // Cast explícito: distintas versiones de @types/jsonwebtoken tipan distinto `expiresIn`.
   return jwt.sign(payload, getJwtSecret(), {
-    expiresIn: jwtExpiresInSeconds(),
+    expiresIn: jwtAccessTokenMaxAgeSeconds(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any);
 }
@@ -45,10 +36,27 @@ export function verifyAccessToken(token: string): AuthTokenPayload | null {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+/**
+ * Obtiene el JWT: si llegan cookie HttpOnly y Bearer, se prioriza la cookie
+ * (menos riesgo de fuga por logs/extensiones que reenvían Authorization).
+ */
+export function getAccessTokenFromRequest(req: Request): string | null {
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const fromCookie = cookies[ACCESS_COOKIE_NAME]?.trim();
   const header = req.header("authorization") ?? "";
-  const [scheme, token] = header.split(" ");
-  if (scheme?.toLowerCase() !== "bearer" || !token) {
+  const [scheme, bearerRaw] = header.split(" ");
+  const fromBearer =
+    scheme?.toLowerCase() === "bearer" && bearerRaw?.trim() ? bearerRaw.trim() : null;
+
+  if (fromCookie && fromBearer) return fromCookie;
+  if (fromCookie) return fromCookie;
+  if (fromBearer) return fromBearer;
+  return null;
+}
+
+export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  const token = getAccessTokenFromRequest(req);
+  if (!token) {
     res.status(401).json({ error: "missing_token" });
     return;
   }

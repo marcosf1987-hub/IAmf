@@ -4,6 +4,8 @@ import type { Express } from "express";
 import type { PrismaClient } from "@prisma/client";
 import { CompetitionMemberRole } from "@prisma/client";
 import { signAccessToken, requireAuth, type AuthedRequest } from "./auth";
+import { buildMeResponse } from "./me-response";
+import { setSessionCookies } from "./session-cookie";
 import { hashPassword } from "./password";
 import { inviteAcceptSchema } from "./validators";
 import { ensureUniversalLeagueMembership } from "./universal-league";
@@ -154,7 +156,13 @@ export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClie
       role: user.role,
       companyId: user.companyId,
     });
-    res.status(201).json({ token: access, user });
+    const me = await buildMeResponse(prisma, user.id);
+    if (!me) {
+      res.status(500).json({ error: "server_error" });
+      return;
+    }
+    setSessionCookies(res, access);
+    res.status(201).json(me);
   });
 
   app.post("/auth/competition-invite/claim", requireAuth, async (req, res) => {

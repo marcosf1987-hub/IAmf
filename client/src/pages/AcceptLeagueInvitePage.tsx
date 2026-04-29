@@ -10,7 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 export default function AcceptLeagueInvitePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loginWithToken } = useAuth();
+  const { user, refreshSession } = useAuth();
   const token = params.get("token") ?? "";
 
   const [loading, setLoading] = useState(true);
@@ -59,8 +59,8 @@ export default function AcceptLeagueInvitePage() {
     }
     setSubmitting(true);
     try {
-      const { token: access } = await acceptCompetitionInvite(token, password, fullName.trim() || undefined);
-      await loginWithToken(access);
+      await acceptCompetitionInvite(token, password, fullName.trim() || undefined);
+      await refreshSession();
       navigate("/app/ligas", { replace: true });
     } catch (err) {
       setSubmitErr(err instanceof Error ? err.message : "Error al crear la cuenta.");

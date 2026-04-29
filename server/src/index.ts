@@ -5,7 +5,16 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { randomUUID } from "node:crypto";
 import { Prisma, PrismaClient, MatchStage, PredictionHistoryKind } from "@prisma/client";
-import { signAccessToken, requireAuth, verifyAccessToken, type AuthedRequest } from "./auth";
+import {
+  signAccessToken,
+  requireAuth,
+  verifyAccessToken,
+  getAccessTokenFromRequest,
+  type AuthedRequest,
+} from "./auth";
+import { csrfProtectionMiddleware } from "./csrf-middleware";
+import { buildMeResponse } from "./me-response";
+import { clearSessionCookies, setSessionCookies } from "./session-cookie";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
@@ -14,7 +23,7 @@ import { anonymizeUserId, isExactHit } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import { encrypt, decrypt } from "./crypto-util";
 import { registerB2BRoutes } from "./b2b-routes";
-import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 import { ensureUniversalLeagueMembership } from "./universal-league";
 import { buildResultsDashboardPayload } from "./results-dashboard";
@@ -76,37 +85,11 @@ const adminLimiter = rateLimit({
   message: { error: "too_many_requests" },
 });
 
-async function buildMeResponse(userId: string) {
-  const row = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      email: true,
-      fullName: true,
-      role: true,
-      status: true,
-      companyId: true,
-      createdAt: true,
-      company: { select: { id: true, name: true, slug: true, seatLimit: true } },
-    },
-  });
-  if (!row) return null;
-  const billingBase = process.env.BILLING_CHECKOUT_BASE_URL?.trim();
-  const usage = await buildOrgSeatSnapshot(
-    prisma,
-    row.companyId,
-    billingBase && billingBase.length > 0 ? billingBase : null
-  );
-  const { company, ...user } = row;
-  return { user, company, usage };
-}
-
 /** Admin de empresa (`org_admin`): el rol debe coincidir con la **base de datos**, no solo con el JWT. */
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
   try {
-    const header = req.header("authorization") ?? "";
-    const [scheme, token] = header.split(" ");
-    if (scheme?.toLowerCase() !== "bearer" || !token) {
+    const token = getAccessTokenFromRequest(req);
+    if (!token) {
       res.status(401).json({ error: "missing_token" });
       return;
     }
@@ -146,6 +129,7 @@ app.set("trust proxy", 1);
 // Sin allowedHeaders restringido: el preflight debe poder enviar Accept, Cache-Control, etc.
 app.use(
   cors({
+    credentials: true,
     origin(origin, callback) {
       // requests server-to-server, health checks o curl sin Origin
       if (!origin) {
@@ -154,7 +138,7 @@ app.use(
       }
       const normalized = origin.trim().replace(/\/+$/, "");
       if (allowedOrigins.has(normalized)) {
-        callback(null, true);
+        callback(null, normalized);
         return;
       }
       callback(new Error("cors_not_allowed"));
@@ -164,8 +148,10 @@ app.use(
 );
 app.use(helmet());
 app.use(express.json({ limit: "1mb" }));
+app.use(csrfProtectionMiddleware);
 app.use("/auth/login", authLimiter);
 app.use("/auth/signup", authLimiter);
+app.use("/auth/logout", authLimiter);
 app.use("/ai", aiLimiter);
 app.use("/admin", adminLimiter);
 
@@ -284,12 +270,13 @@ app.post("/auth/signup", async (req, res) => {
   }
 
   const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
-  const me = await buildMeResponse(user.id);
+  const me = await buildMeResponse(prisma, user.id);
   if (!me) {
     res.status(500).json({ error: "server_error" });
     return;
   }
-  res.status(201).json({ token, ...me });
+  setSessionCookies(res, token);
+  res.status(201).json(me);
 });
 
 app.post("/auth/login", async (req, res) => {
@@ -334,17 +321,24 @@ app.post("/auth/login", async (req, res) => {
     });
 
     const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
-    const me = await buildMeResponse(user.id);
+    const me = await buildMeResponse(prisma, user.id);
     if (!me) {
       res.status(500).json({ error: "server_error" });
       return;
     }
-    res.status(200).json({ token, ...me });
+    setSessionCookies(res, token);
+    res.status(200).json(me);
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("POST /auth/login:", err);
     res.status(500).json({ error: "server_error" });
   }
+});
+
+/** Cierra sesión: borra cookies de acceso y CSRF (el cliente debe usar credentials). */
+app.post("/auth/logout", (_req, res) => {
+  clearSessionCookies(res);
+  res.status(204).end();
 });
 
 app.get("/matches", requireAuth, async (_req, res) => {
@@ -1737,7 +1731,7 @@ app.get("/admin/exports/users.csv", requireAdmin, async (req, res) => {
 
 app.get("/me", requireAuth, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
-  const me = await buildMeResponse(userId);
+  const me = await buildMeResponse(prisma, userId);
   if (!me) {
     res.status(404).json({ error: "not_found" });
     return;
@@ -1768,7 +1762,7 @@ app.patch("/me", requireAuth, async (req, res) => {
     where: { id: userId },
     data: updates,
   });
-  const me = await buildMeResponse(userId);
+  const me = await buildMeResponse(prisma, userId);
   if (!me) {
     res.status(404).json({ error: "not_found" });
     return;

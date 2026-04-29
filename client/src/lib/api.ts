@@ -86,8 +86,6 @@ const API_BASE = resolveApiBase();
 export const isProductionApiUrlMissing =
   import.meta.env.PROD && !import.meta.env.VITE_API_URL;
 
-const TOKEN_KEY = "rrhhia_token";
-
 function networkHint(err: unknown): Error {
   if (err instanceof TypeError) {
     return new Error(
@@ -99,8 +97,15 @@ function networkHint(err: unknown): Error {
   return new Error(formatApiError(err instanceof Error ? err : new Error(String(err))));
 }
 
-function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+/** Cookie legible `pp_csrf` (double-submit); debe coincidir con header en mutaciones cuando hay sesión por cookie. */
+function readBrowserCsrfCookie(): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = "pp_csrf=";
+  for (const part of document.cookie.split(";")) {
+    const t = part.trim();
+    if (t.startsWith(prefix)) return decodeURIComponent(t.slice(prefix.length));
+  }
+  return null;
 }
 
 async function parseJson<T>(res: Response, url?: string): Promise<T> {
@@ -119,15 +124,23 @@ async function parseJson<T>(res: Response, url?: string): Promise<T> {
 }
 
 async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getToken();
-  if (!token) throw new Error(formatApiError(new Error("Unauthorized")));
   const url = `${API_BASE}${path}`;
+  const method = (init?.method ?? "GET").toUpperCase();
+  const csrf = readBrowserCsrfCookie();
+  const baseHeaders = (init?.headers ?? {}) as Record<string, string>;
+  const headers: Record<string, string> = { ...baseHeaders };
+  if (
+    csrf &&
+    method !== "GET" &&
+    method !== "HEAD" &&
+    method !== "OPTIONS"
+  ) {
+    headers["X-CSRF-Token"] = csrf;
+  }
   const res = await fetch(url, {
     ...init,
-    headers: {
-      ...init?.headers,
-      Authorization: `Bearer ${token}`,
-    },
+    credentials: "include",
+    headers,
   });
   const data = await parseJson<T & { message?: string }>(res, url);
   if (!res.ok) {
@@ -195,14 +208,24 @@ export type MeResponse = {
   usage: OrgUsage | null;
 };
 
-export type LoginResponse = MeResponse & { token: string };
+export type LoginResponse = MeResponse;
 
-export type SignupResponse = LoginResponse;
+export type SignupResponse = MeResponse;
+
+export async function logoutSession(): Promise<void> {
+  const csrf = readBrowserCsrfCookie();
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+    headers: csrf ? { "X-CSRF-Token": csrf } : {},
+  });
+}
 
 export async function login(email: string, password: string): Promise<LoginResponse> {
   try {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password }),
     });
@@ -228,6 +251,7 @@ export async function signup(
   try {
     const res = await fetch(`${API_BASE}/auth/signup`, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password, fullName }),
     });
@@ -239,16 +263,12 @@ export async function signup(
   }
 }
 
-export async function fetchMe(token?: string): Promise<MeResponse> {
-  if (token) {
-    const res = await fetch(`${API_BASE}/me`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const data = await parseJson<MeResponse & { error?: string }>(res);
-    if (!res.ok) throw new Error(data.error ?? "Unauthorized");
-    return data;
-  }
-  return fetchAuth("/me");
+export async function fetchMe(): Promise<MeResponse> {
+  const url = `${API_BASE}/me`;
+  const res = await fetch(url, { credentials: "include", cache: "no-store" });
+  const data = await parseJson<MeResponse & { error?: string }>(res, url);
+  if (!res.ok) throw new Error(data.error ?? "Unauthorized");
+  return data;
 }
 
 export async function updateMe(data: { fullName?: string; password?: string }): Promise<MeResponse> {
@@ -315,13 +335,14 @@ export async function acceptInvite(
   token: string,
   password: string,
   fullName?: string
-): Promise<{ token: string; user: User }> {
+): Promise<MeResponse> {
   const res = await fetch(`${API_BASE}/auth/invite/accept`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, password, fullName }),
   });
-  const data = await parseJson<{ token: string; user: User; error?: string }>(res, `${API_BASE}/auth/invite/accept`);
+  const data = await parseJson<MeResponse & { error?: string }>(res, `${API_BASE}/auth/invite/accept`);
   if (!res.ok) throw new Error(data.error ?? "No se pudo aceptar la invitación");
   return data;
 }
@@ -730,14 +751,14 @@ export async function createCompetition(body: {
 export async function joinCompetitionByCode(
   code: string
 ): Promise<{ ok: true; competitionId: string } | { alreadyMember: true; competitionId: string }> {
-  const token = getToken();
-  if (!token) throw new Error("Unauthorized");
   const url = `${API_BASE}/competitions/join`;
+  const csrf = readBrowserCsrfCookie();
   const res = await fetch(url, {
     method: "POST",
+    credentials: "include",
     headers: {
-      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      ...(csrf ? { "X-CSRF-Token": csrf } : {}),
     },
     body: JSON.stringify({ code: code.trim() }),
   });
@@ -851,21 +872,23 @@ export async function acceptCompetitionInvite(
   token: string,
   password: string,
   fullName?: string
-): Promise<{ token: string; user: User }> {
+): Promise<MeResponse> {
   const res = await fetch(`${API_BASE}/auth/competition-invite/accept`, {
     method: "POST",
+    credentials: "include",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ token, password, fullName }),
   });
-  const data = await parseJson<
-    { token: string; user: User; error?: string; message?: string } & { message?: string }
-  >(res, `${API_BASE}/auth/competition-invite/accept`);
+  const data = await parseJson<MeResponse & { error?: string; message?: string }>(
+    res,
+    `${API_BASE}/auth/competition-invite/accept`
+  );
   if (!res.ok) {
     throw new Error(
       (data as { message?: string }).message ?? data.error ?? "No se pudo crear la cuenta"
     );
   }
-  return data as { token: string; user: User };
+  return data as MeResponse;
 }
 
 export async function claimCompetitionInvite(token: string): Promise<{
@@ -1167,12 +1190,12 @@ export async function downloadExport(
   type: "prompts" | "logins" | "users",
   range: AdminReportRange = "all"
 ): Promise<void> {
-  const token = getToken();
-  if (!token) throw new Error("Unauthorized");
   const base = API_BASE;
   const q = adminReportQuery(range);
+  const csrf = readBrowserCsrfCookie();
   const res = await fetch(`${base}/admin/exports/${type}.csv${q}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
+    headers: csrf ? { "X-CSRF-Token": csrf } : {},
   });
   if (!res.ok) {
     const errText = await res.text();

@@ -7,23 +7,27 @@ import {
   type ReactNode,
 } from "react";
 import type { CompanySummary, OrgUsage, User } from "../lib/api";
-import { fetchMe, login as apiLogin, signup as apiSignup } from "../lib/api";
+import {
+  fetchMe,
+  login as apiLogin,
+  logoutSession,
+  signup as apiSignup,
+} from "../lib/api";
 
-const TOKEN_KEY = "rrhhia_token";
+/** Migración PR2: ya no se usa para sesión; se limpia una vez al cargar. */
+const LEGACY_TOKEN_KEY = "rrhhia_token";
 
 type AuthState = {
   user: User | null;
   company: CompanySummary | null;
   usage: OrgUsage | null;
-  token: string | null;
   loading: boolean;
 };
 
 type AuthContextValue = AuthState & {
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, fullName?: string) => Promise<void>;
-  loginWithToken: (token: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   setUser: (user: User) => void;
   refreshSession: () => Promise<void>;
 };
@@ -35,84 +39,69 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user: null,
     company: null,
     usage: null,
-    token: null,
     loading: true,
   });
 
-  const loadUser = useCallback(async (token: string) => {
+  const refreshSession = useCallback(async () => {
     try {
-      const { user, company, usage } = await fetchMe(token);
-      setState({ user, company: company ?? null, usage: usage ?? null, token, loading: false });
+      const { user, company, usage } = await fetchMe();
+      setState({
+        user,
+        company: company ?? null,
+        usage: usage ?? null,
+        loading: false,
+      });
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
-      setState({ user: null, company: null, usage: null, token: null, loading: false });
+      setState({ user: null, company: null, usage: null, loading: false });
     }
   }, []);
 
-  const refreshSession = useCallback(async () => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored) await loadUser(stored);
-  }, [loadUser]);
-
   useEffect(() => {
-    const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored) {
-      loadUser(stored);
-    } else {
-      setState((s) => ({ ...s, loading: false }));
+    try {
+      localStorage.removeItem(LEGACY_TOKEN_KEY);
+    } catch {
+      /* noop */
     }
-  }, [loadUser]);
+    void refreshSession();
+  }, [refreshSession]);
 
   const login = useCallback(async (email: string, password: string) => {
-    const { token, user, company, usage } = await apiLogin(email, password);
-    localStorage.setItem(TOKEN_KEY, token);
+    const me = await apiLogin(email, password);
     setState({
-      user,
-      company: company ?? null,
-      usage: usage ?? null,
-      token,
+      user: me.user,
+      company: me.company ?? null,
+      usage: me.usage ?? null,
       loading: false,
     });
   }, []);
 
   const signup = useCallback(async (email: string, password: string, fullName?: string) => {
-    const { token, user, company, usage } = await apiSignup(email, password, fullName);
-    localStorage.setItem(TOKEN_KEY, token);
+    const me = await apiSignup(email, password, fullName);
     setState({
-      user,
-      company: company ?? null,
-      usage: usage ?? null,
-      token,
+      user: me.user,
+      company: me.company ?? null,
+      usage: me.usage ?? null,
       loading: false,
     });
   }, []);
 
-  const loginWithToken = useCallback(async (token: string) => {
-    const { user, company, usage } = await fetchMe(token);
-    localStorage.setItem(TOKEN_KEY, token);
-    setState({
-      user,
-      company: company ?? null,
-      usage: usage ?? null,
-      token,
-      loading: false,
-    });
-  }, []);
-
-  const logout = useCallback(() => {
-    localStorage.removeItem(TOKEN_KEY);
-    setState({ user: null, company: null, usage: null, token: null, loading: false });
+  const logout = useCallback(async () => {
+    try {
+      await logoutSession();
+    } catch {
+      /* seguir limpiando estado local */
+    }
+    setState({ user: null, company: null, usage: null, loading: false });
   }, []);
 
   const setUser = useCallback((user: User) => {
-    setState((s) => (s.token ? { ...s, user } : s));
+    setState((s) => (s.user ? { ...s, user } : s));
   }, []);
 
   const value: AuthContextValue = {
     ...state,
     login,
     signup,
-    loginWithToken,
     logout,
     setUser,
     refreshSession,

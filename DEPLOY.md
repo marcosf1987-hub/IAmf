@@ -193,13 +193,16 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
 
 ---
 
-## Parte I — CORS y errores típicos
+## Parte I — CORS, cookies de sesión y errores típicos
 
-- El backend usa **allowlist de CORS**. Debes configurar:
+- El backend usa **allowlist de CORS** con **`credentials: true`** (cookies HttpOnly en el dominio del API). Debés configurar:
   - `CORS_ALLOWED_ORIGINS` (CSV, sin `/` final), por ejemplo:
     - `http://localhost:5173,https://www.promptplay.pro`
+  - Incluí **el origen exacto del SPA** (esquema + host + puerto si aplica); si falta, el navegador bloquea las respuestas credentialed.
   - Opcionalmente también toma `FRONTEND_URL` como origen permitido.
-- Requests sin header `Origin` (health checks, curl) están permitidos.
+- Requests sin header `Origin` (health checks, curl) siguen permitidos.
+- **Sesión (PR2):** el JWT va en cookie `pp_access` (HttpOnly) y anti-CSRF en `pp_csrf` + header `X-CSRF-Token` en POST/PUT/PATCH/DELETE cuando hay cookie de sesión. En **producción** la cookie usa por defecto **`SameSite=None`** y **`Secure`** (necesario si el front y el API están en distintos hosts). Si front y API comparten el mismo sitio y querés `SameSite=Lax`, definí `SESSION_COOKIE_SAMESITE=lax` en el backend.
+- El login por Google ya **no** pasa el token en el fragmento de URL; el callback usa `?oauth=success` y las cookies que setea el servidor.
 - Si el frontend dice que la API devolvió HTML: revisá que `VITE_API_URL` sea exactamente la URL del backend y que **vuelvas a desplegar** el frontend después de cambiar esa variable (Vite “hornea” la URL en el build).
 
 ---

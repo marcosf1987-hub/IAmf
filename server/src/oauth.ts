@@ -2,6 +2,7 @@ import type { Express, Request, Response } from "express";
 import { randomBytes } from "node:crypto";
 import type { PrismaClient, UserRole } from "@prisma/client";
 import { signAccessToken } from "./auth";
+import { setSessionCookies } from "./session-cookie";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { ensureUniversalLeagueMembership } from "./universal-league";
@@ -127,9 +128,14 @@ function clearStateCookie(res: Response): void {
   res.append("Set-Cookie", parts.join("; "));
 }
 
-function redirectFrontend(res: Response, hashParams: Record<string, string>): void {
-  const h = new URLSearchParams(hashParams).toString();
-  res.redirect(302, `${frontendBase()}/oauth/callback#${h}`);
+function redirectFrontendError(res: Response, message: string): void {
+  const q = new URLSearchParams({ oauth_error: message }).toString();
+  res.redirect(302, `${frontendBase()}/oauth/callback?${q}`);
+}
+
+function redirectOAuthSuccess(res: Response, jwt: string): void {
+  setSessionCookies(res, jwt);
+  res.redirect(302, `${frontendBase()}/oauth/callback?oauth=success`);
 }
 
 type GoogleTokenResponse = {
@@ -286,7 +292,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     if (err) {
       clearStateCookie(res);
       const desc = typeof q.error_description === "string" ? q.error_description : err;
-      redirectFrontend(res, { error: desc || err });
+      redirectFrontendError(res, desc || err);
       return;
     }
     const code = q.code;
@@ -294,7 +300,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     const cookies = parseCookie(req.headers.cookie);
     if (!code || !state || cookies[STATE_COOKIE] !== state) {
       clearStateCookie(res);
-      redirectFrontend(res, { error: "Sesión de inicio con Google inválida o expirada. Probá de nuevo." });
+      redirectFrontendError(res, "Sesión de inicio con Google inválida o expirada. Probá de nuevo.");
       return;
     }
     clearStateCookie(res);
@@ -303,7 +309,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     const secret = googleClientSecret();
     const redir = redirectUri();
     if (!clientId || !secret || !redir) {
-      redirectFrontend(res, { error: "Google OAuth no está configurado en el servidor." });
+      redirectFrontendError(res, "Google OAuth no está configurado en el servidor.");
       return;
     }
 
@@ -324,9 +330,10 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       if (!tokenRes.ok || !tokenJson.access_token) {
         // eslint-disable-next-line no-console
         console.error("Google token error:", tokenJson);
-        redirectFrontend(res, {
-          error: tokenJson.error_description || tokenJson.error || "No se pudo validar la cuenta de Google.",
-        });
+        redirectFrontendError(
+          res,
+          tokenJson.error_description || tokenJson.error || "No se pudo validar la cuenta de Google."
+        );
         return;
       }
 
@@ -335,7 +342,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       });
       const prof = (await uiRes.json()) as GoogleUserInfo;
       if (!uiRes.ok || !prof.sub || !prof.email) {
-        redirectFrontend(res, { error: "No se pudo leer el perfil de Google." });
+        redirectFrontendError(res, "No se pudo leer el perfil de Google.");
         return;
       }
 
@@ -367,7 +374,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         role: userRow.role,
         companyId: userRow.companyId,
       });
-      redirectFrontend(res, { token });
+      redirectOAuthSuccess(res, token);
     } catch (e) {
       const codeMsg =
         e instanceof Error
@@ -381,7 +388,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
           : String(e);
       // eslint-disable-next-line no-console
       console.error("OAuth Google callback:", e);
-      redirectFrontend(res, { error: codeMsg });
+      redirectFrontendError(res, codeMsg);
     }
   });
 

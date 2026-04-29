@@ -4,43 +4,61 @@ import MarketingLayout from "../components/MarketingLayout";
 import { useAuth } from "../contexts/AuthContext";
 
 /**
- * El API redirige aquí con <code>#token=…</code> o <code>#error=…</code> tras Google OAuth.
+ * Tras Google OAuth el API redirige con <code>?oauth=success</code> (cookies HttpOnly)
+ * o <code>?oauth_error=…</code>. El hash <code>#error=…</code> queda como compatibilidad mínima.
  */
 export default function OAuthCallbackPage() {
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { refreshSession } = useAuth();
   const [message, setMessage] = useState("Completando inicio de sesión…");
   const [isError, setIsError] = useState(false);
 
   useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    const oauthErr = search.get("oauth_error");
+    if (oauthErr) {
+      setIsError(true);
+      setMessage(oauthErr);
+      window.history.replaceState(null, "", window.location.pathname);
+      return;
+    }
+
+    if (search.get("oauth") === "success") {
+      void (async () => {
+        try {
+          await refreshSession();
+          window.history.replaceState(null, "", window.location.pathname);
+          navigate("/app", { replace: true });
+        } catch (e) {
+          setIsError(true);
+          setMessage(e instanceof Error ? e.message : "No se pudo validar la sesión.");
+        }
+      })();
+      return;
+    }
+
     const hash = window.location.hash.replace(/^#/, "");
-    const params = new URLSearchParams(hash);
-    const token = params.get("token");
-    const err = params.get("error");
-
-    if (err) {
+    const hp = new URLSearchParams(hash);
+    const errHash = hp.get("error");
+    if (errHash) {
       setIsError(true);
-      setMessage(err);
+      setMessage(errHash);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
       return;
     }
 
-    if (!token || token.length < 10) {
+    if (hp.get("token")) {
       setIsError(true);
-      setMessage("Respuesta inválida del servidor. Probá iniciar sesión de nuevo.");
+      setMessage(
+        "Este enlace de login está desactualizado. Volvé a iniciar sesión con Google desde la pantalla de acceso."
+      );
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
       return;
     }
 
-    void (async () => {
-      try {
-        await loginWithToken(token);
-        window.history.replaceState(null, "", window.location.pathname + window.location.search);
-        navigate("/app", { replace: true });
-      } catch (e) {
-        setIsError(true);
-        setMessage(e instanceof Error ? e.message : "No se pudo validar la sesión.");
-      }
-    })();
-  }, [loginWithToken, navigate]);
+    setIsError(true);
+    setMessage("Respuesta inválida del servidor. Probá iniciar sesión de nuevo.");
+  }, [refreshSession, navigate]);
 
   return (
     <MarketingLayout mainVariant="auth">

@@ -6,7 +6,7 @@ import { useAuth } from "../contexts/AuthContext";
 export default function AcceptInvitePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const { loginWithToken } = useAuth();
+  const { refreshSession } = useAuth();
   const token = params.get("token") ?? "";
 
   const [loading, setLoading] = useState(true);
@@ -47,8 +47,8 @@ export default function AcceptInvitePage() {
     }
     setSubmitting(true);
     try {
-      const { token: access } = await acceptInvite(token, password, fullName.trim() || undefined);
-      await loginWithToken(access);
+      await acceptInvite(token, password, fullName.trim() || undefined);
+      await refreshSession();
       navigate("/app", { replace: true });
     } catch (err) {
       setSubmitErr(err instanceof Error ? err.message : "Error al crear la cuenta.");
