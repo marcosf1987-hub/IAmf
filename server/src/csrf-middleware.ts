@@ -4,6 +4,7 @@ import {
   CSRF_COOKIE_NAME,
   parseCookieHeader,
 } from "./session-cookie";
+import { logSecurityEvent, securityError } from "./security-utils";
 
 const CSRF_HEADER = "x-csrf-token";
 
@@ -28,6 +29,13 @@ function safePath(req: Request): string {
  * Si hay cookie de sesión HttpOnly, las mutaciones deben enviar el mismo valor que `pp_csrf` en header.
  * Solo Bearer (sin cookie de sesión): compatibilidad temporal TODO(PR3): retirar.
  */
+function hasBearerAuthHeader(req: Request): boolean {
+  const auth = req.header("authorization");
+  if (!auth) return false;
+  const [scheme, token] = auth.split(" ");
+  return scheme?.toLowerCase() === "bearer" && Boolean(token?.trim());
+}
+
 export function csrfProtectionMiddleware(req: Request, res: Response, next: NextFunction): void {
   const method = req.method.toUpperCase();
   if (method === "GET" || method === "HEAD" || method === "OPTIONS") {
@@ -43,7 +51,9 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
 
   const cookies = parseCookieHeader(req.headers.cookie);
   const hasSessionCookie = Boolean(cookies[ACCESS_COOKIE_NAME]?.trim());
-  if (!hasSessionCookie) {
+  const hasBearer = hasBearerAuthHeader(req);
+  const needsCsrf = hasSessionCookie || hasBearer;
+  if (!needsCsrf) {
     next();
     return;
   }
@@ -53,7 +63,13 @@ export function csrfProtectionMiddleware(req: Request, res: Response, next: Next
   const csrfHeader = typeof rawHeader === "string" ? rawHeader.trim() : undefined;
 
   if (!csrfCookie || !csrfHeader || csrfCookie !== csrfHeader) {
-    res.status(403).json({ error: "csrf_invalid" });
+    logSecurityEvent(req, "csrf_rejected", {
+      hasSessionCookie,
+      hasBearer,
+      hasCsrfCookie: Boolean(csrfCookie),
+      hasCsrfHeader: Boolean(csrfHeader),
+    });
+    securityError(res, 403, "csrf_invalid");
     return;
   }
 

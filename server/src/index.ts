@@ -32,6 +32,7 @@ import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
 import { registerF1Routes } from "./f1-routes";
 import { mountOAuthRoutes } from "./oauth";
 import { syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
+import { logSecurityEvent, securityError } from "./security-utils";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -61,29 +62,27 @@ function parseAllowedOrigins(): Set<string> {
 
 const allowedOrigins = parseAllowedOrigins();
 
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "too_many_requests" },
-});
+function createLimiter(params: { windowMs: number; max: number; key: string }) {
+  return rateLimit({
+    windowMs: params.windowMs,
+    max: params.max,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler(req, res) {
+      logSecurityEvent(req, "rate_limit_blocked", { key: params.key });
+      const retry = Math.ceil(params.windowMs / 1000);
+      res.setHeader("Retry-After", String(retry));
+      securityError(res, 429, "too_many_requests");
+    },
+  });
+}
 
-const aiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 60,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "too_many_requests" },
-});
-
-const adminLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: "too_many_requests" },
-});
+const authLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10, key: "auth" });
+const aiLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 60, key: "ai" });
+const adminLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 100, key: "admin" });
+const joinLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 20, key: "join_competition" });
+const inviteAcceptLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 12, key: "invite_accept" });
+const orgInviteLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 20, key: "org_invite_batch" });
 
 /** Admin de empresa (`org_admin`): el rol debe coincidir con la **base de datos**, no solo con el JWT. */
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
@@ -146,14 +145,39 @@ app.use(
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   })
 );
-app.use(helmet());
+const isProd = process.env.NODE_ENV === "production";
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+      },
+    },
+    hsts: isProd
+      ? {
+          maxAge: 15552000,
+          includeSubDomains: true,
+          preload: false,
+        }
+      : false,
+    referrerPolicy: { policy: "no-referrer" },
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 app.use(csrfProtectionMiddleware);
 app.use("/auth/login", authLimiter);
 app.use("/auth/signup", authLimiter);
 app.use("/auth/logout", authLimiter);
+app.use("/auth/invite/accept", inviteAcceptLimiter);
+app.use("/auth/competition-invite/accept", inviteAcceptLimiter);
 app.use("/ai", aiLimiter);
 app.use("/admin", adminLimiter);
+app.use("/competitions/join", joinLimiter);
+app.use("/org/invitations", orgInviteLimiter);
 
 app.use((err: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (err instanceof Error && err.message === "cors_not_allowed") {

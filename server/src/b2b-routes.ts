@@ -78,9 +78,8 @@ export async function requireOrgAdmin(
   next: NextFunction
 ): Promise<void> {
   try {
-    const header = req.header("authorization") ?? "";
-    const [scheme, token] = header.split(" ");
-    if (scheme?.toLowerCase() !== "bearer" || !token) {
+    const token = getAccessTokenFromRequest(req);
+    if (!token) {
       res.status(401).json({ error: "missing_token" });
       return;
     }

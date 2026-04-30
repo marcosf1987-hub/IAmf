@@ -26,6 +26,12 @@ export function sessionCookieSameSite(): "lax" | "none" {
   return process.env.NODE_ENV === "production" ? "none" : "lax";
 }
 
+function cookieDomain(): string | null {
+  const raw = process.env.SESSION_COOKIE_DOMAIN?.trim();
+  if (!raw) return null;
+  return raw;
+}
+
 function appendCookie(res: Response, parts: string[]): void {
   res.append("Set-Cookie", parts.join("; "));
 }
@@ -44,6 +50,8 @@ export function setSessionCookies(res: Response, jwt: string): void {
     "HttpOnly",
     `SameSite=${sameSite === "none" ? "None" : "Lax"}`,
   ];
+  const domain = cookieDomain();
+  if (domain) accessParts.push(`Domain=${domain}`);
   if (isProd || sameSite === "none") accessParts.push("Secure");
 
   const csrfParts = [
@@ -52,6 +60,7 @@ export function setSessionCookies(res: Response, jwt: string): void {
     `Max-Age=${maxAge}`,
     `SameSite=${sameSite === "none" ? "None" : "Lax"}`,
   ];
+  if (domain) csrfParts.push(`Domain=${domain}`);
   if (isProd || sameSite === "none") csrfParts.push("Secure");
 
   appendCookie(res, accessParts);
@@ -64,6 +73,11 @@ export function clearSessionCookies(res: Response): void {
   const ss = sameSite === "none" ? "None" : "Lax";
   const accessParts = [`${ACCESS_COOKIE_NAME}=`, "Path=/", "Max-Age=0", "HttpOnly", `SameSite=${ss}`];
   const csrfParts = [`${CSRF_COOKIE_NAME}=`, "Path=/", "Max-Age=0", `SameSite=${ss}`];
+  const domain = cookieDomain();
+  if (domain) {
+    accessParts.push(`Domain=${domain}`);
+    csrfParts.push(`Domain=${domain}`);
+  }
   if (isProd || sameSite === "none") {
     accessParts.push("Secure");
     csrfParts.push("Secure");

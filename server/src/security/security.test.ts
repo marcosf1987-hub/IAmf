@@ -1,0 +1,97 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import type { NextFunction, Request, Response } from "express";
+import { csrfProtectionMiddleware } from "../csrf-middleware";
+import { createCompetitionSchema, loginSchema } from "../validators";
+
+type MockRes = Partial<Response> & {
+  statusCode?: number;
+  body?: unknown;
+};
+
+function createResponse(): MockRes {
+  const res: MockRes = {};
+  res.status = (code: number) => {
+    res.statusCode = code;
+    return res as Response;
+  };
+  res.json = (payload: unknown) => {
+    res.body = payload;
+    return res as Response;
+  };
+  return res;
+}
+
+function createRequest(overrides?: Record<string, unknown>): Request {
+  const mergedHeaders = {
+    ...((overrides?.headers as Record<string, string | string[] | undefined> | undefined) ?? {}),
+  };
+  return {
+    method: "POST",
+    originalUrl: "/predictions",
+    url: "/predictions",
+    path: "/predictions",
+    headers: mergedHeaders,
+    header(name: string): string | string[] | undefined {
+      const key = name.toLowerCase();
+      const value = mergedHeaders[key];
+      return value;
+    },
+    ...overrides,
+  } as unknown as Request;
+}
+
+test("csrf middleware rechaza mutación sin header/cookie csrf", () => {
+  const req = createRequest({
+    headers: {
+      cookie: "pp_access=token123; pp_csrf=abc123",
+    },
+  });
+  const res = createResponse() as Response;
+  let called = false;
+  const next: NextFunction = () => {
+    called = true;
+  };
+
+  csrfProtectionMiddleware(req, res, next);
+
+  assert.equal(called, false);
+  assert.equal((res as unknown as MockRes).statusCode, 403);
+  assert.deepEqual((res as unknown as MockRes).body, { error: "csrf_invalid" });
+});
+
+test("csrf middleware permite mutación con cookie+header válidos", () => {
+  const req = createRequest({
+    headers: {
+      cookie: "pp_access=token123; pp_csrf=abc123",
+      "x-csrf-token": "abc123",
+    },
+  });
+  const res = createResponse() as Response;
+  let called = false;
+  const next: NextFunction = () => {
+    called = true;
+  };
+
+  csrfProtectionMiddleware(req, res, next);
+
+  assert.equal(called, true);
+});
+
+test("validators: login normaliza email con espacios", () => {
+  const parsed = loginSchema.parse({
+    email: "  TEST@EXAMPLE.COM ",
+    password: "secret123",
+  });
+  assert.equal(parsed.email, "test@example.com");
+});
+
+test("validators: createCompetition rechaza coverImageUrl inválida", () => {
+  const parsed = createCompetitionSchema.safeParse({
+    name: "Liga",
+    maxMembers: 10,
+    coverImageUrl: "javascript:alert(1)",
+  });
+  assert.equal(parsed.success, false);
+});
+
