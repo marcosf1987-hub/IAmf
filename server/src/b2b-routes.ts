@@ -19,6 +19,7 @@ import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
+import { replyGenericInviteError } from "./invite-security";
 
 function frontendBase(): string {
   return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
@@ -161,15 +162,15 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       include: { company: { select: { name: true, slug: true } } },
     });
     if (!inv) {
-      res.status(404).json({ error: "invite_not_found" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.acceptedAt) {
-      res.status(410).json({ error: "invite_already_used" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.expiresAt.getTime() < Date.now()) {
-      res.status(410).json({ error: "invite_expired" });
+      replyGenericInviteError(res);
       return;
     }
     res.status(200).json({
@@ -192,15 +193,15 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       include: { company: true },
     });
     if (!inv) {
-      res.status(404).json({ error: "invite_not_found" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.acceptedAt) {
-      res.status(409).json({ error: "invite_already_used" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.expiresAt.getTime() < Date.now()) {
-      res.status(410).json({ error: "invite_expired" });
+      replyGenericInviteError(res);
       return;
     }
 

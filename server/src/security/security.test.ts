@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import type { NextFunction, Request, Response } from "express";
 import { csrfProtectionMiddleware } from "../csrf-middleware";
 import { isAuthTokenStale, type AuthTokenPayload } from "../auth";
+import { replyGenericInviteError } from "../invite-security";
+import { readSecurityCounters, securityError } from "../security-utils";
 import { createCompetitionSchema, loginSchema } from "../validators";
 
 type MockRes = Partial<Response> & {
@@ -125,5 +127,22 @@ test("auth: token queda obsoleto si cambia tokenVersion/rol/empresa", () => {
   assert.equal(isAuthTokenStale(payload, { role: "org_admin", companyId: "c1", tokenVersion: 1 }), true);
   assert.equal(isAuthTokenStale(payload, { role: "member", companyId: "c2", tokenVersion: 1 }), true);
   assert.equal(isAuthTokenStale(payload, { role: "member", companyId: "c1", tokenVersion: 2 }), true);
+});
+
+test("invite security: respuestas públicas son genéricas", () => {
+  const res = createResponse() as Response;
+  replyGenericInviteError(res);
+  assert.equal((res as unknown as MockRes).statusCode, 404);
+  assert.deepEqual((res as unknown as MockRes).body, { error: "invalid_invite" });
+});
+
+test("security metrics: securityError incrementa contadores clave", () => {
+  const res = createResponse() as Response;
+  securityError(res, 429, "too_many_requests");
+  securityError(res, 403, "csrf_invalid");
+  const counters = readSecurityCounters();
+  assert.ok((counters.http_429 ?? 0) >= 1);
+  assert.ok((counters.http_403 ?? 0) >= 1);
+  assert.ok((counters.csrf_invalid ?? 0) >= 1);
 });
 

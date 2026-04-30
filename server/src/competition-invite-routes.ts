@@ -12,6 +12,7 @@ import { ensureUniversalLeagueMembership } from "./universal-league";
 import { sendCompetitionInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
+import { replyGenericInviteError } from "./invite-security";
 
 function hashInviteToken(raw: string): string {
   return crypto.createHash("sha256").update(raw, "utf8").digest("hex");
@@ -42,15 +43,15 @@ export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClie
       },
     });
     if (!inv) {
-      res.status(404).json({ error: "invite_not_found" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.acceptedAt) {
-      res.status(410).json({ error: "invite_already_used" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.expiresAt.getTime() < Date.now()) {
-      res.status(410).json({ error: "invite_expired" });
+      replyGenericInviteError(res);
       return;
     }
     const existing = await prisma.user.findUnique({
@@ -79,15 +80,15 @@ export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClie
       include: { competition: true },
     });
     if (!inv) {
-      res.status(404).json({ error: "invite_not_found" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.acceptedAt) {
-      res.status(409).json({ error: "invite_already_used" });
+      replyGenericInviteError(res);
       return;
     }
     if (inv.expiresAt.getTime() < Date.now()) {
-      res.status(410).json({ error: "invite_expired" });
+      replyGenericInviteError(res);
       return;
     }
 
