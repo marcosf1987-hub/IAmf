@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import DashboardWelcomeBand from "../components/DashboardWelcomeBand";
 import F1HomeOverview from "../components/F1HomeOverview";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
 import { useAppDiscipline } from "../contexts/AppDisciplineContext";
@@ -33,18 +34,6 @@ function canCreateMoreLeagues(q: CompetitionQuota): boolean {
   }
   if (q.maxCompany == null) return true;
   return (q.companyTotal ?? 0) < q.maxCompany;
-}
-
-function WaveIcon() {
-  return (
-    <span className="dashboard-emoji" aria-hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 12c2-3 4-5 6-5s4 2 6 5" />
-        <path d="M8 12c2-3 4-5 6-5s4 2 6 5" />
-        <path d="M14 12c2-3 4-5 6-5s4 2 6 5" />
-      </svg>
-    </span>
-  );
 }
 
 function FootballIcon() {
@@ -259,17 +248,12 @@ const EMPTY_DASH: ResultsDashboard = {
 
 export default function AppDashboard() {
   const { user, company } = useAuth();
-  const { discipline, setDiscipline } = useAppDiscipline();
+  const { discipline } = useAppDiscipline();
   const [dashTab, setDashTab] = useState<"football" | "f1">(() => (discipline === "f1" ? "f1" : "football"));
 
   useEffect(() => {
     setDashTab(discipline === "f1" ? "f1" : "football");
   }, [discipline]);
-
-  function selectDashboardTab(next: "football" | "f1") {
-    setDashTab(next);
-    setDiscipline(next === "f1" ? "f1" : "football");
-  }
 
   const [prodeStatus, setProdeStatus] = useState<ProdeStatus | null>(null);
   const [mine, setMine] = useState<MineCompetitionsResponse | null>(null);
@@ -356,44 +340,12 @@ export default function AppDashboard() {
 
   return (
     <div className="dashboard">
-      <header className="dashboard-header-block">
-        <h1 className="dashboard-welcome">
-          Hola, {displayName} <WaveIcon />
-        </h1>
-        <p className="dashboard-model-status">
-          {dashTab === "f1" ? (
-            <>
-              <span className="dashboard-model-status-label">Estado F1:</span>{" "}
-              {f1DashStatusLine || "Sincronizando estado…"}
-            </>
-          ) : (
-            <>
-              <span className="dashboard-model-status-label">Estado del modelo:</span> {getModelStatusText()}
-            </>
-          )}
-        </p>
-      </header>
-
-      <div className="dashboard-mode-tabs" role="tablist" aria-label="Vista de inicio por disciplina">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={dashTab === "football"}
-          className={`dashboard-mode-tab${dashTab === "football" ? " dashboard-mode-tab--active" : ""}`}
-          onClick={() => selectDashboardTab("football")}
-        >
-          Mundial 2026
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={dashTab === "f1"}
-          className={`dashboard-mode-tab${dashTab === "f1" ? " dashboard-mode-tab--active" : ""}`}
-          onClick={() => selectDashboardTab("f1")}
-        >
-          Fórmula 1
-        </button>
-      </div>
+      <DashboardWelcomeBand
+        displayName={displayName}
+        dashTab={dashTab}
+        footballStatusLine={getModelStatusText()}
+        f1StatusLineFromDashboard={f1DashStatusLine}
+      />
 
       {loadError && <div className="auth-error dashboard-load-error">{loadError}</div>}
 
