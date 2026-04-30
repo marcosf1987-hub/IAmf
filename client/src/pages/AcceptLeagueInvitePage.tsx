@@ -7,6 +7,14 @@ import {
 } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 
+function postInviteLigasPath(): string {
+  try {
+    return localStorage.getItem("promptplay_discipline") === "f1" ? "/app/f1/ligas" : "/app/ligas";
+  } catch {
+    return "/app/ligas";
+  }
+}
+
 export default function AcceptLeagueInvitePage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -61,7 +69,7 @@ export default function AcceptLeagueInvitePage() {
     try {
       await acceptCompetitionInvite(token, password, fullName.trim() || undefined);
       await refreshSession();
-      navigate("/app/ligas", { replace: true });
+      navigate(postInviteLigasPath(), { replace: true });
     } catch (err) {
       setSubmitErr(err instanceof Error ? err.message : "Error al crear la cuenta.");
     } finally {
@@ -74,7 +82,7 @@ export default function AcceptLeagueInvitePage() {
     setSubmitting(true);
     try {
       await claimCompetitionInvite(token);
-      navigate("/app/ligas", { replace: true });
+      navigate(postInviteLigasPath(), { replace: true });
     } catch (err) {
       setSubmitErr(err instanceof Error ? err.message : "No se pudo unir a la liga.");
     } finally {

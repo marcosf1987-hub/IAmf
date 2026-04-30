@@ -2,11 +2,13 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import UpcomingRacesCarousel from "./UpcomingRacesCarousel";
 import {
+  fetchF1Guidelines,
   fetchF1MyPredictions,
   fetchF1MySummary,
   fetchMyCompetitions,
   fetchPublicF1Drivers,
   fetchPublicF1Races,
+  type F1PredictionEntry,
   type F1RaceSummary,
   type MyCompetitionSummary,
 } from "../lib/api";
@@ -89,7 +91,32 @@ const F1_DASH_TIPS = [
 
 type Props = {
   leagueSummaries?: MyCompetitionSummary[];
+  /** Línea de estado bajo la bienvenida del dashboard (pestaña F1). */
+  onStatusLine?: (line: string) => void;
 };
+
+function buildF1DashboardStatusLine(
+  hasGuidelines: boolean,
+  predictions: F1PredictionEntry[],
+  filled: number,
+  nextRace: F1RaceSummary | null
+): string {
+  const total = predictions.length;
+  if (!hasGuidelines) {
+    return "Tu guía F1 por carrera aún está vacía. Configurala en el Laboratorio.";
+  }
+  if (total === 0) {
+    return "Sin carreras en el calendario visible; cuando se sincronice el calendario, cargá tu top 10 antes de cada salida.";
+  }
+  if (filled === 0) {
+    const tail = nextRace ? ` Próximo GP: ${f1RaceHeadline(nextRace)}.` : "";
+    return `Tenés pautas F1 listas, pero todavía no cargaste el top 10 en ninguna carrera.${tail}`;
+  }
+  if (filled < total) {
+    return `Top 10 cargado en ${filled} de ${total} carreras del calendario. Revisá predicciones pendientes antes de cada cierre.`;
+  }
+  return "Predicciones F1 al día para todas las carreras del calendario mostrado.";
+}
 
 /** Dorsales del top 3 + session para resolver nombres vía fetchPublicF1Drivers (una sola fuente de verdad). */
 type PredDriverCtx = {
@@ -103,7 +130,7 @@ function padTop3(placements: (number | null)[]): [number | null, number | null, 
   return [a[0] ?? null, a[1] ?? null, a[2] ?? null];
 }
 
-export default function F1HomeOverview({ leagueSummaries }: Props) {
+export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props) {
   const [summary, setSummary] = useState<{ totalPoints: number } | null>(null);
   const [predRaces, setPredRaces] = useState(0);
   const [predDriverCtx, setPredDriverCtx] = useState<PredDriverCtx | null>(null);
@@ -140,15 +167,21 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
       setF1Err("");
       try {
         const year = new Date().getUTCFullYear();
-        const [s, preds, races] = await Promise.all([fetchF1MySummary(), fetchF1MyPredictions(), fetchPublicF1Races(year, 12)]);
+        const [s, preds, races, gl] = await Promise.all([
+          fetchF1MySummary(),
+          fetchF1MyPredictions(),
+          fetchPublicF1Races(year, 12),
+          fetchF1Guidelines(),
+        ]);
         if (cancelled) return;
         setSummary({ totalPoints: s.totalPoints });
-        const n = preds.predictions.filter((p) => p.placements.some((x) => x != null)).length;
+        const list = preds.predictions;
+        const n = list.filter((p) => p.placements.some((x) => x != null)).length;
         setPredRaces(n);
-        const firstFilled = preds.predictions.find((p) => p.placements.some((x) => x != null));
-        // #region agent log
-        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H1", location: "F1HomeOverview.tsx:loadPredictions", message: "Predictions fetched for top3 context", data: { predCount: preds.predictions.length, racesWithPrediction: n, hasFirstFilled: Boolean(firstFilled), firstSessionKey: firstFilled?.race.sessionKey ?? null, firstTop3: firstFilled ? padTop3(firstFilled.placements) : null }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
+        const firstFilled = list.find((p) => p.placements.some((x) => x != null));
+        const hasG = Object.values(gl.bySessionKey ?? {}).some((t) => typeof t === "string" && t.trim().length > 0);
+        const next = races.races[0] ?? null;
+        onStatusLine?.(buildF1DashboardStatusLine(hasG, list, n, next));
         setPredDriverCtx(
           firstFilled
             ? {
@@ -157,7 +190,7 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
               }
             : null
         );
-        setNextRace(races.races[0] ?? null);
+        setNextRace(next);
       } catch {
         if (!cancelled) {
           setSummary({ totalPoints: 0 });
@@ -165,38 +198,28 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
           setPredDriverCtx(null);
           setNextRace(null);
           setF1Err("No se pudo cargar el resumen F1.");
-          // #region agent log
-          fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H4", location: "F1HomeOverview.tsx:loadPredictions:catch", message: "Failed loading F1 summary/predictions/races", data: { fallbackApplied: true }, timestamp: Date.now() }) }).catch(() => {});
-          // #endregion
+          onStatusLine?.("No se pudo cargar el estado F1.");
         }
       }
     })();
     return () => {
       cancelled = true;
+      onStatusLine?.("");
     };
-  }, []);
+  }, [onStatusLine]);
 
   useEffect(() => {
     if (!predDriverCtx || !Number.isFinite(predDriverCtx.sessionKey)) {
       setDriverLabels(["Sin definir", "Sin definir", "Sin definir"]);
-      // #region agent log
-      fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H1", location: "F1HomeOverview.tsx:driverEffect:noContext", message: "Driver labels fallback due missing session context", data: { hasCtx: Boolean(predDriverCtx), sessionKey: predDriverCtx?.sessionKey ?? null }, timestamp: Date.now() }) }).catch(() => {});
-      // #endregion
       return;
     }
     let cancelled = false;
-    // #region agent log
-    fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H2", location: "F1HomeOverview.tsx:driverEffect:beforeFetch", message: "Fetching public F1 drivers for session", data: { sessionKey: predDriverCtx.sessionKey, dorsales: predDriverCtx.dorsales }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
     fetchPublicF1Drivers(predDriverCtx.sessionKey).then((driverMap) => {
       if (cancelled) return;
       const next = predDriverCtx.dorsales.map((n) =>
         n == null ? "Sin definir" : driverMap.get(n) ?? `Piloto #${n}`
       ) as [string, string, string];
       setDriverLabels(next);
-      // #region agent log
-      fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H2", location: "F1HomeOverview.tsx:driverEffect:afterFetch", message: "Driver map resolved labels", data: { sessionKey: predDriverCtx.sessionKey, mapSize: driverMap.size, labels: next }, timestamp: Date.now() }) }).catch(() => {});
-      // #endregion
     });
     return () => {
       cancelled = true;
@@ -246,10 +269,10 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
             : "Cuando haya calendario disponible, verás la próxima carrera aquí."}
         </p>
         <div className="dashboard-f1-hero-actions">
-          <Link to="/app/ligas#ligas-crear" className="btn-primary">
+          <Link to="/app/f1/ligas#ligas-crear" className="btn-primary">
             Crear una liga
           </Link>
-          <Link to="/app/ligas#ligas-unirse" className="btn-secondary">
+          <Link to="/app/f1/ligas#ligas-unirse" className="btn-secondary">
             Unirme a una liga
           </Link>
         </div>
@@ -285,7 +308,7 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
               <span>Total de puntos</span>
               <strong>{summary != null ? `${summary.totalPoints} pts` : "Sin datos aún"}</strong>
             </Link>
-            <Link to="/app/ligas" className="dashboard-f1-rank-chip">
+            <Link to="/app/f1/ligas" className="dashboard-f1-rank-chip">
               <span>Liga de amigos</span>
               <strong>{hasAnyLeague ? "Ver mis ligas" : "Sin ligas aún"}</strong>
             </Link>
@@ -326,7 +349,7 @@ export default function F1HomeOverview({ leagueSummaries }: Props) {
             <h3>Mis resultados</h3>
             <p>Puntaje acumulado y desempeño por carrera</p>
           </Link>
-          <Link to="/app/ligas" className="dashboard-card">
+          <Link to="/app/f1/ligas" className="dashboard-card">
             <UsersLeagueIcon />
             <h3>Mis ligas</h3>
             <p>Ligas privadas, invitaciones y clasificación</p>

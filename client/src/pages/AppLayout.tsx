@@ -92,7 +92,7 @@ const NAV_F1: NavItem[] = [
   { to: "/app/f1/predicciones", label: "Predicciones" },
   { to: "/app/f1/laboratorio", label: "Laboratorio" },
   { to: "/app/f1/resultados", label: "Resultados" },
-  { to: "/app/ligas", label: "Ligas" },
+  { to: "/app/f1/ligas", label: "Ligas" },
   { to: "/app/perfil", label: "Mi usuario" },
 ];
 

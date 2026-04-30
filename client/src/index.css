@@ -913,6 +913,28 @@ a.home-logo:hover .home-logo-brand {
   pointer-events: none;
 }
 
+/* Variación sutil por slide (misma identidad F1; ángulos/tintes distintos). */
+.match-carousel--dashboard .f1-race-slide[data-f1-slide-var="0"] .f1-race-slide-accent,
+.match-carousel--marketing .f1-race-slide[data-f1-slide-var="0"] .f1-race-slide-accent {
+  background: linear-gradient(122deg, rgba(225, 6, 0, 0.16) 0%, rgba(6, 0, 22, 0.88) 52%, rgba(0, 55, 95, 0.3) 100%);
+}
+.match-carousel--dashboard .f1-race-slide[data-f1-slide-var="1"] .f1-race-slide-accent,
+.match-carousel--marketing .f1-race-slide[data-f1-slide-var="1"] .f1-race-slide-accent {
+  background: linear-gradient(158deg, rgba(255, 42, 24, 0.11) 0%, rgba(4, 0, 18, 0.9) 48%, rgba(50, 0, 70, 0.28) 100%);
+}
+.match-carousel--dashboard .f1-race-slide[data-f1-slide-var="2"] .f1-race-slide-accent,
+.match-carousel--marketing .f1-race-slide[data-f1-slide-var="2"] .f1-race-slide-accent {
+  background: linear-gradient(108deg, rgba(225, 6, 0, 0.13) 0%, rgba(10, 4, 32, 0.86) 55%, rgba(0, 40, 72, 0.34) 100%);
+}
+.match-carousel--dashboard .f1-race-slide[data-f1-slide-var="3"] .f1-race-slide-accent,
+.match-carousel--marketing .f1-race-slide[data-f1-slide-var="3"] .f1-race-slide-accent {
+  background: linear-gradient(168deg, rgba(200, 0, 0, 0.14) 0%, rgba(6, 0, 20, 0.87) 50%, rgba(30, 10, 60, 0.26) 100%);
+}
+.match-carousel--dashboard .f1-race-slide[data-f1-slide-var="4"] .f1-race-slide-accent,
+.match-carousel--marketing .f1-race-slide[data-f1-slide-var="4"] .f1-race-slide-accent {
+  background: linear-gradient(138deg, rgba(235, 20, 10, 0.12) 0%, rgba(5, 0, 16, 0.89) 54%, rgba(0, 48, 88, 0.27) 100%);
+}
+
 .f1-race-slide-inner {
   position: relative;
   z-index: 1;

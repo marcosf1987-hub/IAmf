@@ -14,6 +14,7 @@ import PricingPage from "./pages/PricingPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AcceptLeagueInvitePage from "./pages/AcceptLeagueInvitePage";
 import MisLigasPage from "./pages/MisLigasPage";
+import LigasFootballEntry from "./pages/LigasFootballEntry";
 import TermsOfServicePage from "./pages/TermsOfServicePage";
 import PrivacyPolicyPage from "./pages/PrivacyPolicyPage";
 import F1Layout from "./pages/f1/F1Layout";
@@ -51,8 +52,8 @@ export default function App() {
         <Route path="prode" element={<ProdePage />} />
         <Route path="ia" element={<IAPage />} />
         <Route path="resultados" element={<ResultadosPage />} />
-        <Route path="ligas" element={<MisLigasPage />} />
-        <Route path="ligas/:id" element={<MisLigasPage />} />
+        <Route path="ligas" element={<LigasFootballEntry />} />
+        <Route path="ligas/:id" element={<LigasFootballEntry />} />
         <Route path="perfil" element={<PerfilPage />} />
         <Route path="admin" element={<AdminPage />} />
         <Route path="platform" element={<PlatformAdminPage />} />
@@ -61,6 +62,8 @@ export default function App() {
           <Route path="predicciones" element={<F1PrediccionesPage />} />
           <Route path="laboratorio" element={<F1LaboratorioPage />} />
           <Route path="resultados" element={<F1ResultadosPage />} />
+          <Route path="ligas" element={<MisLigasPage />} />
+          <Route path="ligas/:id" element={<MisLigasPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

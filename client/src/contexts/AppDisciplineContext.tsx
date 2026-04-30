@@ -56,7 +56,10 @@ export function AppDisciplineProvider({ children }: { children: ReactNode }) {
     applyDisciplineTheme(discipline);
   }, [discipline]);
 
-  /** Rutas «solo fútbol» fuerzan modo fútbol; /app/f1 fuerza F1. En /app (home) no pisamos la preferencia. */
+  /**
+   * Rutas bajo `/app/f1` (incl. `/app/f1/ligas`) fuerzan F1. Otras `/app/*` (p. ej. `/app/ligas`, `/app/prode`)
+   * fuerzan fútbol. En `/app` o `/app/` no pisamos la preferencia guardada.
+   */
   useEffect(() => {
     const p = location.pathname;
     if (p.startsWith("/app/contexto")) return;

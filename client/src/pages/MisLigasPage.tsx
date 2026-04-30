@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { useAuth } from "../contexts/AuthContext";
 import { useFlash } from "../contexts/FlashContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { useIsF1AppShell, useLigasBasePath } from "../hooks/useLigasBasePath";
 import type {
   CompetitionDetailResponse,
   CompetitionQuota,
@@ -185,6 +186,7 @@ export default function MisLigasPage() {
 
 function LigasCommunityHome() {
   const { showFlash } = useFlash();
+  const ligasBase = useLigasBasePath();
   const joinInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<MineCompetitionsResponse | null>(null);
@@ -240,12 +242,12 @@ function LigasCommunityHome() {
       const cid = r.competitionId;
       if ("alreadyMember" in r && r.alreadyMember) {
         showFlash("Ya participás de esa liga. Te llevamos al detalle.", "info");
-        navigate(`/app/ligas/${cid}`);
+        navigate(`${ligasBase}/${cid}`);
         return;
       }
       showFlash("Te uniste a la liga.", "success");
       await load();
-      navigate(`/app/ligas/${cid}`);
+      navigate(`${ligasBase}/${cid}`);
     } catch (err) {
       setJoinMsg(formatApiError(err));
     } finally {
@@ -373,6 +375,7 @@ function LigasCommunityHome() {
 
 function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => void }) {
   const navigate = useNavigate();
+  const ligasBase = useLigasBasePath();
   const { showFlash } = useFlash();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
@@ -437,7 +440,7 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
           )}
         </div>
         <div className="liga-card-actions">
-          <button type="button" className="btn-primary btn-sm" onClick={() => navigate(`/app/ligas/${row.id}`)}>
+          <button type="button" className="btn-primary btn-sm" onClick={() => navigate(`${ligasBase}/${row.id}`)}>
             Ver tabla
           </button>
           <button
@@ -476,6 +479,8 @@ const EMPTY_DATA: ResultsDashboard = {
 
 function CompetitionDetailSection({ competitionId }: { competitionId: string }) {
   const navigate = useNavigate();
+  const ligasBase = useLigasBasePath();
+  const isF1Shell = useIsF1AppShell();
   const { showFlash } = useFlash();
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = searchParams.get("tab") === "config" ? "config" : "ranking";
@@ -517,7 +522,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
     setLeaving(true);
     try {
       await leaveCompetition(competitionId);
-      navigate("/app/ligas", { replace: true });
+      navigate(ligasBase, { replace: true });
     } catch (e) {
       showFlash(formatApiError(e), "error");
     } finally {
@@ -534,7 +539,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
     return (
       <div className="page-content ligas-page">
         <p className="ligas-form-error">{error || "No encontrado"}</p>
-        <Link to="/app/ligas" className="ligas-back-link">
+        <Link to={ligasBase} className="ligas-back-link">
           ← Ligas &amp; Comunidad
         </Link>
       </div>
@@ -552,7 +557,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   return (
     <div className="page-content ligas-page ligas-detail-page">
       <nav className="ligas-breadcrumb">
-        <Link to="/app/ligas">Ligas &amp; Comunidad</Link>
+        <Link to={ligasBase}>Ligas &amp; Comunidad</Link>
         <span aria-hidden> / </span>
         <span>{competition.name}</span>
       </nav>
@@ -648,7 +653,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
               description="Cuando se publiquen resultados de partidos y los miembros tengan predicciones, la tabla se completará automáticamente."
             />
           )}
-          <Link to="/app/resultados" className="ligas-link-results">
+          <Link to={isF1Shell ? "/app/f1/resultados" : "/app/resultados"} className="ligas-link-results">
             Ver también en Mis resultados (todas las ligas)
           </Link>
         </section>
@@ -657,6 +662,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       {tab === "config" && isAdmin && (
         <AdminLigaConfig
           competitionId={competitionId}
+          ligasListPath={ligasBase}
           initial={competition}
           members={members}
           currentUserId={user?.id ?? ""}
@@ -699,6 +705,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
 
 function AdminLigaConfig({
   competitionId,
+  ligasListPath,
   initial,
   members,
   currentUserId,
@@ -706,6 +713,8 @@ function AdminLigaConfig({
   onMemberRemoved,
 }: {
   competitionId: string;
+  /** Ruta lista de ligas (`/app/ligas` o `/app/f1/ligas`) para el enlace con código de invitación. */
+  ligasListPath: string;
   initial: CompetitionDetailResponse["competition"];
   members: CompetitionDetailResponse["members"];
   currentUserId: string;
@@ -733,7 +742,7 @@ function AdminLigaConfig({
 
   const inviteLink =
     typeof window !== "undefined"
-      ? `${window.location.origin}/app/ligas?join=${encodeURIComponent(inviteCode)}`
+      ? `${window.location.origin}${ligasListPath}?join=${encodeURIComponent(inviteCode)}`
       : "";
 
   async function copyCode() {

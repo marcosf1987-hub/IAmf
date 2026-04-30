@@ -31,10 +31,15 @@ function raceTitle(r: F1RaceSummary): string {
   return c || co || `Gran Premio (R${r.roundOrder})`;
 }
 
-function RaceSlide({ race }: { race: F1RaceSummary }) {
+function RaceSlide({ race, slideVariant }: { race: F1RaceSummary; slideVariant: number }) {
   const start = new Date(race.raceStartAt);
+  const v = slideVariant % 5;
   return (
-    <article className="match-carousel-card f1-race-slide" aria-labelledby={`f1-race-title-${race.id}`}>
+    <article
+      className="match-carousel-card f1-race-slide"
+      data-f1-slide-var={v}
+      aria-labelledby={`f1-race-title-${race.id}`}
+    >
       <div className="f1-race-slide-accent" aria-hidden />
       <div className="match-carousel-card-inner f1-race-slide-inner">
         <p className="match-carousel-meta">
@@ -80,14 +85,8 @@ export default function UpcomingRacesCarousel({
         const limit = variant === "dashboard" ? 12 : 8;
         const { races: list } = await fetchPublicF1Races(year, limit);
         if (!cancelled) setRaces(list.slice(0, limit));
-        // #region agent log
-        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H3", location: "UpcomingRacesCarousel.tsx:loadRaces", message: "Upcoming races loaded", data: { variant, limit, fetched: list.length }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
       } catch {
         if (!cancelled) setRaces([]);
-        // #region agent log
-        fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H4", location: "UpcomingRacesCarousel.tsx:loadRaces:catch", message: "Failed loading upcoming races", data: { variant }, timestamp: Date.now() }) }).catch(() => {});
-        // #endregion
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -100,12 +99,6 @@ export default function UpcomingRacesCarousel({
   const n = races.length;
   const maxSlidePair = n <= 1 ? 0 : n - 2;
   const canAdvancePair = maxSlidePair > 0;
-
-  useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7598/ingest/5f37e537-1084-43d7-866d-2cc8ab88169d", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "a9d423" }, body: JSON.stringify({ sessionId: "a9d423", runId: "pre-fix", hypothesisId: "H3", location: "UpcomingRacesCarousel.tsx:layoutMode", message: "Carousel layout mode evaluated", data: { variant, isDesktopPair, hideTitle, raceCount: n }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [variant, isDesktopPair, hideTitle, n]);
 
   useEffect(() => {
     if (isDesktopPair) {
@@ -213,8 +206,8 @@ export default function UpcomingRacesCarousel({
             style={{ "--slide": slide } as React.CSSProperties}
           >
             <div className="match-carousel-track">
-              {races.map((r) => (
-                <RaceSlide key={r.id} race={r} />
+              {races.map((r, idx) => (
+                <RaceSlide key={r.id} race={r} slideVariant={idx} />
               ))}
             </div>
           </div>
@@ -231,7 +224,7 @@ export default function UpcomingRacesCarousel({
       ) : (
         <>
           <div className="match-carousel-viewport">
-            <RaceSlide race={current} />
+            <RaceSlide race={current} slideVariant={slide} />
           </div>
 
           <div className="match-carousel-dots" role="tablist" aria-label="Elegir carrera">

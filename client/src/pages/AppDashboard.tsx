@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import F1HomeOverview from "../components/F1HomeOverview";
 import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
@@ -278,6 +278,14 @@ export default function AppDashboard() {
   const [loadError, setLoadError] = useState("");
   const [loading, setLoading] = useState(true);
   const [tipIndex] = useState(() => Math.floor(Math.random() * TIPS.length));
+  const [f1DashStatusLine, setF1DashStatusLine] = useState("");
+  const onF1DashboardStatus = useCallback((line: string) => {
+    setF1DashStatusLine(line);
+  }, []);
+
+  useEffect(() => {
+    if (dashTab !== "f1") setF1DashStatusLine("");
+  }, [dashTab]);
 
   useEffect(() => {
     async function load() {
@@ -355,8 +363,8 @@ export default function AppDashboard() {
         <p className="dashboard-model-status">
           {dashTab === "f1" ? (
             <>
-              <span className="dashboard-model-status-label">Modo F1:</span> pautas por carrera en el laboratorio y
-              top 10 con IA antes de la salida.
+              <span className="dashboard-model-status-label">Estado F1:</span>{" "}
+              {f1DashStatusLine || "Sincronizando estado…"}
             </>
           ) : (
             <>
@@ -512,7 +520,7 @@ export default function AppDashboard() {
           ) : null}
         </>
       ) : (
-        <F1HomeOverview leagueSummaries={mine?.competitions} />
+        <F1HomeOverview leagueSummaries={mine?.competitions} onStatusLine={onF1DashboardStatus} />
       )}
     </div>
   );
