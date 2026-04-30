@@ -56,6 +56,18 @@ function quotaHint(q: CompetitionQuota): string {
   return `Empresa: ${q.companyTotal ?? 0} / ${q.maxCompany}`;
 }
 
+function isProtectedUniversalLeague(input: { slug?: string | null; name?: string | null }): boolean {
+  const slug = (input.slug ?? "").toLowerCase();
+  const name = (input.name ?? "").toLowerCase();
+  return (
+    slug.includes("universal") ||
+    slug.includes("general") ||
+    name.includes("liga universal") ||
+    name.includes("campeonato general") ||
+    name.includes("liga general")
+  );
+}
+
 function maxMembersBounds(q: CompetitionQuota): { min: number; max: number } {
   if (q.scope === "user") return { min: 2, max: 10 };
   return { min: 2, max: 500 };
@@ -275,30 +287,40 @@ function LigasCommunityHome() {
       {error && <div className="auth-error">{error}</div>}
 
       <section className="ligas-global-actions" id="ligas-crear" aria-label="Acciones globales">
-        <div className="ligas-action-buttons">
+        <article className="ligas-action-box" aria-labelledby="ligas-crear-title">
+          <header className="ligas-action-box-head">
+            <h2 id="ligas-crear-title" className="ligas-action-box-title">
+              Crear nueva liga
+            </h2>
+            {q ? <span className="ligas-quota-pill">{quotaHint(q)}</span> : null}
+          </header>
+          <p className="ligas-action-box-desc">
+            Configurá nombre, reglas y cupo de participantes para competir con tu grupo.
+          </p>
           <button
             type="button"
-            className="btn-primary ligas-btn-primary"
+            className="btn-primary ligas-btn-primary ligas-action-cta"
             disabled={!createAllowed}
             onClick={() => setModalOpen(true)}
           >
-            Crear nueva liga
+            Configurar liga
           </button>
-          {q && <span className="ligas-quota-pill">{quotaHint(q)}</span>}
-        </div>
-        {!createAllowed && q && (
-          <p className="ligas-hint-muted">
-            {q.scope === "user"
-              ? "Llegaste al máximo de ligas que podés crear."
-              : "Tu empresa alcanzó el cupo de competencias."}
-          </p>
-        )}
+          {!createAllowed && q && (
+            <p className="ligas-hint-muted">
+              {q.scope === "user"
+                ? "Llegaste al máximo de ligas que podés crear."
+                : "Tu empresa alcanzó el cupo de competencias."}
+            </p>
+          )}
+        </article>
 
-        <div className="ligas-join-card" id="ligas-unirse">
+        <article className="ligas-action-box" id="ligas-unirse" aria-labelledby="ligas-unirse-title">
           <form className="ligas-join-form" onSubmit={handleJoin} aria-describedby={joinMsg ? "ligas-join-err" : undefined}>
             <label className="ligas-join-label" htmlFor="ligas-join-input">
-              <span className="ligas-join-title">Unirse con código</span>
-              <span className="ligas-join-desc">Pegá el código alfanumérico (ej. MUNDIAL-IA-A1B2C3) que te pasó un amigo.</span>
+              <span id="ligas-unirse-title" className="ligas-join-title">
+                Unirme con código
+              </span>
+              <span className="ligas-join-desc">Pegá el código alfanumérico de invitación para sumarte a una liga existente.</span>
             </label>
             <div className="ligas-join-row">
               <input
@@ -308,11 +330,11 @@ function LigasCommunityHome() {
                 className="ligas-join-input"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value)}
-                placeholder="MUNDIAL-IA-…"
+                placeholder="EJ: MONACO-2024"
                 autoComplete="off"
                 spellCheck={false}
               />
-              <button type="submit" className="btn-secondary" disabled={joinBusy}>
+              <button type="submit" className="btn-secondary ligas-join-submit" disabled={joinBusy} aria-label="Unirme a la liga por código">
                 {joinBusy ? "Uniendo…" : "Unirme"}
               </button>
             </div>
@@ -322,7 +344,7 @@ function LigasCommunityHome() {
               </p>
             ) : null}
           </form>
-        </div>
+        </article>
       </section>
 
       <section className="ligas-active-section" aria-labelledby="ligas-activas-heading">
@@ -380,11 +402,17 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const { card } = row;
+  const protectedLeague = isProtectedUniversalLeague(row);
 
   const top = card.topThree;
   const fillers = [0, 1, 2].map((i) => top[i] ?? null);
 
   async function handleLeave() {
+    if (protectedLeague) {
+      showFlash("La liga universal no puede abandonarse desde esta pantalla.", "info");
+      setLeaveOpen(false);
+      return;
+    }
     setLeaving(true);
     try {
       await leaveCompetition(row.id);
@@ -407,26 +435,26 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
             {row.emoji || "⚽"}
           </div>
         )}
+        <span className="liga-card-chip">{row.memberCount} integrantes</span>
       </div>
       <div className="liga-card-body">
         <h3 className="liga-card-title">{row.name}</h3>
         {row.description && <p className="liga-card-rules">{row.description}</p>}
-        <div className="liga-card-rank-row">
-          {card.myRank != null && card.totalParticipants > 0 ? (
-            <>
-              <span
-                className="liga-card-rank-badge"
-                aria-label={`Tu puesto: ${card.myRank} de ${card.totalParticipants}`}
-              >
-                <span className="liga-card-rank-num">{card.myRank}</span>
-                <span className="liga-card-rank-sep">/</span>
-                <span className="liga-card-rank-total">{card.totalParticipants}</span>
+        <div className="liga-card-stats-row">
+          <div className="liga-card-stat">
+            <span className="liga-card-stat-label">Tu posición</span>
+            {card.myRank != null && card.totalParticipants > 0 ? (
+              <span className="liga-card-stat-value" aria-label={`Tu puesto: ${card.myRank} de ${card.totalParticipants}`}>
+                #{card.myRank} <span className="liga-card-stat-divider">/ {card.totalParticipants}</span>
               </span>
-              <span className="liga-card-rank-label">Tu puesto</span>
-            </>
-          ) : (
-            <span className="liga-card-rank-muted">Sin posición aún (faltan resultados o predicciones)</span>
-          )}
+            ) : (
+              <span className="liga-card-rank-muted">Sin posición aún</span>
+            )}
+          </div>
+          <div className="liga-card-stat">
+            <span className="liga-card-stat-label">Participantes</span>
+            <span className="liga-card-stat-value">{row.memberCount}</span>
+          </div>
         </div>
         <div className="liga-card-podium" aria-label="Top 3">
           {fillers.map((p, i) =>
@@ -443,14 +471,20 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
           <button type="button" className="btn-primary btn-sm" onClick={() => navigate(`${ligasBase}/${row.id}`)}>
             Ver tabla
           </button>
-          <button
-            type="button"
-            className="liga-card-leave"
-            onClick={() => setLeaveOpen(true)}
-            title="Abandonar liga"
-          >
-            Abandonar
-          </button>
+          {protectedLeague ? (
+            <span className="liga-card-protected" title="La liga universal no puede abandonarse">
+              Liga universal
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="liga-card-leave"
+              onClick={() => setLeaveOpen(true)}
+              title="Abandonar liga"
+            >
+              Abandonar
+            </button>
+          )}
         </div>
       </div>
       <LeaveLeagueModal
@@ -491,6 +525,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   const [error, setError] = useState("");
   const [leaving, setLeaving] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  const protectedLeague = isProtectedUniversalLeague(detail?.competition ?? {});
 
   useEffect(() => {
     let cancelled = false;
@@ -519,6 +554,11 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   }, [competitionId]);
 
   async function confirmLeaveDetail() {
+    if (protectedLeague) {
+      showFlash("La liga universal no puede abandonarse desde esta pantalla.", "info");
+      setLeaveOpen(false);
+      return;
+    }
     setLeaving(true);
     try {
       await leaveCompetition(competitionId);
@@ -686,9 +726,13 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       )}
 
       <footer className="ligas-detail-footer">
-        <button type="button" className="btn-text-danger" disabled={leaving} onClick={() => setLeaveOpen(true)}>
-          Abandonar liga
-        </button>
+        {protectedLeague ? (
+          <p className="ligas-detail-protected-note">Esta es la liga universal y no puede abandonarse.</p>
+        ) : (
+          <button type="button" className="btn-text-danger" disabled={leaving} onClick={() => setLeaveOpen(true)}>
+            Abandonar liga
+          </button>
+        )}
       </footer>
 
       <LeaveLeagueModal

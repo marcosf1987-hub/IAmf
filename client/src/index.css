@@ -4179,48 +4179,89 @@ a.btn-oauth--unconfigured {
 }
 
 .ligas-community.ligas-page {
-  max-width: 56rem;
+  max-width: 72rem;
 }
 
 .ligas-hero h1 {
   font-family: var(--font-display);
   font-size: 1.75rem;
   margin: 0 0 0.5rem;
+  text-align: left;
+}
+
+.ligas-hero {
+  text-align: left;
 }
 
 .ligas-global-actions {
-  border: 1px solid var(--border);
-  padding: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
   margin-bottom: 2.5rem;
-  background: var(--bg-card);
 }
 
-.ligas-action-buttons {
+.ligas-action-box {
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  padding: 1.25rem 1.25rem 1.1rem;
+  min-height: 13rem;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  margin-bottom: 1.25rem;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+
+.ligas-action-box-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.ligas-action-box-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ligas-action-box-desc {
+  margin: 0 0 1rem;
+  font-size: 0.87rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.ligas-action-cta {
+  width: 100%;
+  justify-content: center;
+  margin-top: auto;
 }
 
 .ligas-btn-primary {
-  min-width: 10rem;
+  min-width: 12rem;
 }
 
 .ligas-quota-pill {
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--text);
   padding: 0.35rem 0.75rem;
   border: 1px solid var(--border);
+  background: var(--bg-input);
+  white-space: nowrap;
 }
 
 .ligas-join-form {
   margin: 0;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
 }
 
 .ligas-join-label {
   display: block;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.9rem;
 }
 
 .ligas-join-title {
@@ -4231,26 +4272,36 @@ a.btn-oauth--unconfigured {
 
 .ligas-join-desc {
   display: block;
-  font-size: 0.82rem;
+  font-size: 0.85rem;
   color: var(--text-muted);
-  margin-top: 0.2rem;
+  margin-top: 0.35rem;
 }
 
 .ligas-join-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
+  gap: 0;
+  align-items: stretch;
+  margin-top: auto;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
 }
 
 .ligas-join-input {
   flex: 1;
   min-width: 12rem;
   font: inherit;
-  padding: 0.6rem 0.75rem;
-  background: var(--bg-input);
-  border: 1px solid var(--border);
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  border: none;
   color: var(--text);
+}
+
+.ligas-join-submit {
+  border: none;
+  border-left: 1px solid var(--border);
+  border-radius: 0;
+  min-width: 3.25rem;
+  padding-inline: 0.9rem;
 }
 
 .ligas-join-msg {
@@ -4260,12 +4311,6 @@ a.btn-oauth--unconfigured {
 
 .ligas-join-msg--error {
   color: var(--error);
-}
-
-.ligas-join-card {
-  margin-top: 1.25rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border);
 }
 
 .ligas-active-section {
@@ -4378,7 +4423,7 @@ a.btn-oauth--unconfigured {
 
 .ligas-cards-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.25rem;
 }
 
@@ -4388,14 +4433,16 @@ a.btn-oauth--unconfigured {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-height: 21rem;
 }
 
 .liga-card-visual {
-  height: 100px;
+  height: 120px;
   background: var(--bg-input);
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
 }
 
 .liga-card-cover {
@@ -4409,11 +4456,24 @@ a.btn-oauth--unconfigured {
   line-height: 1;
 }
 
+.liga-card-chip {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+  border: 1px solid var(--border);
+  background: rgba(12, 16, 24, 0.78);
+  padding: 0.3rem 0.55rem;
+}
+
 .liga-card-body {
   padding: 1rem 1.1rem 1.15rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.6rem;
   flex: 1;
 }
 
@@ -4429,6 +4489,40 @@ a.btn-oauth--unconfigured {
   color: var(--text-muted);
   margin: 0;
   line-height: 1.4;
+}
+
+.liga-card-stats-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.liga-card-stat {
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  padding: 0.45rem 0.55rem;
+}
+
+.liga-card-stat-label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.liga-card-stat-value {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.liga-card-stat-divider {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 
 .liga-card-rank-row {
@@ -4545,6 +4639,11 @@ a.btn-oauth--unconfigured {
   color: var(--error);
 }
 
+.liga-card-protected {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
 .liga-card-leave-confirm {
   display: flex;
   flex-wrap: wrap;
@@ -4574,6 +4673,12 @@ a.btn-oauth--unconfigured {
   min-width: 10rem;
 }
 
+.ligas-detail-protected-note {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
 .ligas-field textarea {
   font: inherit;
   padding: 0.6rem 0.75rem;
@@ -4582,6 +4687,41 @@ a.btn-oauth--unconfigured {
   color: var(--text);
   border-radius: 2px;
   resize: vertical;
+}
+
+@media (max-width: 880px) {
+  .ligas-global-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .ligas-action-box-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ligas-join-row {
+    flex-direction: column;
+    border: none;
+    background: transparent;
+    gap: 0.6rem;
+  }
+
+  .ligas-join-input {
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+  }
+
+  .ligas-join-submit {
+    border-left: none;
+    border-radius: 2px;
+    width: 100%;
+  }
+
+  .liga-card-stats-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .ligas-detail-page .ligas-detail-header {
