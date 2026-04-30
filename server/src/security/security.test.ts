@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { NextFunction, Request, Response } from "express";
 import { csrfProtectionMiddleware } from "../csrf-middleware";
+import { isAuthTokenStale, type AuthTokenPayload } from "../auth";
 import { createCompetitionSchema, loginSchema } from "../validators";
 
 type MockRes = Partial<Response> & {
@@ -78,6 +79,24 @@ test("csrf middleware permite mutación con cookie+header válidos", () => {
   assert.equal(called, true);
 });
 
+test("csrf middleware exige token cuando llega Bearer sin cookie de sesión", () => {
+  const req = createRequest({
+    headers: {
+      authorization: "Bearer abc.def.ghi",
+    },
+  });
+  const res = createResponse() as Response;
+  let called = false;
+  const next: NextFunction = () => {
+    called = true;
+  };
+
+  csrfProtectionMiddleware(req, res, next);
+
+  assert.equal(called, false);
+  assert.equal((res as unknown as MockRes).statusCode, 403);
+});
+
 test("validators: login normaliza email con espacios", () => {
   const parsed = loginSchema.parse({
     email: "  TEST@EXAMPLE.COM ",
@@ -93,5 +112,18 @@ test("validators: createCompetition rechaza coverImageUrl inválida", () => {
     coverImageUrl: "javascript:alert(1)",
   });
   assert.equal(parsed.success, false);
+});
+
+test("auth: token queda obsoleto si cambia tokenVersion/rol/empresa", () => {
+  const payload: AuthTokenPayload = {
+    userId: "u1",
+    role: "member",
+    companyId: "c1",
+    tokenVersion: 1,
+  };
+  assert.equal(isAuthTokenStale(payload, { role: "member", companyId: "c1", tokenVersion: 1 }), false);
+  assert.equal(isAuthTokenStale(payload, { role: "org_admin", companyId: "c1", tokenVersion: 1 }), true);
+  assert.equal(isAuthTokenStale(payload, { role: "member", companyId: "c2", tokenVersion: 1 }), true);
+  assert.equal(isAuthTokenStale(payload, { role: "member", companyId: "c1", tokenVersion: 2 }), true);
 });
 

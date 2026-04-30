@@ -128,7 +128,7 @@ export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClie
           role: "member",
           status: "active",
         },
-        select: { id: true, email: true, fullName: true, role: true, companyId: true },
+        select: { id: true, email: true, fullName: true, role: true, companyId: true, tokenVersion: true },
       });
       await tx.competitionMember.create({
         data: {
@@ -155,6 +155,7 @@ export function registerCompetitionInviteRoutes(app: Express, prisma: PrismaClie
       userId: user.id,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
     });
     const me = await buildMeResponse(prisma, user.id);
     if (!me) {

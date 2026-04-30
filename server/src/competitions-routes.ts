@@ -18,6 +18,7 @@ import {
   patchCompetitionSchema,
 } from "./validators";
 import { createCompetitionEmailInvitation } from "./competition-invite-routes";
+import { UNIVERSAL_COMPETITION_SLUG, UNIVERSAL_F1_COMPETITION_SLUG } from "./universal-league";
 
 function routeParamId(req: Request): string | undefined {
   const raw = req.params.id;
@@ -46,6 +47,10 @@ function slugifyName(name: string): string {
     .replace(/^-|-$/g, "")
     .slice(0, 48);
   return s.length > 0 ? s : "liga";
+}
+
+function isProtectedUniversalCompetitionSlug(slug: string): boolean {
+  return slug === UNIVERSAL_COMPETITION_SLUG || slug === UNIVERSAL_F1_COMPETITION_SLUG;
 }
 
 export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): void {
@@ -391,6 +396,10 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       res.status(403).json({ error: "forbidden" });
       return;
     }
+    if (isProtectedUniversalCompetitionSlug(adminShip.competition.slug)) {
+      res.status(403).json({ error: "protected_competition" });
+      return;
+    }
 
     const target = await prisma.competitionMember.findUnique({
       where: { competitionId_userId: { competitionId, userId: memberUserId } },
@@ -565,9 +574,14 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
 
     const membership = await prisma.competitionMember.findUnique({
       where: { competitionId_userId: { competitionId, userId } },
+      include: { competition: { select: { slug: true } } },
     });
     if (!membership) {
       res.status(404).json({ error: "not_member" });
+      return;
+    }
+    if (isProtectedUniversalCompetitionSlug(membership.competition.slug)) {
+      res.status(403).json({ error: "protected_competition" });
       return;
     }
 

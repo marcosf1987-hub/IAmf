@@ -52,9 +52,14 @@ export async function requireSuperAdmin(
     }
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, role: true, companyId: true, status: true },
+      select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
     });
-    if (!user || user.status !== "active" || user.role !== "super_admin") {
+    if (
+      !user ||
+      user.status !== "active" ||
+      user.role !== "super_admin" ||
+      user.tokenVersion !== payload.tokenVersion
+    ) {
       res.status(403).json({ error: "forbidden" });
       return;
     }
@@ -62,6 +67,7 @@ export async function requireSuperAdmin(
       userId: user.id,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
     };
     next();
   } catch (err) {
@@ -90,9 +96,14 @@ export async function requireOrgAdmin(
     }
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, role: true, companyId: true, status: true },
+      select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
     });
-    if (!user || user.status !== "active" || user.role !== "org_admin") {
+    if (
+      !user ||
+      user.status !== "active" ||
+      user.role !== "org_admin" ||
+      user.tokenVersion !== payload.tokenVersion
+    ) {
       res.status(403).json({ error: "forbidden" });
       return;
     }
@@ -100,6 +111,7 @@ export async function requireOrgAdmin(
       userId: user.id,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
     };
     next();
   } catch (err) {
@@ -224,7 +236,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
           role: "member",
           status: "active",
         },
-        select: { id: true, email: true, fullName: true, role: true, companyId: true },
+        select: { id: true, email: true, fullName: true, role: true, companyId: true, tokenVersion: true },
       });
       await tx.invitation.update({
         where: { id: inv.id },
@@ -237,6 +249,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       userId: user.id,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
     });
     const me = await buildMeResponse(prisma, user.id);
     if (!me) {
@@ -605,7 +618,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     const passwordHash = await hashPassword(parsed.data.newPassword);
     await prisma.user.update({
       where: { id: userId },
-      data: { passwordHash },
+      data: { passwordHash, tokenVersion: { increment: 1 } },
     });
     res.status(200).json({ ok: true });
   });

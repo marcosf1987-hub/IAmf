@@ -160,7 +160,7 @@ async function findOrCreateGoogleUser(
   email: string,
   fullName: string | null,
   emailVerified: boolean
-): Promise<{ id: string; role: UserRole; companyId: string }> {
+): Promise<{ id: string; role: UserRole; companyId: string; tokenVersion: number }> {
   if (!emailVerified || !email) {
     throw new Error("google_email_unverified");
   }
@@ -170,7 +170,7 @@ async function findOrCreateGoogleUser(
       provider_providerUserId: { provider: PROVIDER_GOOGLE, providerUserId },
     },
     include: {
-      user: { select: { id: true, role: true, companyId: true, status: true } },
+      user: { select: { id: true, role: true, companyId: true, status: true, tokenVersion: true } },
     },
   });
   if (existingLink?.user) {
@@ -179,12 +179,13 @@ async function findOrCreateGoogleUser(
       id: existingLink.user.id,
       role: existingLink.user.role,
       companyId: existingLink.user.companyId,
+      tokenVersion: existingLink.user.tokenVersion,
     };
   }
 
   const byEmail = await prisma.user.findUnique({
     where: { email },
-    select: { id: true, role: true, companyId: true, status: true },
+    select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
   });
   if (byEmail) {
     if (byEmail.status !== "active") throw new Error("user_disabled");
@@ -195,7 +196,12 @@ async function findOrCreateGoogleUser(
         userId: byEmail.id,
       },
     });
-    return { id: byEmail.id, role: byEmail.role, companyId: byEmail.companyId };
+    return {
+      id: byEmail.id,
+      role: byEmail.role,
+      companyId: byEmail.companyId,
+      tokenVersion: byEmail.tokenVersion,
+    };
   }
 
   const platformCompany = await prisma.company.findUnique({
@@ -215,7 +221,7 @@ async function findOrCreateGoogleUser(
         create: { provider: PROVIDER_GOOGLE, providerUserId },
       },
     },
-    select: { id: true, role: true, companyId: true },
+    select: { id: true, role: true, companyId: true, tokenVersion: true },
   });
   return user;
 }
@@ -373,6 +379,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         userId: userRow.id,
         role: userRow.role,
         companyId: userRow.companyId,
+        tokenVersion: userRow.tokenVersion,
       });
       redirectOAuthSuccess(res, token);
     } catch (e) {

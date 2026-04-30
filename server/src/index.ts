@@ -32,7 +32,7 @@ import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
 import { registerF1Routes } from "./f1-routes";
 import { mountOAuthRoutes } from "./oauth";
 import { syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
-import { logSecurityEvent, securityError } from "./security-utils";
+import { logSecurityEvent, readSecurityCounters, securityError } from "./security-utils";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -62,12 +62,33 @@ function parseAllowedOrigins(): Set<string> {
 
 const allowedOrigins = parseAllowedOrigins();
 
+function bestEffortClientIp(req: express.Request): string {
+  const xff = req.header("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return req.ip || "unknown";
+}
+
+function rateKey(req: express.Request, scope: string): string {
+  const token = getAccessTokenFromRequest(req);
+  if (token) {
+    const payload = verifyAccessToken(token);
+    if (payload?.userId) return `${scope}:u:${payload.userId}`;
+  }
+  return `${scope}:ip:${bestEffortClientIp(req)}`;
+}
+
 function createLimiter(params: { windowMs: number; max: number; key: string }) {
   return rateLimit({
     windowMs: params.windowMs,
     max: params.max,
     standardHeaders: true,
     legacyHeaders: false,
+    keyGenerator(req) {
+      return rateKey(req, params.key);
+    },
     handler(req, res) {
       logSecurityEvent(req, "rate_limit_blocked", { key: params.key });
       const retry = Math.ceil(params.windowMs / 1000);
@@ -99,9 +120,13 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
     }
     const user = await prisma.user.findUnique({
       where: { id: payload.userId },
-      select: { id: true, role: true, companyId: true, status: true },
+      select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
     });
     if (!user || user.status !== "active") {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    if (user.tokenVersion !== payload.tokenVersion) {
       res.status(401).json({ error: "invalid_token" });
       return;
     }
@@ -113,6 +138,7 @@ async function requireAdmin(req: express.Request, res: express.Response, next: e
       userId: user.id,
       role: user.role,
       companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
     };
     next();
   } catch (err) {
@@ -283,7 +309,7 @@ app.post("/auth/signup", async (req, res) => {
       role: "member",
       status: "active",
     },
-    select: { id: true, email: true, fullName: true, role: true, companyId: true },
+    select: { id: true, email: true, fullName: true, role: true, companyId: true, tokenVersion: true },
   });
 
   try {
@@ -293,7 +319,12 @@ app.post("/auth/signup", async (req, res) => {
     console.error("ensureUniversalLeagueMembership (signup):", leagueErr);
   }
 
-  const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
+  const token = signAccessToken({
+    userId: user.id,
+    role: user.role,
+    companyId: user.companyId,
+    tokenVersion: user.tokenVersion,
+  });
   const me = await buildMeResponse(prisma, user.id);
   if (!me) {
     res.status(500).json({ error: "server_error" });
@@ -314,7 +345,16 @@ app.post("/auth/login", async (req, res) => {
     const { email, password } = parsed.data;
     const user = await prisma.user.findUnique({
       where: { email },
-      select: { id: true, email: true, fullName: true, role: true, companyId: true, passwordHash: true, status: true },
+      select: {
+        id: true,
+        email: true,
+        fullName: true,
+        role: true,
+        companyId: true,
+        passwordHash: true,
+        status: true,
+        tokenVersion: true,
+      },
     });
     if (!user || user.status !== "active") {
       res.status(401).json({ error: "invalid_credentials" });
@@ -344,7 +384,12 @@ app.post("/auth/login", async (req, res) => {
       },
     });
 
-    const token = signAccessToken({ userId: user.id, role: user.role, companyId: user.companyId });
+    const token = signAccessToken({
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
+    });
     const me = await buildMeResponse(prisma, user.id);
     if (!me) {
       res.status(500).json({ error: "server_error" });
@@ -1492,9 +1537,13 @@ app.patch("/admin/users/:id", requireAdmin, async (req, res) => {
     return;
   }
 
+  const data = {
+    ...updates,
+    ...((updates.role !== undefined || updates.status !== undefined) ? { tokenVersion: { increment: 1 } } : {}),
+  };
   const user = await prisma.user.update({
     where: { id },
-    data: updates,
+    data,
     select: { id: true, email: true, fullName: true, role: true, status: true, createdAt: true },
   });
   res.status(200).json({ user });
@@ -1518,7 +1567,7 @@ app.delete("/admin/users/:id", requireAdmin, async (req, res) => {
 
   await prisma.user.update({
     where: { id },
-    data: { status: "disabled" },
+    data: { status: "disabled", tokenVersion: { increment: 1 } },
   });
   res.status(200).json({ ok: true });
 });
@@ -1638,6 +1687,10 @@ app.get("/admin/metrics/time-series", requireAdmin, async (req, res) => {
   }
 
   res.status(200).json({ data });
+});
+
+app.get("/admin/security-metrics", requireAdmin, async (_req, res) => {
+  res.status(200).json({ counters: readSecurityCounters() });
 });
 
 app.get("/admin/exports/prompts.csv", requireAdmin, async (req, res) => {
@@ -1770,11 +1823,14 @@ app.patch("/me", requireAuth, async (req, res) => {
     return;
   }
   const { userId } = (req as AuthedRequest).auth;
-  const updates: { fullName?: string; passwordHash?: string } = {};
+  const updates: { fullName?: string; passwordHash?: string; tokenVersion?: { increment: number } } = {};
+  let rotateSession = false;
 
   if (parsed.data.fullName !== undefined) updates.fullName = parsed.data.fullName;
   if (parsed.data.password !== undefined) {
     updates.passwordHash = await hashPassword(parsed.data.password);
+    updates.tokenVersion = { increment: 1 };
+    rotateSession = true;
   }
 
   if (Object.keys(updates).length === 0) {
@@ -1782,10 +1838,20 @@ app.patch("/me", requireAuth, async (req, res) => {
     return;
   }
 
-  await prisma.user.update({
+  const updatedUser = await prisma.user.update({
     where: { id: userId },
     data: updates,
+    select: { id: true, role: true, companyId: true, tokenVersion: true },
   });
+  if (rotateSession) {
+    const token = signAccessToken({
+      userId: updatedUser.id,
+      role: updatedUser.role,
+      companyId: updatedUser.companyId,
+      tokenVersion: updatedUser.tokenVersion,
+    });
+    setSessionCookies(res, token);
+  }
   const me = await buildMeResponse(prisma, userId);
   if (!me) {
     res.status(404).json({ error: "not_found" });

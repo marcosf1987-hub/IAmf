@@ -1,7 +1,9 @@
 import type { NextFunction, Request, Response } from "express";
 import jwt from "jsonwebtoken";
+import { PrismaClient } from "@prisma/client";
 import { jwtAccessTokenMaxAgeSeconds } from "./jwt-config";
 import { ACCESS_COOKIE_NAME, parseCookieHeader } from "./session-cookie";
+import { logSecurityEvent, securityError } from "./security-utils";
 
 /** Roles en JWT (alineados con Prisma `UserRole`). */
 export type AppRole = "super_admin" | "org_admin" | "member";
@@ -10,6 +12,7 @@ export type AuthTokenPayload = {
   userId: string;
   role: AppRole;
   companyId: string;
+  tokenVersion: number;
 };
 
 function getJwtSecret(): string {
@@ -26,6 +29,18 @@ export function signAccessToken(payload: AuthTokenPayload): string {
 }
 
 export type AuthedRequest = Request & { auth: AuthTokenPayload };
+const authPrisma = new PrismaClient();
+
+export function isAuthTokenStale(
+  payload: AuthTokenPayload,
+  user: { role: AppRole; companyId: string; tokenVersion: number }
+): boolean {
+  return (
+    user.role !== payload.role ||
+    user.companyId !== payload.companyId ||
+    user.tokenVersion !== payload.tokenVersion
+  );
+}
 
 /** Verifica el JWT sin middleware (p. ej. requireAdmin con rol desde BD). */
 export function verifyAccessToken(token: string): AuthTokenPayload | null {
@@ -55,17 +70,33 @@ export function getAccessTokenFromRequest(req: Request): string | null {
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  void (async () => {
   const token = getAccessTokenFromRequest(req);
   if (!token) {
-    res.status(401).json({ error: "missing_token" });
+    securityError(res, 401, "missing_token");
     return;
   }
 
   try {
     const decoded = jwt.verify(token, getJwtSecret()) as AuthTokenPayload;
+    const user = await authPrisma.user.findUnique({
+      where: { id: decoded.userId },
+      select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
+    });
+    if (!user || user.status !== "active") {
+      logSecurityEvent(req, "auth_rejected", { reason: "user_inactive_or_missing" });
+      securityError(res, 401, "invalid_token");
+      return;
+    }
+    if (isAuthTokenStale(decoded, user)) {
+      logSecurityEvent(req, "auth_rejected", { reason: "token_revoked_or_stale" });
+      securityError(res, 401, "invalid_token");
+      return;
+    }
     (req as AuthedRequest).auth = decoded;
     next();
-  } catch {
-    res.status(401).json({ error: "invalid_token" });
+  } catch (_err) {
+    securityError(res, 401, "invalid_token");
   }
+  })();
 }
