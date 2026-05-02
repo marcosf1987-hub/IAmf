@@ -10,7 +10,6 @@ import ResultadosPage from "./pages/ResultadosPage";
 import PerfilPage from "./pages/PerfilPage";
 import AdminPage from "./pages/AdminPage";
 import PlatformAdminPage from "./pages/PlatformAdminPage";
-import PricingPage from "./pages/PricingPage";
 import AcceptInvitePage from "./pages/AcceptInvitePage";
 import AcceptLeagueInvitePage from "./pages/AcceptLeagueInvitePage";
 import MisLigasPage from "./pages/MisLigasPage";
@@ -33,7 +32,7 @@ export default function App() {
       <Route path="/" element={<HomePage />} />
       <Route path="/terms" element={<TermsOfServicePage />} />
       <Route path="/privacy" element={<PrivacyPolicyPage />} />
-      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/pricing" element={<Navigate to="/" replace />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignupPage />} />
       <Route path="/invite/accept" element={<AcceptInvitePage />} />

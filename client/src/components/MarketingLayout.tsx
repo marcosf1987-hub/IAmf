@@ -48,9 +48,6 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           />
         )}
         <nav className={`home-nav ${menuOpen ? "home-nav-open" : ""}`}>
-          <Link to="/pricing" className="nav-link" onClick={() => setMenuOpen(false)}>
-            Precios
-          </Link>
           <Link to="/login" className="nav-link" onClick={() => setMenuOpen(false)}>
             Iniciar sesión
           </Link>
