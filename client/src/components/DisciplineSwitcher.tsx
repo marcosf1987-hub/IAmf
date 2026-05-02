@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type ReactElement } from "react";
 import { useAppDiscipline, type AppDiscipline } from "../contexts/AppDisciplineContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
@@ -42,7 +42,7 @@ function IconCheckeredFlag() {
   const fh = 10;
   const cw = fw / cols;
   const rh = fh / rows;
-  const cells: JSX.Element[] = [];
+  const cells: ReactElement[] = [];
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
       cells.push(
