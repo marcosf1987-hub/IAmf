@@ -296,7 +296,8 @@ button:focus:not(:focus-visible) {
 
 @media (max-width: 768px) {
   .home-header {
-    padding: 1.25rem 1.5rem;
+    padding: calc(1.25rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px))
+      1.25rem max(1.5rem, env(safe-area-inset-left, 0px));
     position: relative;
     z-index: 101;
   }
@@ -360,6 +361,11 @@ a.home-logo:hover .home-logo-brand {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 102;
+    flex-shrink: 0;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 }
 
@@ -392,7 +398,8 @@ a.home-logo:hover .home-logo-brand {
     max-width: 280px;
     flex-direction: column;
     gap: 0;
-    padding: 5rem 1.5rem 2rem;
+    padding: calc(5rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)) 2rem
+      max(1.5rem, env(safe-area-inset-left, 0px));
     background: rgba(1, 12, 42, 0.97);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -1835,7 +1842,8 @@ a.btn-oauth--unconfigured {
 
 @media (max-width: 768px) {
   .app-header {
-    padding: 1rem 1.5rem;
+    padding: calc(1rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)) 1rem
+      max(1.5rem, env(safe-area-inset-left, 0px));
     position: relative;
     z-index: 101;
   }
@@ -1858,17 +1866,32 @@ a.btn-oauth--unconfigured {
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 102;
+    flex-shrink: 0;
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 }
 
-/* Hamburger / Close icons */
-.icon-menu {
-  display: block;
-  width: 24px;
-  height: 2px;
-  background: currentColor;
-  box-shadow: 0 6px 0 currentColor, 0 12px 0 currentColor;
+/* Hamburguesa clásica (tres barras; sin box-shadow para compatibilidad móvil) */
+.icon-hamburger {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  width: 22px;
+  height: 16px;
+  box-sizing: border-box;
 }
+.icon-hamburger-bar {
+  display: block;
+  height: 2px;
+  width: 100%;
+  background: currentColor;
+  border-radius: 1px;
+}
+
 .icon-close {
   display: block;
   width: 24px;
@@ -2024,7 +2047,8 @@ a.btn-oauth--unconfigured {
     flex-direction: column;
     align-items: stretch;
     gap: 0;
-    padding: 5rem 1.5rem 2rem;
+    padding: calc(5rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)) 2rem
+      max(1.5rem, env(safe-area-inset-left, 0px));
     background: rgba(1, 12, 42, 0.97);
     backdrop-filter: var(--glass-blur);
     -webkit-backdrop-filter: var(--glass-blur);
@@ -6067,11 +6091,6 @@ a.btn-oauth--unconfigured {
 
 .discipline-switcher-option .discipline-switcher-svg {
   flex-shrink: 0;
-}
-
-.app-menu-discipline-icon {
-  width: 22px;
-  height: 22px;
 }
 
 /* Header mínimo en pantalla de elección de arena */

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import DisciplineSwitcher from "../components/DisciplineSwitcher";
+import { HamburgerIcon } from "../components/HamburgerIcon";
 import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -52,29 +53,6 @@ function HeaderAccountSection({ user, logout, onAfterNavigate, className }: Head
         </button>
       </div>
     </div>
-  );
-}
-
-function MenuIconFootball() {
-  return (
-    <svg className="app-menu-discipline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-      <circle cx="12" cy="12" r="9" strokeWidth="1.75" />
-      <path d="M12 3.5v2.5M12 18v2.5M3.5 12h2.5M18 12h2.5" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function MenuIconF1() {
-  return (
-    <svg className="app-menu-discipline-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden>
-      <circle cx="12" cy="12" r="9" strokeWidth="1.75" />
-      <circle cx="12" cy="12" r="2.5" strokeWidth="1.5" />
-      <path
-        d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8"
-        strokeWidth="1.35"
-        strokeLinecap="round"
-      />
-    </svg>
   );
 }
 
@@ -165,15 +143,7 @@ export default function AppLayout() {
           aria-expanded={menuOpen}
           aria-controls="app-header-menu-panel"
         >
-          {menuOpen ? (
-            <span className="icon-close" />
-          ) : arenaPicker ? (
-            <span className="icon-menu" />
-          ) : discipline === "f1" ? (
-            <MenuIconF1 />
-          ) : (
-            <MenuIconFootball />
-          )}
+          {menuOpen ? <span className="icon-close" aria-hidden /> : <HamburgerIcon />}
         </button>
         {menuOpen && (
           <div className="app-menu-backdrop" onClick={() => setMenuOpen(false)} aria-hidden="true" />

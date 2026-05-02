@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { HamburgerIcon } from "./HamburgerIcon";
 
 type Props = {
   children: ReactNode;
@@ -38,7 +39,7 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
           aria-expanded={menuOpen}
         >
-          <span className={menuOpen ? "icon-close" : "icon-menu"} />
+          {menuOpen ? <span className="icon-close" aria-hidden /> : <HamburgerIcon />}
         </button>
         {menuOpen && (
           <div
