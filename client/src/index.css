@@ -300,6 +300,10 @@ button:focus:not(:focus-visible) {
       1.25rem max(1.5rem, env(safe-area-inset-left, 0px));
     position: relative;
     z-index: 101;
+    /* Safari: mismo criterio que app-header — drawer fixed compone bien sin blur en el padre */
+    background: rgb(5, 18, 47);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 
