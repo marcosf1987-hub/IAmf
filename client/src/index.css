@@ -400,9 +400,8 @@ a.home-logo:hover .home-logo-brand {
     gap: 0;
     padding: calc(5rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)) 2rem
       max(1.5rem, env(safe-area-inset-left, 0px));
-    background: rgba(1, 12, 42, 0.97);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
+    /* Opaco en móvil: Safari + backdrop-filter dejaba el drawer transparente sobre el contenido */
+    background: rgb(1, 12, 42);
     border-left: 1px solid rgba(178, 197, 255, 0.12);
     z-index: 100;
     transform: translateX(100%);
@@ -2106,9 +2105,8 @@ a.btn-oauth--unconfigured {
     gap: 0;
     padding: calc(5rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px)) 2rem
       max(1.5rem, env(safe-area-inset-left, 0px));
-    background: rgba(1, 12, 42, 0.97);
-    backdrop-filter: var(--glass-blur);
-    -webkit-backdrop-filter: var(--glass-blur);
+    /* Opaco en móvil: Safari + backdrop-filter dejaba el drawer transparente sobre el contenido */
+    background: rgb(1, 12, 42);
     border-left: 1px solid rgba(178, 197, 255, 0.12);
     z-index: 100;
     transform: translateX(100%);
