@@ -1704,6 +1704,15 @@ a.home-logo:hover .home-logo-brand {
   box-shadow: 0 16px 48px rgba(1, 12, 42, 0.45);
 }
 
+@media (max-width: 768px) {
+  .auth-card {
+    /* Safari: fondo opaco y sin blur para evitar superposición visual con el header/drawer */
+    background: rgb(18, 30, 60);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 .auth-card h1 {
   font-family: var(--font-display);
   margin: 0 0 0.5rem;
