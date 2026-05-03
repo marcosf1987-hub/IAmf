@@ -1911,6 +1911,10 @@ a.btn-oauth--unconfigured {
       max(1.5rem, env(safe-area-inset-left, 0px));
     position: relative;
     z-index: 101;
+    /* Safari: sin blur en el header para que el drawer fixed hijo componga fondo opaco */
+    background: rgb(5, 18, 47);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   .app-logo {
     margin-right: 1.5rem;
