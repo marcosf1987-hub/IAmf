@@ -700,6 +700,7 @@ export type MyCompetitionSummary = {
   id: string;
   name: string;
   slug: string;
+  discipline: "football" | "f1";
   description: string | null;
   emoji: string | null;
   coverImageUrl: string | null;
@@ -727,12 +728,15 @@ export async function createCompetition(body: {
   description?: string | null;
   emoji?: string | null;
   coverImageUrl?: string | null;
+  /** Si no se envía, el servidor usa `football`. */
+  discipline?: "football" | "f1";
 }): Promise<{
   competition: {
     id: string;
     name: string;
     slug: string;
     inviteCode: string;
+    discipline: "football" | "f1";
     description: string | null;
     emoji: string | null;
     coverImageUrl: string | null;
@@ -791,6 +795,7 @@ export async function patchCompetition(
     emoji?: string | null;
     coverImageUrl?: string | null;
     maxMembers?: number;
+    discipline?: "football" | "f1";
   }
 ): Promise<{
   competition: {
@@ -798,6 +803,7 @@ export async function patchCompetition(
     name: string;
     slug: string;
     inviteCode: string;
+    discipline: "football" | "f1";
     description: string | null;
     emoji: string | null;
     coverImageUrl: string | null;
@@ -908,8 +914,7 @@ export type CompetitionDetailResponse = {
     id: string;
     name: string;
     slug: string;
-    /** `f1` o `football` (default API: football si el backend no envía). */
-    discipline?: "football" | "f1";
+    discipline: "football" | "f1";
     description: string | null;
     emoji: string | null;
     coverImageUrl: string | null;

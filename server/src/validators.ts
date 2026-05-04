@@ -73,6 +73,7 @@ export const patchCompetitionSchema = z.object({
   emoji: z.string().trim().max(16).nullable().optional(),
   coverImageUrl: z.union([httpUrlSchema, z.literal(""), z.null()]).optional(),
   maxMembers: z.number().int().min(2).max(500).optional(),
+  discipline: z.enum(["football", "f1"]).optional(),
 });
 
 export const joinCompetitionCodeSchema = z.object({

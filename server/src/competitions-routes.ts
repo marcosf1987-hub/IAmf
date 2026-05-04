@@ -226,6 +226,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         name: true,
         slug: true,
         inviteCode: true,
+        discipline: true,
         description: true,
         emoji: true,
         coverImageUrl: true,
@@ -356,12 +357,14 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
             }
           : {}),
         ...(body.maxMembers != null ? { maxMembers: body.maxMembers } : {}),
+        ...(body.discipline != null ? { discipline: body.discipline } : {}),
       },
       select: {
         id: true,
         name: true,
         slug: true,
         inviteCode: true,
+        discipline: true,
         description: true,
         emoji: true,
         coverImageUrl: true,

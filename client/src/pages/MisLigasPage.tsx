@@ -775,10 +775,14 @@ function AdminLigaConfig({
   onMemberRemoved: () => void;
 }) {
   const { showFlash } = useFlash();
+  const isF1Shell = useIsF1AppShell();
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description ?? "");
   const [emoji, setEmoji] = useState(initial.emoji ?? "");
   const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
+  const [discipline, setDiscipline] = useState<"football" | "f1">(
+    initial.discipline === "f1" ? "f1" : "football"
+  );
   const [maxMembers, setMaxMembers] = useState(initial.maxMembers);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
@@ -790,6 +794,7 @@ function AdminLigaConfig({
     setDescription(initial.description ?? "");
     setEmoji(initial.emoji ?? "");
     setCoverImageUrl(initial.coverImageUrl ?? "");
+    setDiscipline(initial.discipline === "f1" ? "f1" : "football");
     setMaxMembers(initial.maxMembers);
   }, [initial]);
 
@@ -827,6 +832,7 @@ function AdminLigaConfig({
         emoji: emoji.trim() || null,
         coverImageUrl: coverImageUrl.trim() || null,
         maxMembers,
+        discipline,
       });
       onPatched(competition);
     } catch (err) {
@@ -904,6 +910,23 @@ function AdminLigaConfig({
             onChange={(e) => setMaxMembers(Number(e.target.value))}
           />
         </label>
+        <label className="ligas-field">
+          <span>Disciplina de la liga</span>
+          <select
+            className="ligas-select"
+            value={discipline}
+            onChange={(e) => setDiscipline(e.target.value as "football" | "f1")}
+            aria-label="Disciplina: Prode fútbol o F1"
+          >
+            <option value="football">Mundial / prode fútbol</option>
+            <option value="f1">Fórmula 1 (puntos con OpenF1)</option>
+          </select>
+          {isF1Shell && discipline === "football" ? (
+            <span className="ligas-field-hint">
+              Estás en el área F1; si esta liga es solo F1, elegí «Fórmula 1» para que el ranking use tus predicciones F1.
+            </span>
+          ) : null}
+        </label>
         {saveErr && <p className="ligas-form-error">{saveErr}</p>}
         <button type="submit" className="btn-primary" disabled={saving}>
           {saving ? "Guardando…" : "Guardar cambios"}
@@ -950,9 +973,10 @@ function CreateLigaModal({
 }) {
   const { user } = useAuth();
   const { showFlash } = useFlash();
+  const isF1Shell = useIsF1AppShell();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [emoji, setEmoji] = useState("⚽");
+  const [emoji, setEmoji] = useState(() => (isF1Shell ? "🏎️" : "⚽"));
   const [coverImageUrl, setCoverImageUrl] = useState("");
   const [maxMembers, setMaxMembers] = useState(10);
   const [emailsRaw, setEmailsRaw] = useState("");
@@ -988,6 +1012,7 @@ function CreateLigaModal({
         description: description.trim() || null,
         emoji: emoji.trim() || null,
         coverImageUrl: coverImageUrl.trim() || null,
+        discipline: isF1Shell ? "f1" : "football",
       });
       const emails = parseEmails(emailsRaw);
       const selfEmail = user?.email?.toLowerCase().trim();
