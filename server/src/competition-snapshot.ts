@@ -1,7 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
 import { anonymizeUserId, computeLeaderboardForUsers } from "./leaderboard";
 import { isPlatformCompanySlug } from "./org-seat";
-import { aggregateF1PointsByUser, officialTop10DriverNumbers } from "./f1-scoring";
+import { aggregateF1PointsByUser } from "./f1-scoring";
+import { loadF1RacesForScoring } from "./f1-competition-leaderboard";
 
 /**
  * Datos de ranking para tarjetas de liga (tu puesto, total, top 3).
@@ -47,10 +48,7 @@ export async function getCompetitionCardSnapshot(
     !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
 
   if (comp.discipline === "f1") {
-    const racesAll = await prisma.f1Race.findMany({
-      select: { id: true, resultTop10: true },
-    });
-    const races = racesAll.filter((r) => officialTop10DriverNumbers(r.resultTop10).length === 10);
+    const races = await loadF1RacesForScoring(prisma);
     const preds = await prisma.f1Prediction.findMany({
       where: { userId: { in: memberIds } },
       select: { userId: true, raceId: true, placements: true },

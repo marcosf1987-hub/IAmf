@@ -17,6 +17,7 @@ import {
   scoreF1Placements,
 } from "./f1-scoring";
 import { decrypt } from "./crypto-util";
+import { loadF1RacesForScoring } from "./f1-competition-leaderboard";
 import { fetchOpenF1DriversForSession, syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
 import { z } from "zod";
 
@@ -395,10 +396,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
   app.get("/f1/me/summary", requireAuth, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     try {
-      const racesAll = await prisma.f1Race.findMany({
-        select: { id: true, resultTop10: true, sessionKey: true, circuitShortName: true, roundOrder: true },
-      });
-      const races = racesAll.filter((r) => officialTop10DriverNumbers(r.resultTop10).length === 10);
+      const races = await loadF1RacesForScoring(prisma);
       const preds = await prisma.f1Prediction.findMany({
         where: { userId },
         select: { raceId: true, placements: true },

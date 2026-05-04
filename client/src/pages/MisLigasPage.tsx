@@ -589,6 +589,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   const { competition, members, myRole } = detail;
   const isAdmin = myRole === "competition_admin";
   const block = dash?.competitionLeaderboards.find((b) => b.id === competitionId);
+  const isF1Liga = competition.discipline === "f1";
 
   function setTab(next: "ranking" | "config") {
     setSearchParams(next === "ranking" ? {} : { tab: "config" }, { replace: true });
@@ -646,7 +647,9 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       {tab === "ranking" && (
         <section className="ligas-tab-panel" aria-label="Ranking">
           <p className="ligas-tab-lead">
-            Mismas predicciones que en el global; acá el puntaje es solo entre miembros de esta liga.
+            {isF1Liga
+              ? "Puntos F1 según el top 10 oficial (OpenF1) y tus predicciones por carrera; el ranking es sólo entre miembros de esta liga."
+              : "Mismas predicciones que en el global; acá el puntaje es solo entre miembros de esta liga."}
           </p>
           {block ? (
             <div className="ligas-your-rank-strip" role="region" aria-label="Tu posición en esta liga">
@@ -660,7 +663,9 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
                   </p>
                 ) : (
                   <p className="ligas-your-rank-muted">
-                    Aún sin posición: cuando haya resultados en el torneo, tu puesto aparecerá aquí y en la tabla.
+                    {isF1Liga
+                      ? "Aún sin posición: cuando una carrera tenga resultado oficial (top 10) en OpenF1, tu puesto aparecerá aquí y en la tabla."
+                      : "Aún sin posición: cuando haya resultados en el torneo, tu puesto aparecerá aquí y en la tabla."}
                   </p>
                 )}
               </div>
@@ -690,7 +695,11 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
           ) : (
             <EmptyState
               title="Todavía no hay ranking en esta liga"
-              description="Cuando se publiquen resultados de partidos y los miembros tengan predicciones, la tabla se completará automáticamente."
+              description={
+                isF1Liga
+                  ? "Cuando OpenF1 tenga el top 10 de una carrera cerrada y los miembros tengan predicciones F1, la tabla se completará automáticamente."
+                  : "Cuando se publiquen resultados de partidos y los miembros tengan predicciones, la tabla se completará automáticamente."
+              }
             />
           )}
           <Link to={isF1Shell ? "/app/f1/resultados" : "/app/resultados"} className="ligas-link-results">

@@ -31,7 +31,11 @@ import { registerCompetitionRoutes } from "./competitions-routes";
 import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
 import { registerF1Routes } from "./f1-routes";
 import { mountOAuthRoutes } from "./oauth";
-import { syncF1FinishedRaceResults, syncF1SeasonRaces } from "./openf1-sync";
+import {
+  startOpenF1ResultAutoSync,
+  syncF1FinishedRaceResults,
+  syncF1SeasonRaces,
+} from "./openf1-sync";
 import { logSecurityEvent, readSecurityCounters, securityError } from "./security-utils";
 
 /** Express 5 tipa `req.params` como string | string[] */
@@ -1954,14 +1958,18 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
   startFootballDataResultAutoSync(prisma);
+  startOpenF1ResultAutoSync(prisma);
   if (process.env.OPENF1_BOOTSTRAP_SYNC !== "false") {
-    const year = new Date().getFullYear();
+    const cy = new Date().getFullYear();
     void (async () => {
       try {
-        const n = await syncF1SeasonRaces(prisma, year);
+        const n1 = await syncF1SeasonRaces(prisma, cy);
+        const n0 = await syncF1SeasonRaces(prisma, cy - 1);
         const r = await syncF1FinishedRaceResults(prisma);
         // eslint-disable-next-line no-console
-        console.log(`OpenF1 bootstrap: ${n} races (${year}), ${r} result sync(s)`);
+        console.log(
+          `OpenF1 bootstrap: ${n0 + n1} races (${cy - 1}, ${cy}), ${r} result sync(s)`
+        );
       } catch (e) {
         // eslint-disable-next-line no-console
         console.error("OpenF1 bootstrap sync failed:", e);

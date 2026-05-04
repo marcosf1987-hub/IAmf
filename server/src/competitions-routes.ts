@@ -545,6 +545,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         id: comp.id,
         name: comp.name,
         slug: comp.slug,
+        discipline: comp.discipline,
         description: comp.description,
         emoji: comp.emoji,
         coverImageUrl: comp.coverImageUrl,

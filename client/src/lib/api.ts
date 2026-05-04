@@ -908,6 +908,8 @@ export type CompetitionDetailResponse = {
     id: string;
     name: string;
     slug: string;
+    /** `f1` o `football` (default API: football si el backend no envía). */
+    discipline?: "football" | "f1";
     description: string | null;
     emoji: string | null;
     coverImageUrl: string | null;
