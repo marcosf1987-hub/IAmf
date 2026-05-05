@@ -59,21 +59,15 @@ export const platformPatchCompanySchema = z.object({
 });
 
 export const createCompetitionSchema = z.object({
-  name: z.string().trim().min(2).max(120),
+  name: z.string().trim().min(2).max(25),
   maxMembers: z.number().int().min(2).max(500),
-  description: z.string().trim().max(500).optional().nullable(),
-  emoji: z.string().trim().max(16).optional().nullable(),
-  coverImageUrl: z.union([httpUrlSchema, z.literal(""), z.null()]).optional(),
+  description: z.string().trim().max(90).optional().nullable(),
   discipline: z.enum(["football", "f1"]).optional().default("football"),
 });
 
 export const patchCompetitionSchema = z.object({
-  name: z.string().trim().min(2).max(120).optional(),
-  description: z.string().trim().max(500).nullable().optional(),
-  emoji: z.string().trim().max(16).nullable().optional(),
-  coverImageUrl: z.union([httpUrlSchema, z.literal(""), z.null()]).optional(),
-  maxMembers: z.number().int().min(2).max(500).optional(),
-  discipline: z.enum(["football", "f1"]).optional(),
+  name: z.string().trim().min(2).max(25).optional(),
+  description: z.string().trim().max(90).nullable().optional(),
 });
 
 export const joinCompetitionCodeSchema = z.object({

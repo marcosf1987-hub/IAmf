@@ -775,15 +775,8 @@ function AdminLigaConfig({
   onMemberRemoved: () => void;
 }) {
   const { showFlash } = useFlash();
-  const isF1Shell = useIsF1AppShell();
   const [name, setName] = useState(initial.name);
   const [description, setDescription] = useState(initial.description ?? "");
-  const [emoji, setEmoji] = useState(initial.emoji ?? "");
-  const [coverImageUrl, setCoverImageUrl] = useState(initial.coverImageUrl ?? "");
-  const [discipline, setDiscipline] = useState<"football" | "f1">(
-    initial.discipline === "f1" ? "f1" : "football"
-  );
-  const [maxMembers, setMaxMembers] = useState(initial.maxMembers);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState("");
   const [removing, setRemoving] = useState<string | null>(null);
@@ -792,11 +785,10 @@ function AdminLigaConfig({
   useEffect(() => {
     setName(initial.name);
     setDescription(initial.description ?? "");
-    setEmoji(initial.emoji ?? "");
-    setCoverImageUrl(initial.coverImageUrl ?? "");
-    setDiscipline(initial.discipline === "f1" ? "f1" : "football");
-    setMaxMembers(initial.maxMembers);
   }, [initial]);
+
+  const disciplineLabel =
+    initial.discipline === "f1" ? "Fórmula 1 (OpenF1)" : "Mundial / prode fútbol";
 
   const inviteLink =
     typeof window !== "undefined"
@@ -829,10 +821,6 @@ function AdminLigaConfig({
       const { competition } = await patchCompetition(competitionId, {
         name: name.trim(),
         description: description.trim() || null,
-        emoji: emoji.trim() || null,
-        coverImageUrl: coverImageUrl.trim() || null,
-        maxMembers,
-        discipline,
       });
       onPatched(competition);
     } catch (err) {
@@ -873,59 +861,26 @@ function AdminLigaConfig({
 
       <form className="ligas-admin-block" onSubmit={savePersonalization}>
         <h3 className="ligas-admin-title">Personalización</h3>
+        <p className="ligas-admin-meta-readonly">
+          Disciplina: <strong>{disciplineLabel}</strong> (definida al crear la liga). Cupo:{" "}
+          <strong>
+            {members.length} / {initial.maxMembers}
+          </strong>{" "}
+          miembros — no se puede cambiar.
+        </p>
         <label className="ligas-field">
-          <span>Nombre de la liga</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={120} required />
+          <span>Nombre de la liga (máx. 25 caracteres)</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} maxLength={25} required />
         </label>
         <label className="ligas-field">
-          <span>Reglas o contexto (visible para todos)</span>
+          <span>Descripción (máx. 90 caracteres, visible para todos)</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            maxLength={500}
-            placeholder='Ej. "Solo para el equipo de Ventas"'
+            maxLength={90}
+            placeholder="Ej. Solo para el equipo de Ventas"
           />
-        </label>
-        <label className="ligas-field">
-          <span>Emoji identificador</span>
-          <input value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={16} placeholder="⚽" />
-        </label>
-        <label className="ligas-field">
-          <span>URL de imagen (opcional, enlace público)</span>
-          <input
-            value={coverImageUrl}
-            onChange={(e) => setCoverImageUrl(e.target.value)}
-            maxLength={2000}
-            placeholder="https://…"
-          />
-        </label>
-        <label className="ligas-field">
-          <span>Cupo máximo de miembros</span>
-          <input
-            type="number"
-            min={Math.max(2, members.length)}
-            max={500}
-            value={maxMembers}
-            onChange={(e) => setMaxMembers(Number(e.target.value))}
-          />
-        </label>
-        <label className="ligas-field">
-          <span>Disciplina de la liga</span>
-          <select
-            className="ligas-select"
-            value={discipline}
-            onChange={(e) => setDiscipline(e.target.value as "football" | "f1")}
-            aria-label="Disciplina: Prode fútbol o F1"
-          >
-            <option value="football">Mundial / prode fútbol</option>
-            <option value="f1">Fórmula 1 (puntos con OpenF1)</option>
-          </select>
-          {isF1Shell && discipline === "football" ? (
-            <span className="ligas-field-hint">
-              Estás en el área F1; si esta liga es solo F1, elegí «Fórmula 1» para que el ranking use tus predicciones F1.
-            </span>
-          ) : null}
         </label>
         {saveErr && <p className="ligas-form-error">{saveErr}</p>}
         <button type="submit" className="btn-primary" disabled={saving}>
@@ -976,8 +931,6 @@ function CreateLigaModal({
   const isF1Shell = useIsF1AppShell();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [emoji, setEmoji] = useState(() => (isF1Shell ? "🏎️" : "⚽"));
-  const [coverImageUrl, setCoverImageUrl] = useState("");
   const [maxMembers, setMaxMembers] = useState(10);
   const [emailsRaw, setEmailsRaw] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -999,6 +952,10 @@ function CreateLigaModal({
       setFormError("El nombre debe tener al menos 2 caracteres.");
       return;
     }
+    if (trimmed.length > 25) {
+      setFormError("El nombre no puede superar 25 caracteres.");
+      return;
+    }
     if (maxMembers < bounds.min || maxMembers > bounds.max) {
       setFormError(`El cupo debe estar entre ${bounds.min} y ${bounds.max}.`);
       return;
@@ -1010,8 +967,6 @@ function CreateLigaModal({
         name: trimmed,
         maxMembers,
         description: description.trim() || null,
-        emoji: emoji.trim() || null,
-        coverImageUrl: coverImageUrl.trim() || null,
         discipline: isF1Shell ? "f1" : "football",
       });
       const emails = parseEmails(emailsRaw);
@@ -1068,7 +1023,8 @@ function CreateLigaModal({
           Crear nueva liga
         </h2>
         <p className="ligas-modal-lead">
-          Vas a ser el administrador. Podés compartir el código de invitación desde la configuración de la liga.
+          Vas a ser el administrador. La disciplina de la liga es la del área donde la creás (Mundial o F1); emoji e imagen los define la app.
+          Podés compartir el código desde la configuración de la liga.
         </p>
         <form onSubmit={handleSubmit} className="ligas-modal-form">
           <label className="ligas-field">
@@ -1077,8 +1033,8 @@ function CreateLigaModal({
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder='Ej. "Los Analistas del 3er Piso"'
-              maxLength={120}
+              placeholder='Ej. "Los Analistas"'
+              maxLength={25}
               required
               autoComplete="off"
             />
@@ -1089,25 +1045,10 @@ function CreateLigaModal({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={2}
-              maxLength={500}
+              maxLength={90}
               placeholder="Ej. Solo para el equipo de Ventas"
             />
           </label>
-          <div className="ligas-modal-row">
-            <label className="ligas-field">
-              <span>Emoji</span>
-              <input value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={16} />
-            </label>
-            <label className="ligas-field ligas-field-grow">
-              <span>URL imagen cabecera (opcional)</span>
-              <input
-                value={coverImageUrl}
-                onChange={(e) => setCoverImageUrl(e.target.value)}
-                placeholder="https://…"
-                maxLength={2000}
-              />
-            </label>
-          </div>
           <label className="ligas-field">
             <span>Cupo máximo ({bounds.min}–{bounds.max})</span>
             <input

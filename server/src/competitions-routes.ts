@@ -145,7 +145,8 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     }
 
     const { userId, companyId } = (req as AuthedRequest).auth;
-    const { name, maxMembers, description, emoji, coverImageUrl, discipline } = parsed.data;
+    const { name, maxMembers, description, discipline } = parsed.data;
+    const presentationEmoji = discipline === "f1" ? "🏎️" : "⚽";
 
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -209,8 +210,8 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         inviteCode,
         discipline,
         description: description?.trim() ? description.trim() : null,
-        emoji: emoji?.trim() ? emoji.trim() : null,
-        coverImageUrl: coverImageUrl?.trim() ? coverImageUrl.trim() : null,
+        emoji: presentationEmoji,
+        coverImageUrl: null,
         companyId,
         createdById: userId,
         maxMembers,
@@ -293,7 +294,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       res.status(400).json({ error: "invalid_body" });
       return;
     }
-    const { userId, companyId } = (req as AuthedRequest).auth;
+    const { userId } = (req as AuthedRequest).auth;
 
     const membership = await prisma.competitionMember.findUnique({
       where: { competitionId_userId: { competitionId, userId } },
@@ -310,34 +311,6 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       return;
     }
 
-    if (body.maxMembers != null) {
-      const n = await prisma.competitionMember.count({ where: { competitionId } });
-      if (body.maxMembers < n) {
-        res.status(400).json({
-          error: "max_members_below_current",
-          message: `Hay ${n} miembros; el cupo no puede ser menor.`,
-        });
-        return;
-      }
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        select: { slug: true },
-      });
-      const platform = company && isPlatformCompanySlug(company.slug);
-      if (platform) {
-        if (
-          body.maxMembers > FREE_MAX_MEMBERS_PER_COMPETITION ||
-          body.maxMembers < FREE_MIN_MEMBERS
-        ) {
-          res.status(400).json({ error: "invalid_max_members" });
-          return;
-        }
-      } else if (body.maxMembers > 500 || body.maxMembers < FREE_MIN_MEMBERS) {
-        res.status(400).json({ error: "invalid_max_members" });
-        return;
-      }
-    }
-
     const updated = await prisma.competition.update({
       where: { id: competitionId },
       data: {
@@ -345,19 +318,6 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         ...(body.description !== undefined
           ? { description: body.description === null || body.description === "" ? null : body.description.trim() }
           : {}),
-        ...(body.emoji !== undefined
-          ? { emoji: body.emoji === null || body.emoji === "" ? null : body.emoji.trim() }
-          : {}),
-        ...(body.coverImageUrl !== undefined
-          ? {
-              coverImageUrl:
-                body.coverImageUrl === null || body.coverImageUrl === ""
-                  ? null
-                  : body.coverImageUrl.trim(),
-            }
-          : {}),
-        ...(body.maxMembers != null ? { maxMembers: body.maxMembers } : {}),
-        ...(body.discipline != null ? { discipline: body.discipline } : {}),
       },
       select: {
         id: true,

@@ -107,11 +107,10 @@ test("validators: login normaliza email con espacios", () => {
   assert.equal(parsed.email, "test@example.com");
 });
 
-test("validators: createCompetition rechaza coverImageUrl inválida", () => {
+test("validators: createCompetition rechaza nombre demasiado largo", () => {
   const parsed = createCompetitionSchema.safeParse({
-    name: "Liga",
+    name: "a".repeat(26),
     maxMembers: 10,
-    coverImageUrl: "javascript:alert(1)",
   });
   assert.equal(parsed.success, false);
 });

@@ -726,9 +726,7 @@ export async function createCompetition(body: {
   name: string;
   maxMembers: number;
   description?: string | null;
-  emoji?: string | null;
-  coverImageUrl?: string | null;
-  /** Si no se envía, el servidor usa `football`. */
+  /** Si no se envía, el servidor usa `football`. Emoji e imagen los fija el servidor según disciplina. */
   discipline?: "football" | "f1";
 }): Promise<{
   competition: {
@@ -792,10 +790,6 @@ export async function patchCompetition(
   body: {
     name?: string;
     description?: string | null;
-    emoji?: string | null;
-    coverImageUrl?: string | null;
-    maxMembers?: number;
-    discipline?: "football" | "f1";
   }
 ): Promise<{
   competition: {
