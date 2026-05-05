@@ -44,8 +44,9 @@ export default function F1ResultadosPage() {
     <div className="f1-page-inner resultados-page">
       <h2 className="f1-page-title">Resultados F1</h2>
       <p className="resultados-f1-rules">
-        Puntuación: <strong>10</strong> por P1 correcto, <strong>5</strong> por cada acierto en P2 y P3,{" "}
-        <strong>1</strong> por cada piloto correcto en P4–P10. Fuera del top 10 no suma. Datos oficiales vía OpenF1.
+        Puntuación: <strong>1</strong> punto por cada piloto incluido en el top 10 (aunque esté en otra posición),{" "}
+        <strong>+10</strong> extra por ganador correcto (P1 exacto), y <strong>+5</strong> extra por P2/P3 exactos. Datos
+        oficiales vía OpenF1.
       </p>
       {error ? <div className="auth-error">{error}</div> : null}
       {summary != null ? (

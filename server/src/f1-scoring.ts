@@ -1,5 +1,8 @@
 /**
- * Puntos F1: 10 acierto P1, 5 P2 y P3, 1 por cada acierto P4–P10 (sin puntos fuera del top 10).
+ * Puntos F1:
+ * - 1 punto por cada piloto incluido en el top 10 oficial (aunque esté en otra posición).
+ * - +10 extra si P1 es exacto.
+ * - +5 extra si P2 o P3 es exacto.
  */
 export function normalizePlacements(raw: unknown): (number | null)[] {
   if (!Array.isArray(raw)) return Array(10).fill(null);
@@ -39,14 +42,19 @@ export function scoreF1Placements(predicted: (number | null)[], officialTop10: n
   const o = officialTop10;
   if (o.length < 10) return 0;
   let pts = 0;
+  const officialSet = new Set(o.filter((n) => Number.isFinite(n) && n > 0));
+  const counted = new Set<number>();
   for (let i = 0; i < 10; i++) {
     const pi = p[i];
     const oi = o[i];
     if (pi == null || oi === 0) continue;
+    if (officialSet.has(pi) && !counted.has(pi)) {
+      pts += 1;
+      counted.add(pi);
+    }
     if (pi !== oi) continue;
     if (i === 0) pts += 10;
     else if (i === 1 || i === 2) pts += 5;
-    else pts += 1;
   }
   return pts;
 }
