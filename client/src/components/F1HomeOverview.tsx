@@ -120,7 +120,7 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
     let cancelled = false;
     (async () => {
       try {
-        const mine = await fetchMyCompetitions();
+        const mine = await fetchMyCompetitions("f1");
         if (!cancelled) setLeagueRows(mine.competitions);
       } catch {
         if (!cancelled) setLeagueRows([]);
@@ -212,7 +212,13 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
       (leagueRows ?? []).find((c) => {
         const slug = c.slug?.toLowerCase() ?? "";
         const name = c.name?.toLowerCase() ?? "";
-        return slug.includes("general") || name.includes("general") || name.includes("campeonato");
+        return (
+          slug.includes("universal-f1") ||
+          name.includes("liga universal f1") ||
+          slug.includes("general") ||
+          name.includes("general") ||
+          name.includes("campeonato")
+        );
       }),
     [leagueRows]
   );

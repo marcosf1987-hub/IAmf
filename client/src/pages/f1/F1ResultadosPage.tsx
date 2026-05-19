@@ -1,8 +1,29 @@
 import { useEffect, useState } from "react";
-import { fetchF1MySummary, formatApiError, type F1SummaryByRace } from "../../lib/api";
+import { Link } from "react-router-dom";
+import {
+  fetchF1MySummary,
+  fetchResultsDashboard,
+  formatApiError,
+  type F1SummaryByRace,
+  type ResultsDashboard,
+} from "../../lib/api";
+import { ligaDetailPath } from "../../lib/discipline-paths";
+
+const EMPTY_DASH: ResultsDashboard = {
+  totalHits: 0,
+  totalWithResult: 0,
+  precision: 0,
+  leaderboard: [],
+  myRank: null,
+  totalParticipants: 0,
+  rankChange: 0,
+  pointsOverTime: [],
+  competitionLeaderboards: [],
+};
 
 export default function F1ResultadosPage() {
   const [summary, setSummary] = useState<{ totalPoints: number; byRace: F1SummaryByRace[] } | null>(null);
+  const [dash, setDash] = useState<ResultsDashboard>(EMPTY_DASH);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
 
@@ -10,14 +31,19 @@ export default function F1ResultadosPage() {
     let cancelled = false;
     (async () => {
       try {
-        const s = await fetchF1MySummary();
+        const [s, d] = await Promise.all([
+          fetchF1MySummary(),
+          fetchResultsDashboard("f1").catch(() => EMPTY_DASH),
+        ]);
         if (!cancelled) {
           setSummary(s);
+          setDash(d);
           setError("");
         }
       } catch (e) {
         if (!cancelled) {
           setSummary({ totalPoints: 0, byRace: [] });
+          setDash(EMPTY_DASH);
           setError(formatApiError(e));
         }
       } finally {
@@ -40,6 +66,8 @@ export default function F1ResultadosPage() {
     );
   }
 
+  const { competitionLeaderboards, myRank, totalParticipants } = dash;
+
   return (
     <div className="f1-page-inner resultados-page">
       <h2 className="f1-page-title">Resultados F1</h2>
@@ -55,6 +83,11 @@ export default function F1ResultadosPage() {
             <span className="resultados-f1-metric-value">{summary.totalPoints}</span>
             <span className="resultados-f1-metric-label">Puntos totales F1</span>
           </div>
+          {myRank != null && totalParticipants > 0 ? (
+            <p className="resultados-f1-global-rank">
+              Ranking global F1: <strong>#{myRank}</strong> de {totalParticipants}
+            </p>
+          ) : null}
           {summary.byRace.length > 0 ? (
             <div className="resultados-f1-table-wrap">
               <table className="resultados-table">
@@ -80,6 +113,23 @@ export default function F1ResultadosPage() {
             </p>
           )}
         </>
+      ) : null}
+
+      {competitionLeaderboards.length > 0 ? (
+        <section className="resultados-table-section resultados-competitions">
+          <h2 className="resultados-competitions-title">Rankings por liga</h2>
+          <p className="resultados-competitions-lead">Solo ligas de Fórmula 1 en las que participás.</p>
+          {competitionLeaderboards.map((block) => (
+            <div key={block.id} className="resultados-competition-block">
+              <h3 className="resultados-competition-name">
+                <Link to={ligaDetailPath("f1", block.id)}>{block.name}</Link>
+              </h3>
+              <p className="resultados-competition-meta">
+                Tu posición: <strong>#{block.myRank ?? "—"}</strong> de {block.totalParticipants}
+              </p>
+            </div>
+          ))}
+        </section>
       ) : null}
     </div>
   );

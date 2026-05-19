@@ -18,6 +18,7 @@ import {
   patchCompetitionSchema,
 } from "./validators";
 import { createCompetitionEmailInvitation } from "./competition-invite-routes";
+import { parseDisciplineQuery } from "./discipline-query";
 import { UNIVERSAL_COMPETITION_SLUG, UNIVERSAL_F1_COMPETITION_SLUG } from "./universal-league";
 
 function routeParamId(req: Request): string | undefined {
@@ -56,8 +57,12 @@ function isProtectedUniversalCompetitionSlug(slug: string): boolean {
 export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/competitions/mine", requireAuth, async (req, res) => {
     const { userId, companyId } = (req as AuthedRequest).auth;
+    const discipline = parseDisciplineQuery(req.query.discipline);
     const rows = await prisma.competitionMember.findMany({
-      where: { userId },
+      where: {
+        userId,
+        ...(discipline ? { competition: { discipline } } : {}),
+      },
       include: {
         competition: {
           select: {

@@ -15,6 +15,7 @@ import {
   type ProdeStatus,
   type ResultsDashboard,
 } from "../lib/api";
+import { ligaDetailPath } from "../lib/discipline-paths";
 import { getCurrentPhase, formatDaysLeft } from "../lib/prode-phases";
 
 /** Inicio del primer partido */
@@ -192,7 +193,7 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
         <ul className="dashboard-my-leagues-list">
           {competitions.map((c) => (
             <li key={c.id}>
-              <Link to={`/app/ligas/${c.id}`} className="dashboard-my-leagues-link">
+              <Link to={ligaDetailPath("football", c.id)} className="dashboard-my-leagues-link">
                 <span className="dashboard-my-leagues-name">{c.emoji ? `${c.emoji} ` : ""}{c.name}</span>
                 <span className="dashboard-my-leagues-meta">
                   {c.card.myRank != null
@@ -272,34 +273,53 @@ export default function AppDashboard() {
   }, [dashTab]);
 
   useEffect(() => {
+    let cancelled = false;
     async function load() {
+      setLoading(true);
       setLoadError("");
+      const disc = dashTab === "f1" ? "f1" : "football";
       try {
-        const [statusRes, resultsRes, mineRes] = await Promise.all([
-          fetchProdeStatus(),
-          fetchMyResults(),
-          fetchMyCompetitions(),
-        ]);
-        setProdeStatus(statusRes);
-        setTotalHits(resultsRes.totalHits);
+        const mineRes = await fetchMyCompetitions(disc);
+        if (cancelled) return;
         setMine(mineRes);
-        try {
-          const dash = await fetchResultsDashboard();
+
+        if (dashTab === "football") {
+          const [statusRes, resultsRes, dash] = await Promise.all([
+            fetchProdeStatus(),
+            fetchMyResults(),
+            fetchResultsDashboard("football").catch(() => EMPTY_DASH),
+          ]);
+          if (cancelled) return;
+          setProdeStatus(statusRes);
+          setTotalHits(resultsRes.totalHits);
           setResultsDash(dash);
-        } catch {
+        } else {
+          setProdeStatus(null);
+          setTotalHits(null);
           setResultsDash(EMPTY_DASH);
         }
       } catch {
-        setProdeStatus({ hasGuidelines: false, hasPredictions: false, guidelinesVersion: 1 });
-        setMine({ competitions: [], quota: { scope: "user", createdByMe: 0, maxCreatedByMe: null, companyTotal: null, maxCompany: null } });
+        if (cancelled) return;
+        setProdeStatus(
+          dashTab === "football"
+            ? { hasGuidelines: false, hasPredictions: false, guidelinesVersion: 1 }
+            : null
+        );
+        setMine({
+          competitions: [],
+          quota: { scope: "user", createdByMe: 0, maxCreatedByMe: null, companyTotal: null, maxCompany: null },
+        });
         setResultsDash(EMPTY_DASH);
         setLoadError("No se pudo cargar el resumen. Reintentá en unos segundos.");
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     load();
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [dashTab]);
 
   const displayName = user?.fullName || user?.email || "Usuario";
   const worldCupStarted = new Date() >= WORLD_CUP_START;
@@ -391,7 +411,7 @@ export default function AppDashboard() {
                     {leagueRankRows.map((row) => (
                       <tr key={row.id}>
                         <td>
-                          <Link to={`/app/ligas/${row.id}`} className="dashboard-league-ranks-name">
+                          <Link to={ligaDetailPath("football", row.id)} className="dashboard-league-ranks-name">
                             {row.emoji ? <span className="dashboard-league-ranks-emoji">{row.emoji}</span> : null}
                             {row.name}
                           </Link>

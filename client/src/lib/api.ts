@@ -678,8 +678,13 @@ export type ResultsDashboard = {
   competitionLeaderboards: CompetitionLeaderboardBlock[];
 };
 
-export async function fetchResultsDashboard(): Promise<ResultsDashboard> {
-  return fetchAuth("/results/dashboard");
+export type CompetitionDiscipline = "football" | "f1";
+
+export async function fetchResultsDashboard(
+  discipline?: CompetitionDiscipline
+): Promise<ResultsDashboard> {
+  const q = discipline ? `?discipline=${discipline}` : "";
+  return fetchAuth(`/results/dashboard${q}`);
 }
 
 export type CompetitionQuota = {
@@ -718,8 +723,11 @@ export type MineCompetitionsResponse = {
   quota: CompetitionQuota;
 };
 
-export async function fetchMyCompetitions(): Promise<MineCompetitionsResponse> {
-  return fetchAuth("/competitions/mine");
+export async function fetchMyCompetitions(
+  discipline?: CompetitionDiscipline
+): Promise<MineCompetitionsResponse> {
+  const q = discipline ? `?discipline=${discipline}` : "";
+  return fetchAuth(`/competitions/mine${q}`);
 }
 
 export async function createCompetition(body: {

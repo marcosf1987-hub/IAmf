@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useFlash } from "../contexts/FlashContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { useIsF1AppShell, useLigasBasePath } from "../hooks/useLigasBasePath";
+import type { CompetitionDiscipline } from "../lib/api";
 import type {
   CompetitionDetailResponse,
   CompetitionQuota,
@@ -199,6 +200,8 @@ export default function MisLigasPage() {
 function LigasCommunityHome() {
   const { showFlash } = useFlash();
   const ligasBase = useLigasBasePath();
+  const isF1Shell = useIsF1AppShell();
+  const listDiscipline: CompetitionDiscipline = isF1Shell ? "f1" : "football";
   const joinInputRef = useRef<HTMLInputElement>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const [data, setData] = useState<MineCompetitionsResponse | null>(null);
@@ -219,14 +222,14 @@ function LigasCommunityHome() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetchMyCompetitions();
+      const res = await fetchMyCompetitions(listDiscipline);
       setData(res);
     } catch (e) {
       setError(formatApiError(e));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [listDiscipline]);
 
   useEffect(() => {
     load();
@@ -533,10 +536,10 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       setLoading(true);
       setError("");
       try {
-        const [d, r] = await Promise.all([
-          fetchCompetitionDetail(competitionId),
-          fetchResultsDashboard().catch(() => EMPTY_DATA),
-        ]);
+        const d = await fetchCompetitionDetail(competitionId);
+        const dashDiscipline: CompetitionDiscipline =
+          d.competition.discipline === "f1" ? "f1" : "football";
+        const r = await fetchResultsDashboard(dashDiscipline).catch(() => EMPTY_DATA);
         if (!cancelled) {
           setDetail(d);
           setDash(r);

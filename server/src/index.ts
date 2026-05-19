@@ -26,6 +26,7 @@ import { registerB2BRoutes } from "./b2b-routes";
 import { isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 import { ensureUniversalLeagueMembership } from "./universal-league";
+import { parseDisciplineQuery } from "./discipline-query";
 import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
 import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
@@ -1222,8 +1223,9 @@ app.get("/leaderboard", requireAuth, async (req, res) => {
 
 app.get("/results/dashboard", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
+  const discipline = parseDisciplineQuery(req.query.discipline);
   try {
-    const payload = await buildResultsDashboardPayload(prisma, userId, companyId);
+    const payload = await buildResultsDashboardPayload(prisma, userId, companyId, discipline);
     res.status(200).json(payload);
   } catch (err) {
     // eslint-disable-next-line no-console

@@ -43,7 +43,7 @@ export default function ResultadosPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetchResultsDashboard();
+        const res = await fetchResultsDashboard("football");
         setData(res);
       } catch (err) {
         setError(formatApiError(err));

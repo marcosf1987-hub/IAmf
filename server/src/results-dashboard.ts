@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import type { CompetitionDiscipline } from "./discipline-query";
 import { computeLeaderboardForUsers, isExactHit } from "./leaderboard";
 import { isPlatformCompanySlug } from "./org-seat";
 import {
@@ -35,10 +36,201 @@ export type ResultsDashboardPayload = {
   competitionLeaderboards: CompetitionLeaderboardBlock[];
 };
 
-export async function buildResultsDashboardPayload(
+type MembershipRow = Awaited<
+  ReturnType<
+    typeof prismaMembershipQuery
+  >
+>[number];
+
+async function prismaMembershipQuery(prisma: PrismaClient, userId: string) {
+  return prisma.competitionMember.findMany({
+    where: { userId },
+    include: {
+      competition: {
+        include: {
+          company: { select: { id: true, slug: true } },
+        },
+      },
+    },
+  });
+}
+
+function filterMembershipsByDiscipline(
+  memberships: MembershipRow[],
+  discipline?: CompetitionDiscipline
+): MembershipRow[] {
+  if (!discipline) return memberships;
+  return memberships.filter((m) => m.competition.discipline === discipline);
+}
+
+async function buildCompetitionLeaderboardsForMemberships(
+  prisma: PrismaClient,
+  memberships: MembershipRow[],
+  userId: string,
+  matchIds: string[],
+  footballMatches: Array<{
+    id: string;
+    kickoffAt: Date;
+    resultScoreA: number | null;
+    resultScoreB: number | null;
+  }>,
+  f1RacesOfficial: Awaited<ReturnType<typeof loadF1RacesForScoring>>
+): Promise<CompetitionLeaderboardBlock[]> {
+  const competitionLeaderboards: CompetitionLeaderboardBlock[] = [];
+
+  for (const mem of memberships) {
+    const comp = mem.competition;
+    const members = await prisma.competitionMember.findMany({
+      where: { competitionId: comp.id },
+      select: { userId: true },
+    });
+    const memberIds = members.map((m) => m.userId);
+    if (memberIds.length === 0) continue;
+
+    const memberUsers = await prisma.user.findMany({
+      where: { id: { in: memberIds }, status: "active" },
+      select: { id: true, fullName: true, email: true },
+    });
+
+    const compConfig = await prisma.companyConfig.findUnique({
+      where: { companyId: comp.companyId },
+      select: { anonymizationEnabled: true },
+    });
+
+    const anonymizeCompetition =
+      !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
+
+    if (comp.discipline === "f1") {
+      const totals = await f1TotalsForMembers(prisma, memberIds, f1RacesOfficial);
+      const lb = buildF1LeagueLeaderboardRows(
+        memberIds,
+        totals,
+        memberUsers,
+        anonymizeCompetition,
+        comp.companyId,
+        userId
+      );
+      competitionLeaderboards.push({
+        id: comp.id,
+        name: comp.name,
+        slug: comp.slug,
+        leaderboard: lb.leaderboard,
+        myRank: lb.myRank,
+        totalParticipants: lb.totalParticipants,
+        rankChange: 0,
+      });
+      continue;
+    }
+
+    if (matchIds.length === 0) {
+      continue;
+    }
+
+    const predComp = await prisma.prediction.findMany({
+      where: {
+        userId: { in: memberIds },
+        matchId: { in: matchIds },
+      },
+      include: {
+        match: { select: { resultScoreA: true, resultScoreB: true } },
+      },
+    });
+
+    const lb = computeLeaderboardForUsers(
+      footballMatches,
+      predComp.map((p) => ({
+        userId: p.userId,
+        matchId: p.matchId,
+        scoreA: p.scoreA,
+        scoreB: p.scoreB,
+        match: {
+          resultScoreA: p.match.resultScoreA,
+          resultScoreB: p.match.resultScoreB,
+        },
+      })),
+      memberUsers,
+      anonymizeCompetition,
+      comp.companyId,
+      userId
+    );
+
+    competitionLeaderboards.push({
+      id: comp.id,
+      name: comp.name,
+      slug: comp.slug,
+      leaderboard: lb.leaderboard,
+      myRank: lb.myRank,
+      totalParticipants: lb.totalParticipants,
+      rankChange: lb.rankChange,
+    });
+  }
+
+  return competitionLeaderboards;
+}
+
+async function buildF1ResultsDashboardPayload(
   prisma: PrismaClient,
   userId: string,
-  companyId: string
+  companyId: string,
+  memberships: MembershipRow[]
+): Promise<ResultsDashboardPayload> {
+  const f1RacesOfficial = await loadF1RacesForScoring(prisma);
+  const competitionLeaderboards = await buildCompetitionLeaderboardsForMemberships(
+    prisma,
+    memberships,
+    userId,
+    [],
+    [],
+    f1RacesOfficial
+  );
+
+  const [companyUsers, companyConfig] = await Promise.all([
+    prisma.user.findMany({
+      where: { companyId, status: "active" },
+      select: { id: true, fullName: true, email: true },
+    }),
+    prisma.companyConfig.findUnique({
+      where: { companyId },
+      select: { anonymizationEnabled: true },
+    }),
+  ]);
+
+  const companyUserIds = companyUsers.map((u) => u.id);
+  const anonymizedGlobal = companyConfig?.anonymizationEnabled ?? true;
+  const totals = await f1TotalsForMembers(prisma, companyUserIds, f1RacesOfficial);
+  const globalLb = buildF1LeagueLeaderboardRows(
+    companyUserIds,
+    totals,
+    companyUsers,
+    anonymizedGlobal,
+    companyId,
+    userId
+  );
+
+  const myEntry = globalLb.leaderboard.find((r) => r.userId === userId);
+  const totalHits = myEntry?.hits ?? 0;
+  const raceCount = f1RacesOfficial.length;
+  const precision =
+    raceCount > 0 ? Math.min(100, Math.round((totalHits / (raceCount * 10)) * 100)) : 0;
+
+  return {
+    totalHits,
+    totalWithResult: raceCount,
+    precision,
+    leaderboard: globalLb.leaderboard,
+    myRank: globalLb.myRank,
+    totalParticipants: globalLb.totalParticipants,
+    rankChange: 0,
+    pointsOverTime: [],
+    competitionLeaderboards,
+  };
+}
+
+async function buildFootballResultsDashboardPayload(
+  prisma: PrismaClient,
+  userId: string,
+  companyId: string,
+  memberships: MembershipRow[]
 ): Promise<ResultsDashboardPayload> {
   const matchesWithResult = await prisma.match.findMany({
     where: {
@@ -49,118 +241,15 @@ export async function buildResultsDashboardPayload(
     orderBy: { kickoffAt: "asc" },
   });
 
-  const memberships = await prisma.competitionMember.findMany({
-    where: { userId },
-    include: {
-      competition: {
-        include: {
-          company: { select: { id: true, slug: true } },
-        },
-      },
-    },
-  });
-
-  const needsF1Leaderboards = memberships.some((m) => m.competition.discipline === "f1");
-  const f1RacesOfficial = needsF1Leaderboards ? await loadF1RacesForScoring(prisma) : [];
-
-  async function buildCompetitionLeaderboards(
-    matchIds: string[],
-    footballMatches: typeof matchesWithResult
-  ): Promise<CompetitionLeaderboardBlock[]> {
-    const competitionLeaderboards: CompetitionLeaderboardBlock[] = [];
-
-    for (const mem of memberships) {
-      const comp = mem.competition;
-      const members = await prisma.competitionMember.findMany({
-        where: { competitionId: comp.id },
-        select: { userId: true },
-      });
-      const memberIds = members.map((m) => m.userId);
-      if (memberIds.length === 0) continue;
-
-      const memberUsers = await prisma.user.findMany({
-        where: { id: { in: memberIds }, status: "active" },
-        select: { id: true, fullName: true, email: true },
-      });
-
-      const compConfig = await prisma.companyConfig.findUnique({
-        where: { companyId: comp.companyId },
-        select: { anonymizationEnabled: true },
-      });
-
-      const anonymizeCompetition =
-        !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
-
-      if (comp.discipline === "f1") {
-        const totals = await f1TotalsForMembers(prisma, memberIds, f1RacesOfficial);
-        const lb = buildF1LeagueLeaderboardRows(
-          memberIds,
-          totals,
-          memberUsers,
-          anonymizeCompetition,
-          comp.companyId,
-          userId
-        );
-        competitionLeaderboards.push({
-          id: comp.id,
-          name: comp.name,
-          slug: comp.slug,
-          leaderboard: lb.leaderboard,
-          myRank: lb.myRank,
-          totalParticipants: lb.totalParticipants,
-          rankChange: 0,
-        });
-        continue;
-      }
-
-      if (matchIds.length === 0) {
-        continue;
-      }
-
-      const predComp = await prisma.prediction.findMany({
-        where: {
-          userId: { in: memberIds },
-          matchId: { in: matchIds },
-        },
-        include: {
-          match: { select: { resultScoreA: true, resultScoreB: true } },
-        },
-      });
-
-      const lb = computeLeaderboardForUsers(
-        footballMatches,
-        predComp.map((p) => ({
-          userId: p.userId,
-          matchId: p.matchId,
-          scoreA: p.scoreA,
-          scoreB: p.scoreB,
-          match: {
-            resultScoreA: p.match.resultScoreA,
-            resultScoreB: p.match.resultScoreB,
-          },
-        })),
-        memberUsers,
-        anonymizeCompetition,
-        comp.companyId,
-        userId
-      );
-
-      competitionLeaderboards.push({
-        id: comp.id,
-        name: comp.name,
-        slug: comp.slug,
-        leaderboard: lb.leaderboard,
-        myRank: lb.myRank,
-        totalParticipants: lb.totalParticipants,
-        rankChange: lb.rankChange,
-      });
-    }
-
-    return competitionLeaderboards;
-  }
-
   if (matchesWithResult.length === 0) {
-    const competitionLeaderboards = await buildCompetitionLeaderboards([], []);
+    const competitionLeaderboards = await buildCompetitionLeaderboardsForMemberships(
+      prisma,
+      memberships,
+      userId,
+      [],
+      [],
+      []
+    );
     return {
       totalHits: 0,
       totalWithResult: 0,
@@ -241,7 +330,14 @@ export async function buildResultsDashboardPayload(
   const precision =
     totalWithResult > 0 ? Math.round((totalHits / totalWithResult) * 100) : 0;
 
-  const competitionLeaderboards = await buildCompetitionLeaderboards(matchIds, matchesWithResult);
+  const competitionLeaderboards = await buildCompetitionLeaderboardsForMemberships(
+    prisma,
+    memberships,
+    userId,
+    matchIds,
+    matchesWithResult,
+    []
+  );
 
   return {
     totalHits,
@@ -254,4 +350,20 @@ export async function buildResultsDashboardPayload(
     pointsOverTime,
     competitionLeaderboards,
   };
+}
+
+export async function buildResultsDashboardPayload(
+  prisma: PrismaClient,
+  userId: string,
+  companyId: string,
+  discipline?: CompetitionDiscipline
+): Promise<ResultsDashboardPayload> {
+  const allMemberships = await prismaMembershipQuery(prisma, userId);
+  const memberships = filterMembershipsByDiscipline(allMemberships, discipline);
+
+  if (discipline === "f1") {
+    return buildF1ResultsDashboardPayload(prisma, userId, companyId, memberships);
+  }
+
+  return buildFootballResultsDashboardPayload(prisma, userId, companyId, memberships);
 }
