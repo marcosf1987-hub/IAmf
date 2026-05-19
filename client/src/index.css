@@ -2289,6 +2289,7 @@ a.btn-oauth--unconfigured {
   padding: 0.85rem 1.15rem;
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
+  border-radius: var(--radius-lg);
 }
 
 .dashboard-f1-hero {
@@ -2512,7 +2513,7 @@ a.btn-oauth--unconfigured {
   display: block;
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 2rem 1.5rem;
   transition: border-color 0.25s;
 }
@@ -2600,6 +2601,7 @@ a.btn-oauth--unconfigured {
   padding: 1.25rem 1.5rem;
   border: 1px solid var(--border);
   background: var(--bg-card);
+  border-radius: var(--radius-lg);
 }
 
 .dashboard-next--accent {
@@ -2950,7 +2952,7 @@ a.btn-oauth--unconfigured {
   margin-bottom: 1.5rem;
   padding: 1.25rem 1.5rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-lg);
   background: var(--bg-input);
   max-width: 1000px;
 }
@@ -3053,6 +3055,7 @@ a.btn-oauth--unconfigured {
   font-size: 0.9rem;
   line-height: 1.5;
   border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
   background: rgba(128, 128, 128, 0.06);
 }
 
@@ -3064,7 +3067,9 @@ a.btn-oauth--unconfigured {
 .prode-accordion {
   padding: 0;
   border: 1px solid var(--border);
-  background: var(--bg-panel, transparent);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--bg-card);
 }
 
 .prode-accordion-trigger {
@@ -3244,7 +3249,7 @@ a.btn-oauth--unconfigured {
 .prode-card {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
 }
 
@@ -3679,7 +3684,7 @@ a.btn-oauth--unconfigured {
 .resultado-card {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
 }
 
@@ -3730,7 +3735,7 @@ a.btn-oauth--unconfigured {
 .resultado-badge {
   font-size: 0.75rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 0;
+  border-radius: var(--radius-sm);
 }
 
 .badge-hit {
@@ -3757,7 +3762,7 @@ a.btn-oauth--unconfigured {
 .summary-card {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.25rem 1.5rem;
   text-align: center;
   min-width: 140px;
@@ -3793,7 +3798,7 @@ a.btn-oauth--unconfigured {
 .leaderboard-table {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   max-width: 500px;
   margin: 0 auto;
@@ -3831,6 +3836,7 @@ a.btn-oauth--unconfigured {
 
 .resultados-metric {
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   text-align: center;
 }
@@ -3885,6 +3891,7 @@ a.btn-oauth--unconfigured {
 
 .resultados-chart {
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1rem;
   min-height: 280px;
 }
@@ -3920,6 +3927,7 @@ a.btn-oauth--unconfigured {
 .resultados-table-wrapper {
   overflow-x: auto;
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .resultados-table {
@@ -4318,6 +4326,7 @@ a.btn-oauth--unconfigured {
 
 .ligas-action-box {
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   padding: 1.25rem 1.25rem 1.1rem;
   min-height: 13rem;
@@ -4399,6 +4408,8 @@ a.btn-oauth--unconfigured {
   align-items: stretch;
   margin-top: auto;
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
   background: var(--bg-input);
 }
 
@@ -4545,6 +4556,7 @@ a.btn-oauth--unconfigured {
 
 .liga-card {
   border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
   background: var(--bg-card);
   display: flex;
   flex-direction: column;
@@ -4615,6 +4627,7 @@ a.btn-oauth--unconfigured {
 
 .liga-card-stat {
   border: 1px solid var(--border);
+  border-radius: var(--radius-md);
   background: var(--bg-input);
   padding: 0.45rem 0.55rem;
 }
@@ -4655,7 +4668,7 @@ a.btn-oauth--unconfigured {
   align-items: baseline;
   gap: 0.1rem;
   padding: 0.2rem 0.55rem;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   background: var(--accent-dim);
   border: 1px solid var(--accent-border);
   font-weight: 600;
@@ -5080,6 +5093,7 @@ a.btn-oauth--unconfigured {
 
 .ia-console {
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
 }
 
@@ -5118,6 +5132,7 @@ a.btn-oauth--unconfigured {
 
 .ia-widget {
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
   padding: 1rem 1.25rem;
   background: transparent;
 }
@@ -5519,7 +5534,7 @@ a.btn-oauth--unconfigured {
 .chat-response {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin: 0 auto 2rem;
   max-width: 520px;
@@ -5571,7 +5586,7 @@ a.btn-oauth--unconfigured {
 .chat-log {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
 }
 
@@ -5604,6 +5619,7 @@ a.btn-oauth--unconfigured {
   padding: 1rem 1.25rem;
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .admin-date-range-label {
@@ -5816,7 +5832,7 @@ a.btn-oauth--unconfigured {
 .admin-chart-wrap {
   background: transparent;
   border: 1px solid var(--border);
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   padding: 1.5rem;
   margin: 0 auto 1.5rem;
   max-width: 900px;
