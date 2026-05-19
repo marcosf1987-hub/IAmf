@@ -125,14 +125,6 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
   return sections;
 }
 
-const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
-  groups: "",
-  roundOf32:
-    "Solo partidos de la ronda de 16avos. Antes debes tener predicción en todos los partidos de grupos.",
-  knockout:
-    "Incluye 8vos, 4tos, semis, tercer puesto y final, más campeón y subcampeón. Antes completa todos los partidos de la fase de 16avos.",
-};
-
 const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
   groups: "Fase de grupos",
   roundOf32: "16avos",
@@ -190,7 +182,6 @@ function ProdePageSkeleton() {
     <div className="page-content page-content--prode prode-page prode-page--loading" aria-busy="true" aria-label="Cargando predicciones">
       <div className="skeleton skeleton-line prode-sk-title" />
       <div className="skeleton skeleton-line prode-sk-sub" />
-      <div className="skeleton skeleton-block prode-sk-generate" />
       <div className="prode-sk-grid">
         <div className="skeleton skeleton-block prode-sk-card" />
         <div className="skeleton skeleton-block prode-sk-card" />
@@ -237,6 +228,13 @@ export default function ProdePage() {
   }, [groupSections, predictions]);
 
   const currentPhase = getCurrentPhase();
+
+  /** Refresca el countdown del subtítulo cada minuto. */
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    const id = window.setInterval(() => setClockTick((t) => t + 1), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   const hasLabGuidelinesForCurrentPhase = currentPhase
     ? pautasForPhase(currentPhase.phase, labGuidelines).trim().length > 0
@@ -396,59 +394,33 @@ export default function ProdePage() {
     return <ProdePageSkeleton />;
   }
 
-  const prodeGenerateBlock =
-    currentPhase ? (
-      <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
-        {!hasLabGuidelinesForCurrentPhase && (
-          <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
-            Aún no puedes generar predicciones porque todavía no has guardado tus pautas. Genéralas en el Laboratorio y
-            vuelve luego a esta sección.{" "}
-            <Link to="/app/ia" className="prode-lab-required-link">
-              Ir al Laboratorio de Prompts
-            </Link>
-          </p>
-        )}
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => handleGeneratePredictions(currentPhase.phase)}
-          disabled={generating || matches.length === 0 || !hasLabGuidelinesForCurrentPhase}
-          aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
-          title={
-            matches.length === 0
-              ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
-              : !hasLabGuidelinesForCurrentPhase
-                ? `Guarda las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
-                : undefined
-          }
-        >
-          {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
-        </button>
-        <p className="prode-deadline">
-          Puedes generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
-          <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
-        </p>
-        {PHASE_GENERATE_HINT[currentPhase.phase] ? (
-          <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
-        ) : null}
-      </div>
-    ) : (
-      <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
-        <p className="prode-deadline prode-deadline-passed">
-          Ya no se pueden cargar predicciones. Todas las fases han cerrado.
-        </p>
-      </div>
-    );
-
   return (
     <div className="page-content page-content--prode prode-page">
       <header className="prode-page-header">
         <div className="prode-page-header-inner">
           <h1 className="prode-page-title">Prode FIFA 2026</h1>
           <p className="page-subtitle prode-page-subtitle">
-            Genera aquí tus predicciones con IA a partir de las pautas generadas en el Laboratorio de Prompts. Tienes
-            tiempo hasta una hora antes del primer partido de cada fase para generar o regenerar los resultados.
+            Genera aquí tus predicciones con IA a partir de las pautas generadas en el Laboratorio de Prompts.
+            {currentPhase ? (
+              <>
+                {" "}
+                Puedes generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
+                <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
+              </>
+            ) : (
+              <> Ya no se pueden cargar predicciones. Todas las fases han cerrado.</>
+            )}
+            {generating ? <> Generando predicciones…</> : null}
           </p>
+          {currentPhase && !hasLabGuidelinesForCurrentPhase ? (
+            <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
+              Aún no puedes generar predicciones porque todavía no has guardado tus pautas. Genéralas en el Laboratorio
+              y vuelve luego a esta sección.{" "}
+              <Link to="/app/ia" className="prode-lab-required-link">
+                Ir al Laboratorio de Prompts
+              </Link>
+            </p>
+          ) : null}
         </div>
       </header>
 
@@ -462,7 +434,7 @@ export default function ProdePage() {
         <div className="prode-seed-hint" role="status">
           <h2 className="prode-seed-hint-title">No hay partidos en la base de datos</h2>
           <p>
-            El botón de generar predicciones está deshabilitado hasta que existan partidos cargados. En
+            No podrás generar predicciones hasta que existan partidos cargados. En
             producción (Railway) eso se hace ejecutando <strong>una vez</strong> el seed de Prisma contra la
             misma base que usa el backend.
           </p>
@@ -476,14 +448,10 @@ $env:DATABASE_URL="postgresql://..."   # pega la URL completa
 npx prisma db seed`}
           </pre>
           <p className="prode-seed-note">
-            Cuando termine sin error, <strong>recarga esta página</strong>. Deberías ver el listado de partidos
-            y el botón se habilitará.
+            Cuando termine sin error, <strong>recarga esta página</strong>. Deberías ver el listado de partidos.
           </p>
         </div>
       )}
-
-      {/* Sin sección de grupos: el bloque queda arriba del stack. Con grupos: va dentro de la sección, justo sobre la rejilla de tarjetas. */}
-      {groupSections.length === 0 && prodeGenerateBlock}
 
       <div className="prode-page-stack">
         {matches.length > 0 && groupSections.length === 0 && (
@@ -501,7 +469,6 @@ npx prisma db seed`}
                 Fase de grupos
               </h2>
             </div>
-            {prodeGenerateBlock}
             <div className="prode-groups-grid">
               {groupSections.map((section) => (
                 <GroupSimulatorCard
