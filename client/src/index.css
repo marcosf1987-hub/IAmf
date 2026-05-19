@@ -41,6 +41,14 @@
   --btn-primary-bg: #b2c5ff;
   --btn-primary-fg: #050b1a;
   --btn-primary-bg-hover: #d0dcff;
+  --dashboard-hero-image: url("/arena/mundial-contexto.png");
+  --dashboard-hero-gradient: linear-gradient(
+    125deg,
+    rgba(178, 197, 255, 0.22) 0%,
+    rgba(233, 195, 73, 0.14) 42%,
+    rgba(5, 12, 28, 0.88) 100%
+  );
+  --dashboard-hero-eyebrow-color: var(--accent);
 }
 
 * {
@@ -2292,7 +2300,8 @@ a.btn-oauth--unconfigured {
   border-radius: var(--radius-lg);
 }
 
-.dashboard-f1-hero {
+/* Hub dashboard: hero, overview y paneles (Mundial + F1 vía tokens de disciplina) */
+.dashboard-hero {
   position: relative;
   isolation: isolate;
   overflow: hidden;
@@ -2303,24 +2312,24 @@ a.btn-oauth--unconfigured {
   background-color: rgba(5, 10, 24, 0.95);
   background-image:
     linear-gradient(180deg, rgba(6, 10, 22, 0.82) 0%, rgba(6, 12, 28, 0.78) 42%, rgba(4, 8, 18, 0.92) 100%),
-    linear-gradient(125deg, rgba(229, 57, 53, 0.22) 0%, rgba(20, 30, 62, 0.55) 48%, rgba(5, 12, 28, 0.88) 100%),
-    url("/f1/f1-hero-pit.png");
+    var(--dashboard-hero-gradient),
+    var(--dashboard-hero-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
 }
 
-.dashboard-f1-hero-eyebrow {
+.dashboard-hero-eyebrow {
   margin: 0 0 0.45rem;
   font-size: 0.7rem;
   font-weight: 700;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: #ffd0cc;
+  color: var(--dashboard-hero-eyebrow-color, var(--accent));
   text-shadow: 0 1px 12px rgba(0, 0, 0, 0.45);
 }
 
-.dashboard-f1-hero-title {
+.dashboard-hero-title {
   margin: 0;
   font-family: var(--font-display);
   font-size: clamp(1.7rem, 4vw, 3rem);
@@ -2330,21 +2339,21 @@ a.btn-oauth--unconfigured {
   text-shadow: 0 2px 28px rgba(0, 0, 0, 0.55);
 }
 
-.dashboard-f1-hero-sub {
+.dashboard-hero-sub {
   margin: 0.65rem 0 0;
   color: rgba(235, 240, 255, 0.92);
   font-size: 0.92rem;
   text-shadow: 0 1px 14px rgba(0, 0, 0, 0.4);
 }
 
-.dashboard-f1-hero-actions {
+.dashboard-hero-actions {
   display: flex;
   gap: 0.7rem;
   flex-wrap: wrap;
   margin-top: 1.15rem;
 }
 
-.dashboard-f1-overview {
+.dashboard-overview {
   display: grid;
   grid-template-columns: 1fr;
   gap: 1rem;
@@ -2352,32 +2361,32 @@ a.btn-oauth--unconfigured {
 }
 
 @media (min-width: 920px) {
-  .dashboard-f1-overview {
+  .dashboard-overview {
     grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   }
 }
 
-.dashboard-f1-panel {
+.dashboard-panel {
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  background: rgba(5, 12, 34, 0.78);
+  background: var(--bg-card);
   padding: 1rem 1.05rem;
 }
 
-.dashboard-f1-panel-head {
+.dashboard-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
 }
 
-.dashboard-f1-panel h3 {
+.dashboard-panel h3 {
   margin: 0;
   font-family: var(--font-display);
   font-size: 1.05rem;
 }
 
-.dashboard-f1-inline-link {
+.dashboard-inline-link {
   color: var(--accent);
   font-size: 0.78rem;
   text-transform: uppercase;
@@ -2385,10 +2394,88 @@ a.btn-oauth--unconfigured {
   font-weight: 700;
 }
 
-.dashboard-f1-panel-sub {
+.dashboard-panel-sub {
   margin: 0.45rem 0 0.9rem;
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+.dashboard-model-status-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dashboard-model-status-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.45rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.dashboard-model-status-list .dashboard-model-status-marker {
+  flex-shrink: 0;
+  font-weight: 800;
+  color: var(--accent);
+  font-family: var(--font-display);
+}
+
+.dashboard-model-status-list li.is-muted {
+  color: var(--text-muted);
+}
+
+.dashboard-panel-footnote {
+  margin: 0.8rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.dashboard-rank-value {
+  margin: 0.85rem 0 0.75rem;
+  font-family: var(--font-display);
+  font-size: clamp(1.55rem, 4vw, 2.1rem);
+  line-height: 1.1;
+}
+
+.dashboard-rank-links {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.dashboard-rank-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.dashboard-rank-chip strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.dashboard-rank-chip:hover {
+  border-color: var(--accent-border);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.dashboard-upcoming-wrap {
+  width: 100%;
+  margin-bottom: 1.5rem;
 }
 
 .dashboard-f1-top3 {
@@ -2425,42 +2512,6 @@ a.btn-oauth--unconfigured {
   margin: 0.8rem 0 0;
   font-size: 0.8rem;
   color: var(--text-muted);
-}
-
-.dashboard-f1-rank-value {
-  margin: 0.85rem 0 0.75rem;
-  font-family: var(--font-display);
-  font-size: clamp(1.55rem, 4vw, 2.1rem);
-  line-height: 1.1;
-}
-
-.dashboard-f1-rank-links {
-  display: grid;
-  gap: 0.6rem;
-}
-
-.dashboard-f1-rank-chip {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.55rem 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.02);
-  color: var(--text-secondary);
-  font-size: 0.82rem;
-}
-
-.dashboard-f1-rank-chip strong {
-  color: var(--text);
-  font-size: 0.82rem;
-}
-
-.dashboard-f1-rank-chip:hover {
-  border-color: var(--accent-border);
-  color: var(--text);
-  text-decoration: none;
 }
 
 .dashboard-tip-label {
@@ -2502,11 +2553,6 @@ a.btn-oauth--unconfigured {
   .dashboard-cards.dashboard-cards--f1-quick {
     grid-template-columns: 1fr;
   }
-}
-
-.dashboard-f1-upcoming-wrap {
-  width: 100%;
-  margin-bottom: 1.5rem;
 }
 
 .dashboard-card {
@@ -6055,6 +6101,18 @@ a.btn-oauth--unconfigured {
   --btn-primary-fg: #0c0202;
   --btn-primary-bg-hover: #ff6e60;
   --focus-ring: 2px solid rgba(255, 120, 110, 0.85);
+  --dashboard-hero-image: url("/f1/f1-hero-pit.png");
+  --dashboard-hero-gradient: linear-gradient(
+    125deg,
+    rgba(229, 57, 53, 0.22) 0%,
+    rgba(20, 30, 62, 0.55) 48%,
+    rgba(5, 12, 28, 0.88) 100%
+  );
+  --dashboard-hero-eyebrow-color: #ffd0cc;
+}
+
+:root[data-app-discipline="f1"] .dashboard-panel {
+  background: rgba(5, 12, 34, 0.78);
 }
 
 .app-layout--discipline-f1 .app-header::after {

@@ -232,19 +232,19 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
   return (
     <>
       {f1Err ? <div className="auth-error dashboard-load-error">{f1Err}</div> : null}
-      <section className="dashboard-f1-hero" aria-labelledby="dashboard-f1-hero-title">
-        <p className="dashboard-f1-hero-eyebrow">
+      <section className="dashboard-hero" aria-labelledby="dashboard-hero-title">
+        <p className="dashboard-hero-eyebrow">
           {nextRace ? `Próximo evento · ${f1RaceHeadline(nextRace)}` : "Próximo evento"}
         </p>
-        <h2 id="dashboard-f1-hero-title" className="dashboard-f1-hero-title">
+        <h2 id="dashboard-hero-title" className="dashboard-hero-title">
           {countdown === "En curso o finalizada" ? "El GP ya está en marcha" : `Faltan ${countdown} para el GP`}
         </h2>
-        <p className="dashboard-f1-hero-sub">
+        <p className="dashboard-hero-sub">
           {nextRace
             ? new Date(nextRace.raceStartAt).toLocaleString("es-AR", { dateStyle: "full", timeStyle: "short" })
             : "Cuando haya calendario disponible, verás la próxima carrera aquí."}
         </p>
-        <div className="dashboard-f1-hero-actions">
+        <div className="dashboard-hero-actions">
           <Link to="/app/f1/ligas#ligas-crear" className="btn-primary">
             Crear una liga
           </Link>
@@ -254,15 +254,15 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
         </div>
       </section>
 
-      <section className="dashboard-f1-overview" aria-label="Resumen F1 principal">
-        <article className="dashboard-f1-panel dashboard-f1-panel--predictions">
-          <div className="dashboard-f1-panel-head">
+      <section className="dashboard-overview" aria-label="Resumen F1 principal">
+        <article className="dashboard-panel dashboard-panel--predictions">
+          <div className="dashboard-panel-head">
             <h3>Mis predicciones de parrilla</h3>
-            <Link to="/app/f1/laboratorio" className="dashboard-f1-inline-link">
+            <Link to="/app/f1/laboratorio" className="dashboard-inline-link">
               Editar
             </Link>
           </div>
-          <p className="dashboard-f1-panel-sub">Tu configuración actual para el top 3 de clasificación</p>
+          <p className="dashboard-panel-sub">Tu configuración actual para el top 3 de clasificación</p>
           <ol className="dashboard-f1-top3">
             {[0, 1, 2].map((i) => (
               <li key={i}>
@@ -276,15 +276,15 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
           </p>
         </article>
 
-        <article className="dashboard-f1-panel dashboard-f1-panel--rank">
+        <article className="dashboard-panel dashboard-panel--rank">
           <h3>Mi puesto en el campeonato</h3>
-          <p className="dashboard-f1-rank-value">{rankText}</p>
-          <div className="dashboard-f1-rank-links">
-            <Link to="/app/f1/resultados" className="dashboard-f1-rank-chip">
+          <p className="dashboard-rank-value">{rankText}</p>
+          <div className="dashboard-rank-links">
+            <Link to="/app/f1/resultados" className="dashboard-rank-chip">
               <span>Total de puntos</span>
               <strong>{summary != null ? `${summary.totalPoints} pts` : "Sin datos aún"}</strong>
             </Link>
-            <Link to="/app/f1/ligas" className="dashboard-f1-rank-chip">
+            <Link to="/app/f1/ligas" className="dashboard-rank-chip">
               <span>Liga de amigos</span>
               <strong>{hasAnyLeague ? "Ver mis ligas" : "Sin ligas aún"}</strong>
             </Link>
@@ -299,7 +299,7 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
         <p className="dashboard-tip-text">{F1_DASH_TIPS[tipIx]}</p>
       </section>
 
-      <section className="dashboard-f1-upcoming-wrap" aria-labelledby="dashboard-f1-upcoming-title">
+      <section className="dashboard-upcoming-wrap" aria-labelledby="dashboard-f1-upcoming-title">
         <h2 id="dashboard-f1-upcoming-title" className="dashboard-section-heading">
           Próximas carreras
         </h2>
