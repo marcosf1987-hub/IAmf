@@ -410,7 +410,6 @@ export default function ProdePage() {
             ) : (
               <> Ya no se pueden cargar predicciones. Todas las fases han cerrado.</>
             )}
-            {generating ? <> Generando predicciones…</> : null}
           </p>
           {currentPhase && !hasLabGuidelinesForCurrentPhase ? (
             <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
@@ -420,6 +419,26 @@ export default function ProdePage() {
                 Ir al Laboratorio de Prompts
               </Link>
             </p>
+          ) : null}
+          {currentPhase ? (
+            <div className="prode-generate-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => handleGeneratePredictions(currentPhase.phase)}
+                disabled={generating || matches.length === 0 || !hasLabGuidelinesForCurrentPhase}
+                aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
+                title={
+                  matches.length === 0
+                    ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
+                    : !hasLabGuidelinesForCurrentPhase
+                      ? `Guarda las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
+                      : undefined
+                }
+              >
+                {generating ? "Generando…" : `Generar predicciones para ${currentPhase.label}`}
+              </button>
+            </div>
           ) : null}
         </div>
       </header>

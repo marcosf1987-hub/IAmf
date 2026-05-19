@@ -3026,6 +3026,17 @@ a.btn-oauth--unconfigured {
   max-width: 400px;
 }
 
+.prode-generate-actions {
+  margin-top: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.prode-generate-actions .btn-primary {
+  width: 100%;
+  max-width: 400px;
+}
+
 .prode-page-stack {
   display: flex;
   flex-direction: column;
