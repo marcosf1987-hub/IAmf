@@ -278,9 +278,10 @@ function LigasCommunityHome() {
   return (
     <div className="page-content ligas-page ligas-community">
       <header className="ligas-hero">
-        <h1>Ligas &amp; Comunidad</h1>
+        <h1>Mis Ligas</h1>
         <p className="ligas-lead">
-          Mismas predicciones para todos; en cada liga competís solo con tu grupo. Invitá con código o creá la tuya.
+          Crea tus ligas de amigos, familia o con compañeros de trabajo y compite para ver quién logra mejores
+          resultados.
         </p>
       </header>
 
@@ -294,9 +295,6 @@ function LigasCommunityHome() {
             </h2>
             {q ? <span className="ligas-quota-pill">{quotaHint(q)}</span> : null}
           </header>
-          <p className="ligas-action-box-desc">
-            Configurá nombre, reglas y cupo de participantes para competir con tu grupo.
-          </p>
           <button
             type="button"
             className="btn-primary ligas-btn-primary ligas-action-cta"
@@ -318,9 +316,11 @@ function LigasCommunityHome() {
           <form className="ligas-join-form" onSubmit={handleJoin} aria-describedby={joinMsg ? "ligas-join-err" : undefined}>
             <label className="ligas-join-label" htmlFor="ligas-join-input">
               <span id="ligas-unirse-title" className="ligas-join-title">
-                Unirme con código
+                Unirme a una Liga existente
               </span>
-              <span className="ligas-join-desc">Pegá el código alfanumérico de invitación para sumarte a una liga existente.</span>
+              <span className="ligas-join-desc">
+                Pega el código alfanumérico de invitación que te compartieron para poder sumarte a una liga existente.
+              </span>
             </label>
             <div className="ligas-join-row">
               <input
@@ -580,7 +580,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       <div className="page-content ligas-page">
         <p className="ligas-form-error">{error || "No encontrado"}</p>
         <Link to={ligasBase} className="ligas-back-link">
-          ← Ligas &amp; Comunidad
+          ← Mis Ligas
         </Link>
       </div>
     );
@@ -598,7 +598,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   return (
     <div className="page-content ligas-page ligas-detail-page">
       <nav className="ligas-breadcrumb">
-        <Link to={ligasBase}>Ligas &amp; Comunidad</Link>
+        <Link to={ligasBase}>Mis Ligas</Link>
         <span aria-hidden> / </span>
         <span>{competition.name}</span>
       </nav>

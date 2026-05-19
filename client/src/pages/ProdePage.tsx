@@ -126,8 +126,7 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
 }
 
 const PHASE_GENERATE_HINT: Record<ProdePhaseId, string> = {
-  groups:
-    "La IA recibe tus pautas una sola vez por grupo: se hace un pedido por zona (Grupo A, B, …) y se muestra el estado en cada tarjeta. No cruces ni final.",
+  groups: "",
   roundOf32:
     "Solo partidos de la ronda de 16avos. Antes debes tener predicción en todos los partidos de grupos.",
   knockout:
@@ -402,11 +401,10 @@ export default function ProdePage() {
       <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
         {!hasLabGuidelinesForCurrentPhase && (
           <p className="prode-lab-required" id="prode-lab-required-desc" role="status">
-            Aún <strong>no has guardado pautas para {PHASE_LAB_NAME[currentPhase.phase]}</strong> en el
-            Laboratorio. Sin ese bloque, la IA no puede armar los prompts de esta etapa. Escribe el texto en el
-            Laboratorio (elige la etapa arriba), pulsa <strong>Guardar pautas</strong> y vuelve aquí.{" "}
+            Aún no puedes generar predicciones porque todavía no has guardado tus pautas. Genéralas en el Laboratorio y
+            vuelve luego a esta sección.{" "}
             <Link to="/app/ia" className="prode-lab-required-link">
-              Ir al Laboratorio
+              Ir al Laboratorio de Prompts
             </Link>
           </p>
         )}
@@ -430,7 +428,9 @@ export default function ProdePage() {
           Puedes generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
           <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
         </p>
-        <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
+        {PHASE_GENERATE_HINT[currentPhase.phase] ? (
+          <p className="prode-phase-hint">{PHASE_GENERATE_HINT[currentPhase.phase]}</p>
+        ) : null}
       </div>
     ) : (
       <div id="prode-generate-section" className="prode-generate-panel prode-generate-above-cards">
@@ -446,8 +446,8 @@ export default function ProdePage() {
         <div className="prode-page-header-inner">
           <h1 className="prode-page-title">Prode FIFA 2026</h1>
           <p className="page-subtitle prode-page-subtitle">
-            Genera predicciones con IA usando las pautas por etapa del Laboratorio. Tienes tiempo hasta una hora antes
-            del primer partido de cada fase para generar o regenerar.
+            Genera aquí tus predicciones con IA a partir de las pautas generadas en el Laboratorio de Prompts. Tienes
+            tiempo hasta una hora antes del primer partido de cada fase para generar o regenerar los resultados.
           </p>
         </div>
       </header>
@@ -701,7 +701,7 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
     <div className="prode-best-thirds">
       <h3 className="prode-best-thirds-title">Mejores terceros</h3>
       <p className="prode-best-thirds-hint">
-        Orden ilustrativo de los equipos que quedan 3.º en su grupo según tus predicciones.
+        Así quedarían la tabla de 3º en sus grupos según tus predicciones.
       </p>
       <div className="prode-best-thirds-wrap">
         <table className="prode-best-thirds-table">

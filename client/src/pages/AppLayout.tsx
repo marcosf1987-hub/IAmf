@@ -58,8 +58,8 @@ function HeaderAccountSection({ user, logout, onAfterNavigate, className }: Head
 
 const NAV_FOOTBALL: NavItem[] = [
   { to: "/app", label: "Inicio", end: true },
-  { to: "/app/prode", label: "Predicciones" },
-  { to: "/app/ia", label: "Laboratorio" },
+  { to: "/app/prode", label: "Mis Predicciones" },
+  { to: "/app/ia", label: "Laboratorio de Prompts" },
   { to: "/app/resultados", label: "Resultados" },
   { to: "/app/ligas", label: "Ligas" },
   { to: "/app/perfil", label: "Mi usuario" },

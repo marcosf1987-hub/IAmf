@@ -31,8 +31,8 @@ export default function ContextChoicePage() {
           Seleccioná tu <em className="context-choice-title-accent">Arena</em>
         </h1>
         <p className="context-choice-lead">
-          Elige el ecosistema donde quieres jugar, crea tus ligas y compite. Después podrás cambiar de disciplina con el
-          selector junto al logo.
+          Elige dónde quieres jugar, crea tus ligas y compite. Después podrás cambiar de disciplina con el selector en el
+          menú.
         </p>
       </header>
 

@@ -72,7 +72,7 @@ export async function ensureUniversalLeagueMembership(
         discipline: "football",
         inviteCode: await allocateInviteCode(prisma),
         description:
-          "Pool de todos los usuarios que se registran sin invitación de empresa (ranking global dentro de la plataforma).",
+          "Compite con todos los usuarios que generaron predicciones para el Mundial.",
         companyId: platform.id,
         createdById: userId,
         maxMembers: 999_999,
@@ -85,6 +85,12 @@ export async function ensureUniversalLeagueMembership(
       },
     });
   } else {
+    await prisma.competition.update({
+      where: { id: comp.id },
+      data: {
+        description: "Compite con todos los usuarios que generaron predicciones para el Mundial.",
+      },
+    });
     await prisma.competitionMember.upsert({
       where: {
         competitionId_userId: { competitionId: comp.id, userId },
@@ -108,8 +114,7 @@ export async function ensureUniversalLeagueMembership(
         slug: UNIVERSAL_F1_COMPETITION_SLUG,
         discipline: "f1",
         inviteCode: await allocateF1InviteCode(prisma),
-        description:
-          "Pool público F1: pronosticá el top 10 de cada carrera. Resultados vía OpenF1.",
+        description: "Compite con todos los usuarios que generaron predicciones de F1",
         companyId: platform.id,
         createdById: userId,
         maxMembers: 999_999,
@@ -122,6 +127,10 @@ export async function ensureUniversalLeagueMembership(
       },
     });
   } else {
+    await prisma.competition.update({
+      where: { id: compF1.id },
+      data: { description: "Compite con todos los usuarios que generaron predicciones de F1" },
+    });
     await prisma.competitionMember.upsert({
       where: {
         competitionId_userId: { competitionId: compF1.id, userId },

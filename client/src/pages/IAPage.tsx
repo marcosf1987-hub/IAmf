@@ -7,25 +7,21 @@ type GuidelinePhaseKey = keyof ProdeGuidelinesByPhase;
 const PHASE_EDITOR: {
   key: GuidelinePhaseKey;
   label: string;
-  hint: string;
   placeholder: string;
 }[] = [
   {
     key: "groups",
     label: "Fase de grupos",
-    hint: "Se usa cuando en el Prode puedes generar predicciones de la ventana de grupos.",
     placeholder: "Ej. criterios para partidos de grupo, equipos fuertes en zona, etc.",
   },
   {
     key: "roundOf32",
     label: "16avos",
-    hint: "Se usa para la generación de la ronda de 16avos (etapa distinta a grupos).",
     placeholder: "Ej. criterios para cruces eliminatorios tempranos…",
   },
   {
     key: "knockout",
     label: "Eliminatorias",
-    hint: "Octavos en adelante, campeón y subcampeón (fase knockout en el Prode).",
     placeholder: "Ej. favoritos a copa, estilo de juego en eliminatorias…",
   },
 ];
@@ -51,6 +47,8 @@ type HistoryTimelineItem =
       batchId: string;
       createdAt: string;
       phaseLabel: string | null;
+      groupCode: string | null;
+      title: string;
       items: PredictionHistoryEntry[];
     }
   | {
@@ -58,6 +56,32 @@ type HistoryTimelineItem =
       kind: "single";
       entry: PredictionHistoryEntry;
     };
+
+function formatGroupLabel(groupCode: string): string {
+  const t = groupCode.trim();
+  if (t.length === 1) return t.toUpperCase();
+  return t;
+}
+
+function formatBatchTitle(phaseLabel: string | null, groupCode: string | null): string {
+  if (phaseLabel === "groups" && groupCode) {
+    return `Generación con IA - Fase de grupos: Grupo ${formatGroupLabel(groupCode)}`;
+  }
+  const phase =
+    phaseLabel && PHASE_LABELS[phaseLabel] ? PHASE_LABELS[phaseLabel] : phaseLabel ?? "";
+  if (phase) return `Generación con IA - ${phase}`;
+  return "Generación con IA";
+}
+
+function filterBatchPromptsForGroup(
+  lines: BatchPromptLine[] | undefined,
+  groupCode: string | null
+): BatchPromptLine[] | undefined {
+  if (!lines?.length || !groupCode) return lines;
+  const marker = `Ámbito: Grupo ${formatGroupLabel(groupCode)}`;
+  const filtered = lines.filter((l) => l.promptText.includes(marker));
+  return filtered.length > 0 ? filtered : lines;
+}
 
 function buildTimeline(entries: PredictionHistoryEntry[]): HistoryTimelineItem[] {
   const byBatch = new Map<string, PredictionHistoryEntry[]>();
@@ -72,21 +96,63 @@ function buildTimeline(entries: PredictionHistoryEntry[]): HistoryTimelineItem[]
     }
   }
 
-  const batchItems: HistoryTimelineItem[] = [...byBatch.entries()].map(([batchId, items]) => {
+  const batchItems: HistoryTimelineItem[] = [];
+  for (const [batchId, items] of byBatch.entries()) {
     const sorted = [...items].sort(
       (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
     );
-    const createdAt = sorted[sorted.length - 1]?.createdAt ?? items[0].createdAt;
     const phaseLabel = sorted.find((x) => x.phaseLabel)?.phaseLabel ?? null;
-    return {
-      key: `batch-${batchId}`,
-      kind: "batch" as const,
-      batchId,
-      createdAt,
-      phaseLabel,
-      items: sorted,
-    };
-  });
+
+    if (phaseLabel === "groups") {
+      const byGroup = new Map<string, PredictionHistoryEntry[]>();
+      for (const e of sorted) {
+        if (e.kind !== "match") continue;
+        const gc = e.groupCode?.trim() || "_ungrouped";
+        if (!byGroup.has(gc)) byGroup.set(gc, []);
+        byGroup.get(gc)!.push(e);
+      }
+      for (const [gc, groupItems] of byGroup.entries()) {
+        const groupCode = gc === "_ungrouped" ? null : gc;
+        const createdAt = groupItems[groupItems.length - 1]?.createdAt ?? sorted[0].createdAt;
+        batchItems.push({
+          key: `batch-${batchId}-group-${gc}`,
+          kind: "batch",
+          batchId,
+          createdAt,
+          phaseLabel,
+          groupCode,
+          title: formatBatchTitle(phaseLabel, groupCode),
+          items: groupItems,
+        });
+      }
+      const championOnly = sorted.filter((e) => e.kind === "champion");
+      if (championOnly.length > 0) {
+        const createdAt = championOnly[championOnly.length - 1]?.createdAt ?? sorted[0].createdAt;
+        batchItems.push({
+          key: `batch-${batchId}-champion`,
+          kind: "batch",
+          batchId,
+          createdAt,
+          phaseLabel,
+          groupCode: null,
+          title: formatBatchTitle(phaseLabel, null),
+          items: championOnly,
+        });
+      }
+    } else {
+      const createdAt = sorted[sorted.length - 1]?.createdAt ?? items[0].createdAt;
+      batchItems.push({
+        key: `batch-${batchId}`,
+        kind: "batch",
+        batchId,
+        createdAt,
+        phaseLabel,
+        groupCode: null,
+        title: formatBatchTitle(phaseLabel, null),
+        items: sorted,
+      });
+    }
+  }
 
   const singleItems: HistoryTimelineItem[] = singles.map((entry) => ({
     key: `single-${entry.id}`,
@@ -195,18 +261,18 @@ export default function IAPage() {
     }
   }
 
-  function toggleBatch(batchId: string) {
-    setExpandedBatches((prev) => ({ ...prev, [batchId]: !prev[batchId] }));
+  function toggleBatch(timelineKey: string) {
+    setExpandedBatches((prev) => ({ ...prev, [timelineKey]: !prev[timelineKey] }));
   }
 
   const phaseMeta = PHASE_EDITOR.find((p) => p.key === editorPhase) ?? PHASE_EDITOR[0];
 
   return (
     <div className="page-content">
-      <h1>Laboratorio de Lógica Predictiva</h1>
+      <h1>Laboratorio de Prompts</h1>
       <p className="ia-mundial-scope-note">
-        Este espacio es <strong>solo para el Prode del Mundial 2026</strong> (fases, marcadores y campeón). La Fórmula 1
-        tiene laboratorio e historial de prompts <strong>independientes</strong> en <code>/app/f1/laboratorio</code>.
+        Escribe aquí tus mejores instrucciones para la IA, guárdalos y luego genera tus resultados en{" "}
+        <Link to="/app/prode">Mis Predicciones</Link>
       </p>
 
       {error && <div className="auth-error">{error}</div>}
@@ -214,8 +280,10 @@ export default function IAPage() {
       <div className="ia-layout">
         <section className="ia-main">
           <div className="ia-console">
-            <h2 className="ia-console-title">Consola de Edición</h2>
-            <p className="ia-console-subtitle">Configura tu modelo maestro</p>
+            <h2 className="ia-console-title">Genera aquí tus prompts</h2>
+            <p className="ia-console-subtitle">
+              Selecciona la etapa para la que generarás tus instrucciones y escribe tu prompt debajo
+            </p>
             <form onSubmit={handleSaveGuidelines} className="guidelines-form">
               <div className="guidelines-phase-block">
                 <label htmlFor="guidelines-phase" className="guidelines-phase-label">
@@ -233,7 +301,6 @@ export default function IAPage() {
                     </option>
                   ))}
                 </select>
-                <p className="guidelines-phase-hint">{phaseMeta.hint}</p>
                 <textarea
                   value={guidelines[editorPhase]}
                   onChange={(e) => {
@@ -259,7 +326,7 @@ export default function IAPage() {
                       : undefined
                   }
                 >
-                  {guidelinesSaving ? "Guardando…" : guidelinesSaved ? "Guardado" : "Guardar pautas"}
+                  {guidelinesSaving ? "Guardando…" : guidelinesSaved ? "Guardado" : "Guardar prompt"}
                 </button>
                 {guidelinesSaved && !guidelinesSaving ? (
                   <Link
@@ -282,17 +349,11 @@ export default function IAPage() {
                 )}
               </div>
             </form>
-            <p className="ia-console-legend">
-              Hay <strong>tres bloques</strong> (uno por etapa); elige la etapa arriba y edita cada una en la misma
-              caja. Al guardar se persisten los tres. Si falta el texto de una etapa, no podrás generar en el Prode
-              cuando esa ventana esté activa.
-            </p>
             <p className="ia-console-flow">
-              <strong>¿Cómo llega esto a los resultados?</strong> Al generar en el Prode, el servidor arma un
-              prompt por cada partido de la etapa e incluye las pautas como{" "}
-              <em>criterios generales de toda esa etapa</em> (no solo de ese encuentro), para que el modelo mantenga
-              la misma guía en todos los marcadores. Si el bloque de esa etapa está vacío, la generación no se puede
-              ejecutar.
+              <strong>¿Cómo se convierte tu prompt en tus predicciones?</strong> El sistema arma un prompt por cada
+              grupo y fuerza a que la IA devuelva un único resultado numérico para cada partido de la etapa, incluyendo
+              tus instrucciones, que pasan a ser criterios generales para toda esa etapa. Si el bloque de esa etapa está
+              vacío, la generación no se puede ejecutar.
             </p>
           </div>
         </section>
@@ -319,8 +380,8 @@ export default function IAPage() {
       <section className="ia-versions" aria-labelledby="ia-versions-heading">
         <h2 id="ia-versions-heading">Control de versiones (log)</h2>
         <p className="ia-prediction-history-note">
-          Historial de <strong>tus predicciones</strong> (marcadores y campeón/subcampeón). Solo tú puedes verlo:
-          está guardado en tu cuenta y <strong>no se comparte</strong> con otros usuarios.
+          Aquí está el historial de tus prompts junto con sus resultados. Solo tú puedes verlo: está guardado en tu
+          cuenta y <strong>no se comparte</strong> con otros usuarios.
         </p>
 
         {historyLoading && <p className="placeholder-text">Cargando historial…</p>}
@@ -337,25 +398,22 @@ export default function IAPage() {
           <div className="ia-history-timeline">
             {timeline.map((item) => {
               if (item.kind === "batch") {
-                const expanded = expandedBatches[item.batchId] ?? false;
-                const phase =
-                  item.phaseLabel && PHASE_LABELS[item.phaseLabel]
-                    ? PHASE_LABELS[item.phaseLabel]
-                    : item.phaseLabel ?? "";
+                const expanded = expandedBatches[item.key] ?? false;
                 const matchCount = item.items.filter((i) => i.kind === "match").length;
                 const hasChampion = item.items.some((i) => i.kind === "champion");
+                const promptLines = filterBatchPromptsForGroup(
+                  batchPrompts[item.batchId],
+                  item.groupCode
+                );
                 return (
                   <div key={item.key} className="ia-history-batch">
                     <button
                       type="button"
                       className="ia-history-batch-trigger"
                       aria-expanded={expanded}
-                      onClick={() => toggleBatch(item.batchId)}
+                      onClick={() => toggleBatch(item.key)}
                     >
-                      <span className="ia-history-batch-title">
-                        Generación con IA
-                        {phase ? ` · ${phase}` : ""}
-                      </span>
+                      <span className="ia-history-batch-title">{item.title}</span>
                       <span className="ia-history-batch-meta">
                         {matchCount > 0 && `${matchCount} partido${matchCount === 1 ? "" : "s"}`}
                         {hasChampion && (
@@ -371,7 +429,7 @@ export default function IAPage() {
                     </button>
                     {expanded && (
                       <>
-                        <IaBatchPromptBlock lines={batchPrompts[item.batchId]} />
+                        <IaBatchPromptBlock lines={promptLines} />
                         <ul className="ia-history-batch-list">
                         {item.items.map((row) => (
                           <li key={row.id}>

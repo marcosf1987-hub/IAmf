@@ -82,11 +82,7 @@ export function IaBatchPromptBlock({
           <p className="ia-batch-prompt-label">Pautas del Laboratorio (en esa ejecución)</p>
           <pre className="ia-batch-prompt-pre">{guidelines}</pre>
         </>
-      ) : (
-        <p className="ia-batch-prompt-muted">
-          Este lote no incluyó pautas del Laboratorio (el texto guardado estaba vacío al generar).
-        </p>
-      )}
+      ) : null}
       <p className="ia-batch-prompt-label">{fullLabel}</p>
       <pre className="ia-batch-prompt-pre ia-batch-prompt-pre--full">{sample.promptText}</pre>
       {lines.length > 1 && (
