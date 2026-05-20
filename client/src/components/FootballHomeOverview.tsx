@@ -7,6 +7,22 @@ import { formatDaysLeft, formatTimeLeftLong, getCurrentPhase } from "../lib/prod
 
 const WORLD_CUP_START = new Date("2026-06-11T19:00:00Z");
 
+/** Mismo slug que `UNIVERSAL_COMPETITION_SLUG` en server/src/universal-league.ts */
+const UNIVERSAL_COMPETITION_SLUG = "liga-universal-promptplay";
+
+function isProtectedUniversalLeague(input: { slug?: string | null; name?: string | null }): boolean {
+  const slug = (input.slug ?? "").toLowerCase();
+  const name = (input.name ?? "").toLowerCase();
+  return (
+    slug === UNIVERSAL_COMPETITION_SLUG ||
+    slug.includes("universal") ||
+    slug.includes("general") ||
+    name.includes("liga universal") ||
+    name.includes("campeonato general") ||
+    name.includes("liga general")
+  );
+}
+
 export type FootballLeagueRankRow = {
   id: string;
   name: string;
@@ -195,6 +211,11 @@ export default function FootballHomeOverview({
   const { phase, deadline, countdown } = useHeroCountdown(worldCupStarted);
   const showLeaguesPanel = hasAnyLeague && !modelReady && mine != null;
 
+  const universalLeague = useMemo(
+    () => mine?.competitions.find((c) => isProtectedUniversalLeague({ slug: c.slug, name: c.name })),
+    [mine?.competitions]
+  );
+
   const heroEyebrow = worldCupStarted
     ? "Mundial 2026 · En juego"
     : phase
@@ -204,7 +225,7 @@ export default function FootballHomeOverview({
   const heroTitle = worldCupStarted
     ? "El torneo ya comenzó"
     : countdown
-      ? `Faltan ${countdown} para el cierre`
+      ? `Faltan ${countdown}`
       : "Calendario del torneo";
 
   const heroSub = worldCupStarted
@@ -213,10 +234,14 @@ export default function FootballHomeOverview({
       ? deadline.toLocaleString("es-AR", { dateStyle: "full", timeStyle: "short" })
       : "Cuando se publique el calendario, verás las fechas clave aquí.";
 
-  const rankText =
-    modelReady && resultsDash.myRank != null && resultsDash.totalParticipants > 0
-      ? `#${resultsDash.myRank} de ${resultsDash.totalParticipants}`
-      : "Completá tu modelo para ver el ranking";
+  const hasResultsRanking =
+    resultsDash.myRank != null && resultsDash.totalParticipants > 0;
+
+  const rankText = hasResultsRanking
+    ? `#${resultsDash.myRank} de ${resultsDash.totalParticipants}`
+    : universalLeague != null && universalLeague.card.totalParticipants > 0
+      ? `# N/A de ${universalLeague.card.totalParticipants}`
+      : "# N/A";
 
   const pointsLabel =
     worldCupStarted && totalHits != null
@@ -251,10 +276,24 @@ export default function FootballHomeOverview({
             <Link to="/app/prode" className="btn-primary">
               Ir a Mis predicciones
             </Link>
+          ) : hasAnyLeague ? (
+            <>
+              <Link to="/app/prode" className="btn-primary">
+                Ver Mis predicciones
+              </Link>
+              <Link to="/app/ligas#ligas-crear" className="btn-secondary">
+                Crear una liga
+              </Link>
+            </>
           ) : (
-            <Link to="/app/prode" className="btn-secondary">
-              Ver Mis predicciones
-            </Link>
+            <>
+              <Link to="/app/ligas#ligas-crear" className="btn-primary">
+                Crear una liga
+              </Link>
+              <Link to="/app/prode" className="btn-secondary">
+                Ver Mis predicciones
+              </Link>
+            </>
           )}
         </div>
       </section>
@@ -262,7 +301,7 @@ export default function FootballHomeOverview({
       <section className="dashboard-overview" aria-label="Resumen Mundial principal">
         <article className="dashboard-panel dashboard-panel--model">
           <div className="dashboard-panel-head">
-            <h3>Tu modelo y predicciones</h3>
+            <h3>Tus predicciones</h3>
             {prodeStatus?.hasGuidelines ? (
               <Link to="/app/ia" className="dashboard-inline-link">
                 Editar
@@ -276,14 +315,6 @@ export default function FootballHomeOverview({
                 {prodeStatus?.hasGuidelines ? "✓" : "·"}
               </span>
               Instrucciones en el Laboratorio
-            </li>
-            <li className={prodeStatus?.hasPredictions ? "" : "is-muted"}>
-              <span className="dashboard-model-status-marker" aria-hidden>
-                {prodeStatus?.hasPredictions ? "✓" : "·"}
-              </span>
-              {prodeStatus?.hasGuidelines
-                ? `Modelo DataExpert_v${prodeStatus.guidelinesVersion}`
-                : "Modelo DataExpert pendiente"}
             </li>
             <li className={prodeStatus?.hasPredictions ? "" : "is-muted"}>
               <span className="dashboard-model-status-marker" aria-hidden>
