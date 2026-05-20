@@ -1,12 +1,13 @@
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
-import UpcomingMatchesCarousel from "../components/UpcomingMatchesCarousel";
+import UpcomingEventsCarousel from "../components/UpcomingEventsCarousel";
 import { getCurrentPhase, formatTimeLeftLong } from "../lib/prode-phases";
 
 export default function HomePage() {
   return (
     <MarketingLayout>
         <div className="home-hero">
+          <h1>Analiza. Predice. Compite.</h1>
           <div className="home-cta">
             <Link to="/signup" className="btn-primary btn-large">
               Empezar ahora
@@ -15,15 +16,19 @@ export default function HomePage() {
               Ya tengo cuenta
             </Link>
           </div>
-          <h1>Analiza. Predice. Compite.</h1>
           <p className="home-lead home-subtitle">
-            Domina la IA y convierte los datos en decisiones.
+            ¿Eres bueno con la IA? Demuéstralo.
           </p>
           <p className="home-lead">
-            Lleva tu capacidad de análisis al siguiente nivel. Entrena tus habilidades de prompting
-            diseñando la estrategia ganadora para el Mundial y demuestra que puedes lograr la IA más
-            precisa de todo tu equipo.
+            Lleva tu uso de la IA al siguiente nivel. Entrena tus habilidades de prompting diseñando la
+            estrategia ganadora. Demuestra que puedes lograr la IA más precisa de todo tu equipo.
           </p>
+          <section className="dashboard-tip home-tip" aria-label="Cómo funciona PromptPlay">
+            <p className="dashboard-tip-text">
+              💡 En PromptPlay no completas los resultados a mano. Diseñas las instrucciones lógicas para tu IA y
+              ella simula todo el fixture por vos.
+            </p>
+          </section>
           <p className="home-countdown">
             {getCurrentPhase() ? (
               <>
@@ -36,7 +41,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <UpcomingMatchesCarousel variant="marketing" className="home-upcoming-carousel" />
+        <UpcomingEventsCarousel className="home-upcoming-carousel" />
 
         <section className="home-features">
           <div className="feature-card">

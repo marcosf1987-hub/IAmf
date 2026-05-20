@@ -519,9 +519,16 @@ a.home-logo:hover .home-logo-brand {
 }
 
 .home-hero .home-cta {
-  margin: 0 0 1.75rem;
+  margin: 0 0 2rem;
   width: 100%;
   justify-content: center;
+}
+
+.home-hero .home-tip {
+  max-width: 520px;
+  width: 100%;
+  margin: 0 0 1.5rem;
+  text-align: left;
 }
 
 .home-countdown {
