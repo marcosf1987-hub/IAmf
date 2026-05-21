@@ -25,8 +25,8 @@ export default function HomePage() {
           </p>
           <section className="dashboard-tip home-tip" aria-label="Cómo funciona PromptPlay">
             <p className="dashboard-tip-text">
-              💡 En PromptPlay no completas los resultados a mano. Diseñas las instrucciones lógicas para tu IA y
-              ella simula todo el fixture por vos.
+              💡 En PromptPlay no completas los resultados a mano. En PromptPlay diseñas las instrucciones lógicas para
+              tu IA y ella simula todo el fixture por vos.
             </p>
           </section>
           <p className="home-countdown">

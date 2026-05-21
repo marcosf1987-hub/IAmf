@@ -977,6 +977,24 @@ a.home-logo:hover .home-logo-brand {
   font-size: 0.8rem;
 }
 
+/* F1 en carrusel home: mismo fondo que `dashboard-hero` en /app/f1 */
+.f1-race-slide--pit-hero .match-carousel-card-bg-img {
+  transform: none;
+  filter: saturate(1.05);
+}
+
+.f1-race-slide--pit-hero .match-carousel-card-bg-blur {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: transparent;
+}
+
+.f1-race-slide--pit-hero .f1-race-slide-scrim {
+  background:
+    linear-gradient(180deg, rgba(6, 10, 22, 0.82) 0%, rgba(6, 12, 28, 0.78) 42%, rgba(4, 8, 18, 0.92) 100%),
+    linear-gradient(125deg, rgba(229, 57, 53, 0.22) 0%, rgba(20, 30, 62, 0.55) 48%, rgba(5, 12, 28, 0.88) 100%);
+}
+
 .dashboard-f1-countdown {
   max-width: 720px;
   margin: 0 auto 1.5rem;

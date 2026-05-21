@@ -23,6 +23,9 @@ const dateFmt = new Intl.DateTimeFormat("es-AR", {
 
 const DESKTOP_PAIR_MQ = "(min-width: 900px)";
 
+/** Misma imagen que el banner principal del hub F1 (`dashboard-hero`). */
+const F1_HERO_PIT_BG = "/f1/f1-hero-pit.png";
+
 type UpcomingEvent =
   | { kind: "match"; key: string; at: number; match: Match }
   | { kind: "race"; key: string; at: number; race: F1RaceSummary };
@@ -128,16 +131,24 @@ function MatchSlide({ match }: { match: Match }) {
   );
 }
 
-function RaceSlide({ race, slideVariant }: { race: F1RaceSummary; slideVariant: number }) {
+function RaceSlide({ race }: { race: F1RaceSummary }) {
   const start = new Date(race.raceStartAt);
-  const v = slideVariant % 5;
   return (
     <article
-      className="match-carousel-card f1-race-slide"
-      data-f1-slide-var={v}
+      className="match-carousel-card f1-race-slide f1-race-slide--pit-hero"
       aria-labelledby={`f1-race-title-${race.id}`}
     >
-      <div className="f1-race-slide-accent" aria-hidden />
+      <div className="match-carousel-card-bg" aria-hidden="true">
+        <img
+          src={F1_HERO_PIT_BG}
+          alt=""
+          className="match-carousel-card-bg-img"
+          loading="lazy"
+          decoding="async"
+        />
+        <div className="match-carousel-card-bg-blur" />
+        <div className="match-carousel-card-bg-scrim f1-race-slide-scrim" aria-hidden />
+      </div>
       <div className="match-carousel-card-inner f1-race-slide-inner">
         <p className="match-carousel-meta">
           F1 {race.year} · Ronda {race.roundOrder}
@@ -158,7 +169,7 @@ function EventSlide({ event, slideVariant }: { event: UpcomingEvent; slideVarian
   if (event.kind === "match") {
     return <MatchSlide match={event.match} />;
   }
-  return <RaceSlide race={event.race} slideVariant={slideVariant} />;
+  return <RaceSlide race={event.race} />;
 }
 
 export default function UpcomingEventsCarousel({ className = "" }: { className?: string }) {
