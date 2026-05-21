@@ -165,7 +165,7 @@ function RaceSlide({ race }: { race: F1RaceSummary }) {
   );
 }
 
-function EventSlide({ event, slideVariant }: { event: UpcomingEvent; slideVariant: number }) {
+function EventSlide({ event }: { event: UpcomingEvent }) {
   if (event.kind === "match") {
     return <MatchSlide match={event.match} />;
   }
@@ -293,8 +293,8 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
             style={{ "--slide": slide } as React.CSSProperties}
           >
             <div className="match-carousel-track">
-              {events.map((ev, idx) => (
-                <EventSlide key={ev.key} event={ev} slideVariant={idx} />
+              {events.map((ev) => (
+                <EventSlide key={ev.key} event={ev} />
               ))}
             </div>
           </div>
@@ -311,7 +311,7 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
       ) : (
         <>
           <div className="match-carousel-viewport">
-            <EventSlide event={current} slideVariant={slide} />
+            <EventSlide event={current} />
           </div>
 
           <div className="match-carousel-dots" role="tablist" aria-label="Elegir evento">
