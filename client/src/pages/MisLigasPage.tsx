@@ -170,16 +170,56 @@ function LigasHomeSkeleton() {
   );
 }
 
+function LigaDetailHero({
+  competitionId,
+  name,
+  description,
+  coverImageUrl,
+}: {
+  competitionId: string;
+  name: string;
+  description: string | null;
+  coverImageUrl: string | null;
+}) {
+  const stadiumBg = stadiumBackgroundUrlForLeague(competitionId);
+  const [stadiumBgSrc, setStadiumBgSrc] = useState(stadiumBg);
+
+  return (
+    <div className={`ligas-detail-hero${coverImageUrl ? " ligas-detail-hero--cover" : " ligas-detail-hero--stadium"}`}>
+      {coverImageUrl ? (
+        <div className="ligas-detail-hero-bg" aria-hidden>
+          <img src={coverImageUrl} alt="" className="ligas-detail-hero-bg-img ligas-detail-hero-bg-img--cover" loading="lazy" />
+          <div className="liga-card-visual-bg-scrim" />
+        </div>
+      ) : (
+        <div className="ligas-detail-hero-bg" aria-hidden>
+          <img
+            src={stadiumBgSrc}
+            alt=""
+            className="liga-card-visual-bg-img"
+            loading="lazy"
+            decoding="async"
+            onError={() => setStadiumBgSrc(FALLBACK_STADIUM_BG)}
+          />
+          <div className="liga-card-visual-bg-blur" />
+          <div className="liga-card-visual-bg-scrim" />
+        </div>
+      )}
+      <div className="ligas-detail-hero-overlay">
+        <h1 id="liga-detail-title">{name}</h1>
+        {description ? <p className="ligas-detail-hero-desc">{description}</p> : null}
+      </div>
+    </div>
+  );
+}
+
 function LigasDetailSkeleton() {
   return (
     <div className="page-content ligas-page ligas-detail-page ligas-detail-skeleton" aria-busy="true" aria-label="Cargando liga">
       <div className="skeleton skeleton-line ligas-sk-crumb" />
       <div className="ligas-detail-header">
-        <div className="skeleton skeleton-block ligas-sk-cover" />
-        <div className="ligas-sk-head-text">
-          <div className="skeleton skeleton-line ligas-sk-h1" />
-          <div className="skeleton skeleton-line ligas-sk-meta" />
-        </div>
+        <div className="skeleton skeleton-block ligas-sk-hero" />
+        <div className="skeleton skeleton-line ligas-sk-meta" />
       </div>
       <div className="ligas-tabs ligas-tabs--skeleton">
         <div className="skeleton skeleton-line ligas-sk-tab" />
@@ -308,7 +348,7 @@ function LigasCommunityHome() {
             disabled={!createAllowed}
             onClick={() => setModalOpen(true)}
           >
-            Configurar liga
+            Crear Liga
           </button>
           {!createAllowed && q && (
             <p className="ligas-hint-muted">
@@ -640,21 +680,16 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
       </nav>
 
       <header className="ligas-detail-header">
-        {competition.coverImageUrl ? (
-          <img src={competition.coverImageUrl} alt="" className="liga-detail-cover" />
-        ) : (
-          <div className="liga-detail-emoji" aria-hidden>
-            {competition.emoji || "⚽"}
-          </div>
-        )}
-        <div>
-          <h1>{competition.name}</h1>
-          {competition.description && <p className="liga-detail-desc">{competition.description}</p>}
-          <p className="liga-detail-meta">
-            {competition.memberCount} / {competition.maxMembers} miembros
-            {isAdmin ? " · Administrás esta liga" : ""}
-          </p>
-        </div>
+        <LigaDetailHero
+          competitionId={competition.id}
+          name={competition.name}
+          description={competition.description}
+          coverImageUrl={competition.coverImageUrl}
+        />
+        <p className="liga-detail-meta">
+          {competition.memberCount} / {competition.maxMembers} miembros
+          {isAdmin ? " · Administrás esta liga" : ""}
+        </p>
       </header>
 
       <div className="ligas-tabs" role="tablist">
@@ -899,7 +934,7 @@ function AdminLigaConfig({
         </div>
       </div>
 
-      <form className="ligas-admin-block" onSubmit={savePersonalization}>
+      <form className="ligas-admin-block ligas-admin-form" onSubmit={savePersonalization}>
         <h3 className="ligas-admin-title">Personalización</h3>
         <label className="ligas-field">
           <span>Nombre de la liga (máx. 25 caracteres)</span>
