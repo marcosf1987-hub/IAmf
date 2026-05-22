@@ -4642,6 +4642,44 @@ a.btn-oauth--unconfigured {
   align-items: center;
   justify-content: center;
   position: relative;
+  overflow: hidden;
+}
+
+.liga-card-visual--stadium {
+  background: linear-gradient(155deg, var(--surface-container-high) 0%, var(--bg) 50%, var(--surface-container) 100%);
+}
+
+.liga-card-visual-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.liga-card-visual-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.06);
+  filter: blur(5px) saturate(1.08);
+}
+
+.liga-card-visual-bg-blur {
+  position: absolute;
+  inset: 0;
+  backdrop-filter: blur(1px);
+  -webkit-backdrop-filter: blur(1px);
+  background: rgba(5, 18, 47, 0.12);
+}
+
+.liga-card-visual-bg-scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    155deg,
+    rgba(5, 18, 47, 0.62) 0%,
+    rgba(18, 30, 60, 0.38) 42%,
+    rgba(29, 41, 71, 0.58) 100%
+  );
 }
 
 .liga-card-cover {
@@ -4659,6 +4697,7 @@ a.btn-oauth--unconfigured {
   position: absolute;
   left: 0.75rem;
   bottom: 0.75rem;
+  z-index: 1;
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -5106,6 +5145,24 @@ a.btn-oauth--unconfigured {
   background: var(--bg-input);
   border: 1px solid var(--border);
   letter-spacing: 0.02em;
+}
+
+.ligas-btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ligas-btn-whatsapp:hover {
+  text-decoration: none;
+  color: var(--text);
+}
+
+.ligas-whatsapp-icon {
+  flex-shrink: 0;
+  color: #25d366;
 }
 
 .ligas-admin-members {

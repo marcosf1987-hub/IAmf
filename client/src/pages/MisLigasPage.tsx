@@ -13,6 +13,7 @@ import type {
   ResultsDashboard,
 } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
+import { FALLBACK_STADIUM_BG, stadiumBackgroundUrlForLeague } from "../lib/match-venue";
 import {
   createCompetition,
   fetchCompetitionDetail,
@@ -298,6 +299,9 @@ function LigasCommunityHome() {
             </h2>
             {q ? <span className="ligas-quota-pill">{quotaHint(q)}</span> : null}
           </header>
+          <p className="ligas-action-box-desc">
+            Configura las reglas, invita a tus amigos y compite en tu propio grupo cerrado.
+          </p>
           <button
             type="button"
             className="btn-primary ligas-btn-primary ligas-action-cta"
@@ -333,7 +337,7 @@ function LigasCommunityHome() {
                 className="ligas-join-input"
                 value={joinCode}
                 onChange={(e) => setJoinCode(e.target.value)}
-                placeholder="EJ: MONACO-2024"
+                placeholder="IA-2026"
                 autoComplete="off"
                 spellCheck={false}
               />
@@ -398,14 +402,28 @@ function LigasCommunityHome() {
   );
 }
 
+function WhatsAppIcon() {
+  return (
+    <svg className="ligas-whatsapp-icon" viewBox="0 0 24 24" aria-hidden width={16} height={16}>
+      <path
+        fill="currentColor"
+        d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"
+      />
+    </svg>
+  );
+}
+
 function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => void }) {
   const navigate = useNavigate();
   const ligasBase = useLigasBasePath();
   const { showFlash } = useFlash();
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const stadiumBg = stadiumBackgroundUrlForLeague(row.id);
+  const [stadiumBgSrc, setStadiumBgSrc] = useState(stadiumBg);
   const { card } = row;
   const protectedLeague = isProtectedUniversalLeague(row);
+  const isAdmin = row.myRole === "competition_admin";
 
   const top = card.topThree;
   const fillers = [0, 1, 2].map((i) => top[i] ?? null);
@@ -430,12 +448,21 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
 
   return (
     <article className="liga-card">
-      <div className="liga-card-visual">
+      <div className={`liga-card-visual${row.coverImageUrl ? "" : " liga-card-visual--stadium"}`}>
         {row.coverImageUrl ? (
           <img src={row.coverImageUrl} alt="" className="liga-card-cover" />
         ) : (
-          <div className="liga-card-cover-fallback" aria-hidden>
-            {row.emoji || "⚽"}
+          <div className="liga-card-visual-bg" aria-hidden>
+            <img
+              src={stadiumBgSrc}
+              alt=""
+              className="liga-card-visual-bg-img"
+              loading="lazy"
+              decoding="async"
+              onError={() => setStadiumBgSrc(FALLBACK_STADIUM_BG)}
+            />
+            <div className="liga-card-visual-bg-blur" />
+            <div className="liga-card-visual-bg-scrim" />
           </div>
         )}
         <span className="liga-card-chip">{row.memberCount} integrantes</span>
@@ -474,20 +501,26 @@ function LigaCard({ row, onLeft }: { row: MyCompetitionSummary; onLeft: () => vo
           <button type="button" className="btn-primary btn-sm" onClick={() => navigate(`${ligasBase}/${row.id}`)}>
             Ver tabla
           </button>
-          {protectedLeague ? (
-            <span className="liga-card-protected" title="La liga universal no puede abandonarse">
-              Liga universal
-            </span>
-          ) : (
-            <button
-              type="button"
-              className="liga-card-leave"
-              onClick={() => setLeaveOpen(true)}
-              title="Abandonar liga"
-            >
-              Abandonar
-            </button>
-          )}
+          {!protectedLeague &&
+            (isAdmin ? (
+              <button
+                type="button"
+                className="liga-card-leave"
+                onClick={() => navigate(`${ligasBase}/${row.id}?tab=config`)}
+                title="Configurar liga"
+              >
+                Configurar
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="liga-card-leave"
+                onClick={() => setLeaveOpen(true)}
+                title="Abandonar liga"
+              >
+                Abandonar
+              </button>
+            ))}
         </div>
       </div>
       <LeaveLeagueModal
@@ -790,9 +823,6 @@ function AdminLigaConfig({
     setDescription(initial.description ?? "");
   }, [initial]);
 
-  const disciplineLabel =
-    initial.discipline === "f1" ? "Fórmula 1 (OpenF1)" : "Mundial / prode fútbol";
-
   const inviteLink =
     typeof window !== "undefined"
       ? `${window.location.origin}${ligasListPath}?join=${encodeURIComponent(inviteCode)}`
@@ -807,14 +837,11 @@ function AdminLigaConfig({
     }
   }
 
-  async function copyLink() {
-    try {
-      await navigator.clipboard.writeText(inviteLink);
-      showFlash("Link de invitación copiado", "success");
-    } catch {
-      showFlash("No se pudo copiar el link. Copiá la URL desde la barra de direcciones tras abrir la liga.", "info");
-    }
-  }
+  const whatsappInviteHref = inviteLink
+    ? `https://wa.me/?text=${encodeURIComponent(
+        `Te invito a sumarte a mi liga de PromptPlay, haz click en el siguiente link ${inviteLink}`
+      )}`
+    : undefined;
 
   async function savePersonalization(e: FormEvent) {
     e.preventDefault();
@@ -850,27 +877,30 @@ function AdminLigaConfig({
     <section className="ligas-admin" aria-label="Configuración de liga">
       <div className="ligas-admin-block">
         <h3 className="ligas-admin-title">Código de invitación</h3>
-        <p className="ligas-admin-desc">Compartí el código o el enlace por Slack, Teams o WhatsApp.</p>
+        <p className="ligas-admin-desc">
+          Compartí este código o el link de invitación para sumar invitados a la liga.
+        </p>
         <div className="ligas-invite-code-row">
           <code className="ligas-invite-code">{inviteCode || "—"}</code>
           <button type="button" className="btn-secondary btn-sm" onClick={copyCode}>
             Copiar código
           </button>
-          <button type="button" className="btn-secondary btn-sm" onClick={copyLink}>
-            Copiar link de invitación
-          </button>
+          {whatsappInviteHref ? (
+            <a
+              href={whatsappInviteHref}
+              className="btn-secondary btn-sm ligas-btn-whatsapp"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <WhatsAppIcon />
+              Enviar invitación
+            </a>
+          ) : null}
         </div>
       </div>
 
       <form className="ligas-admin-block" onSubmit={savePersonalization}>
         <h3 className="ligas-admin-title">Personalización</h3>
-        <p className="ligas-admin-meta-readonly">
-          Disciplina: <strong>{disciplineLabel}</strong> (definida al crear la liga). Cupo:{" "}
-          <strong>
-            {members.length} / {initial.maxMembers}
-          </strong>{" "}
-          miembros — no se puede cambiar.
-        </p>
         <label className="ligas-field">
           <span>Nombre de la liga (máx. 25 caracteres)</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={25} required />
@@ -1026,8 +1056,8 @@ function CreateLigaModal({
           Crear nueva liga
         </h2>
         <p className="ligas-modal-lead">
-          Vas a ser el administrador. La disciplina de la liga es la del área donde la creás (Mundial o F1); emoji e imagen los define la app.
-          Podés compartir el código desde la configuración de la liga.
+          Serás el administrador de esta Liga. Agregale un nombre y descripción e invita a quienes quieras agregando sus mails o
+          compartiéndoles el código de la liga.
         </p>
         <form onSubmit={handleSubmit} className="ligas-modal-form">
           <label className="ligas-field">
@@ -1043,7 +1073,7 @@ function CreateLigaModal({
             />
           </label>
           <label className="ligas-field">
-            <span>Reglas o contexto (opcional)</span>
+            <span>Descripción (opcional)</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}

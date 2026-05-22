@@ -55,3 +55,8 @@ export function pickVenueForMatch(matchId: string): VenueInfo {
 export function stadiumBackgroundUrlForMatch(matchId: string): string {
   return STADIUM_BACKGROUNDS[hashString(matchId) % STADIUM_BACKGROUNDS.length];
 }
+
+/** Fondo de card de liga sin cover (misma rotación que el carrusel de partidos). */
+export function stadiumBackgroundUrlForLeague(leagueId: string): string {
+  return stadiumBackgroundUrlForMatch(leagueId);
+}
