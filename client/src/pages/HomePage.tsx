@@ -1,42 +1,40 @@
+import { Trans, useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import UpcomingEventsCarousel from "../components/UpcomingEventsCarousel";
 import { getCurrentPhase, formatTimeLeftLong } from "../lib/prode-phases";
 
 export default function HomePage() {
+  const { t } = useTranslation("home");
+  const phase = getCurrentPhase();
+
   return (
     <MarketingLayout>
         <div className="home-hero">
-          <h1>Analiza. Predice. Compite.</h1>
+          <h1>{t("hero.title")}</h1>
           <div className="home-cta">
             <Link to="/signup" className="btn-primary btn-large">
-              Empezar ahora
+              {t("hero.ctaStart")}
             </Link>
             <Link to="/login" className="btn-secondary btn-large">
-              Ya tengo cuenta
+              {t("hero.ctaLogin")}
             </Link>
           </div>
-          <p className="home-lead home-subtitle">
-            ¿Eres bueno con la IA? Demuéstralo.
-          </p>
-          <p className="home-lead">
-            Lleva tu uso de la IA al siguiente nivel. Entrena tus habilidades de prompting diseñando la
-            estrategia ganadora. Demuestra que puedes lograr la IA más precisa de todo tu equipo.
-          </p>
-          <section className="dashboard-tip home-tip" aria-label="Cómo funciona PromptPlay">
-            <p className="dashboard-tip-text">
-              💡 En PromptPlay no completas los resultados a mano. En PromptPlay diseñas las instrucciones lógicas para
-              tu IA y ella simula todo el fixture por vos.
-            </p>
+          <p className="home-lead home-subtitle">{t("hero.subtitle")}</p>
+          <p className="home-lead">{t("hero.lead")}</p>
+          <section className="dashboard-tip home-tip" aria-label={t("hero.tipLabel")}>
+            <p className="dashboard-tip-text">{t("hero.tip")}</p>
           </section>
           <p className="home-countdown">
-            {getCurrentPhase() ? (
-              <>
-                Faltan <strong>{formatTimeLeftLong(getCurrentPhase()!.deadline)}</strong> para el cierre de carga de la
-                fase actual.
-              </>
+            {phase ? (
+              <Trans
+                i18nKey="hero.countdown"
+                ns="home"
+                values={{ time: formatTimeLeftLong(phase.deadline) }}
+                components={{ strong: <strong /> }}
+              />
             ) : (
-              "El cierre de carga de modelos ya finalizó."
+              t("hero.countdownClosed")
             )}
           </p>
         </div>
@@ -51,8 +49,8 @@ export default function HomePage() {
                 <path d="m21 21-4.35-4.35" />
               </svg>
             </div>
-            <h3>ANALIZA</h3>
-            <p>Busca información y utiliza la IA para encontrar patrones donde otros solo ven números.</p>
+            <h3>{t("features.analyze.title")}</h3>
+            <p>{t("features.analyze.body")}</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon" aria-hidden>
@@ -60,8 +58,8 @@ export default function HomePage() {
                 <path d="M12 3 10.5 7.5 6 9l4.5 1.5L12 15l1.5-4.5L18 9l-4.5-1.5L12 3Z" />
               </svg>
             </div>
-            <h3>PREDICE</h3>
-            <p>Construye prompts de alta complejidad para generar proyecciones automatizadas.</p>
+            <h3>{t("features.predict.title")}</h3>
+            <p>{t("features.predict.body")}</p>
           </div>
           <div className="feature-card">
             <div className="feature-icon" aria-hidden>
@@ -74,8 +72,8 @@ export default function HomePage() {
                 <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
               </svg>
             </div>
-            <h3>COMPITE</h3>
-            <p>Mide la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real.</p>
+            <h3>{t("features.compete.title")}</h3>
+            <p>{t("features.compete.body")}</p>
           </div>
         </section>
     </MarketingLayout>

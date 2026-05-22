@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import { HamburgerIcon } from "./HamburgerIcon";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 type Props = {
   children: ReactNode;
@@ -9,6 +11,7 @@ type Props = {
 };
 
 export default function MarketingLayout({ children, mainVariant = "default" }: Props) {
+  const { t } = useTranslation("common");
   const [menuOpen, setMenuOpen] = useState(false);
   const { pathname } = useLocation();
 
@@ -39,11 +42,12 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           <span className="home-logo-brand">Promptplay</span>
           <span className="home-logo-sub">World Cup Edition</span>
         </Link>
+        <LanguageSwitcher compact className="home-header-lang" />
         <button
           type="button"
           className="home-menu-toggle"
           onClick={() => setMenuOpen((o) => !o)}
-          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-label={menuOpen ? t("nav.closeMenu") : t("nav.openMenu")}
           aria-expanded={menuOpen}
         >
           {menuOpen ? <span className="icon-close" aria-hidden /> : <HamburgerIcon />}
@@ -56,11 +60,12 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           />
         )}
         <nav className={`home-nav ${menuOpen ? "home-nav-open" : ""}`}>
+          <LanguageSwitcher className="home-nav-lang" />
           <Link to="/login" className="nav-link" onClick={() => setMenuOpen(false)}>
-            Iniciar sesión
+            {t("nav.login")}
           </Link>
           <Link to="/signup" className="nav-link nav-link-accent" onClick={() => setMenuOpen(false)}>
-            Registrarse
+            {t("nav.signup")}
           </Link>
         </nav>
       </header>
@@ -68,13 +73,13 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
       <main className={mainClass}>{children}</main>
 
       <footer className="home-footer">
-        <p>PromptPlay 2026 - Conviértete en un Prompt Master</p>
-        <nav className="home-footer-legal" aria-label="Información legal">
-          <Link to="/terms">Términos del servicio</Link>
+        <p>{t("footer.tagline")}</p>
+        <nav className="home-footer-legal" aria-label={t("footer.legal")}>
+          <Link to="/terms">{t("footer.terms")}</Link>
           <span className="home-footer-legal-sep" aria-hidden>
             ·
           </span>
-          <Link to="/privacy">Privacidad</Link>
+          <Link to="/privacy">{t("footer.privacy")}</Link>
         </nav>
       </footer>
     </div>

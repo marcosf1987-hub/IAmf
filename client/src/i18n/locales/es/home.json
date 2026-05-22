@@ -1,0 +1,27 @@
+{
+  "hero": {
+    "title": "Analiza. Predice. Compite.",
+    "ctaStart": "Empezar ahora",
+    "ctaLogin": "Ya tengo cuenta",
+    "subtitle": "¿Eres bueno con la IA? Demuéstralo.",
+    "lead": "Lleva tu uso de la IA al siguiente nivel. Entrena tus habilidades de prompting diseñando la estrategia ganadora. Demuestra que puedes lograr la IA más precisa de todo tu equipo.",
+    "tipLabel": "Cómo funciona PromptPlay",
+    "tip": "💡 En PromptPlay no completas los resultados a mano. En PromptPlay diseñas las instrucciones lógicas para tu IA y ella simula todo el fixture por vos.",
+    "countdown": "Faltan <strong>{{time}}</strong> para el cierre de carga de la fase actual.",
+    "countdownClosed": "El cierre de carga de modelos ya finalizó."
+  },
+  "features": {
+    "analyze": {
+      "title": "ANALIZA",
+      "body": "Busca información y utiliza la IA para encontrar patrones donde otros solo ven números."
+    },
+    "predict": {
+      "title": "PREDICE",
+      "body": "Construye prompts de alta complejidad para generar proyecciones automatizadas."
+    },
+    "compete": {
+      "title": "COMPITE",
+      "body": "Mide la efectividad de tu lógica contra la de tus colegas en un ranking de precisión en tiempo real."
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "language": {
+    "label": "Language",
+    "es": "Español",
+    "en": "English"
+  },
+  "nav": {
+    "login": "Log in",
+    "signup": "Sign up",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "footer": {
+    "tagline": "PromptPlay 2026 - Become a Prompt Master",
+    "legal": "Legal information",
+    "terms": "Terms of service",
+    "privacy": "Privacy"
+  },
+  "actions": {
+    "loading": "Loading…"
+  }
+}

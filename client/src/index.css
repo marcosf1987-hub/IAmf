@@ -302,6 +302,61 @@ button:focus:not(:focus-visible) {
   background: linear-gradient(90deg, transparent, rgba(178, 197, 255, 0.14), transparent);
 }
 
+.lang-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--accent-border);
+  background: rgba(5, 18, 47, 0.55);
+}
+
+.lang-switcher--compact {
+  font-size: 0.72rem;
+}
+
+.lang-switcher-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.55rem;
+  border-radius: calc(var(--radius-md) - 2px);
+  cursor: pointer;
+}
+
+.lang-switcher-btn:hover {
+  color: var(--text);
+}
+
+.lang-switcher-btn--active {
+  background: var(--accent-dim);
+  color: var(--accent);
+}
+
+.home-header-lang {
+  margin-right: 0.5rem;
+}
+
+.home-nav-lang {
+  width: 100%;
+  justify-content: center;
+  margin-bottom: 0.75rem;
+}
+
+.app-header-lang {
+  flex-shrink: 0;
+}
+
+@media (max-width: 768px) {
+  .home-header-lang {
+    display: none;
+  }
+}
+
 @media (max-width: 768px) {
   .home-header {
     padding: calc(1.25rem + env(safe-area-inset-top, 0px)) max(1.5rem, env(safe-area-inset-right, 0px))

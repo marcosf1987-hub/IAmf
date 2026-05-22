@@ -1,11 +1,14 @@
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import SocialLoginButtons from "../components/SocialLoginButtons";
 import { useAuth } from "../contexts/AuthContext";
-import { isProductionApiUrlMissing } from "../lib/api";
+import { formatApiError, isProductionApiUrlMissing } from "../lib/api";
+import { resolveUserErrorMessage } from "../i18n/translate-api-error";
 
 export default function LoginPage() {
+  const { t } = useTranslation("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,15 +34,16 @@ export default function LoginPage() {
         navigate("/app");
       }
     } catch (err) {
-      const raw = err instanceof Error ? err.message : "Error al iniciar sesión";
-      let msg = raw;
-      if (raw === "invalid_credentials")
-        msg =
-          "Email o contraseña incorrectos. Si es la primera vez en la web publicada, crea una cuenta en «Registrarse» o carga usuarios con el seed (admin@demo.com / Admin1234).";
-      else if (raw.includes("JWT_SECRET")) msg = "Falta configurar JWT_SECRET en el backend (Railway → Variables).";
-      else if (/P1001|database server|Can't reach database/i.test(raw))
-        msg = "No se puede conectar a la base de datos. Revisa DATABASE_URL en Railway.";
-      setError(msg);
+      const raw = err instanceof Error ? err.message : t("errors:generic.loginFailed");
+      if (raw === "invalid_credentials") {
+        setError(t("errors:login.invalidCredentials"));
+      } else if (/JWT_SECRET/i.test(raw)) {
+        setError(t("errors:login.jwtSecret"));
+      } else if (/P1001|database server|Can't reach database/i.test(raw)) {
+        setError(t("errors:login.database"));
+      } else {
+        setError(formatApiError(err instanceof Error ? err : new Error(resolveUserErrorMessage(raw))));
+      }
     } finally {
       setLoading(false);
     }
@@ -49,29 +53,28 @@ export default function LoginPage() {
     <MarketingLayout mainVariant="auth">
       <div className="auth-page">
         <div className="auth-card">
-        <h1>Iniciar sesión</h1>
-        <p className="auth-subtitle">Accede a tu cuenta del programa IA + Prode</p>
+        <h1>{t("login.title")}</h1>
+        <p className="auth-subtitle">{t("login.subtitle")}</p>
         <form onSubmit={handleSubmit} className="auth-form">
           {isProductionApiUrlMissing && (
             <div className="auth-error" role="alert">
-              Falta configurar la URL del servidor en el despliegue. En Railway → servicio del frontend → Variables →{" "}
-              <code>VITE_API_URL</code> = tu URL del backend (https://…, sin / al final) → Redeploy.
+              {t("login.missingApiUrl")}
             </div>
           )}
           {error && <div className="auth-error">{error}</div>}
           <label>
-            <span>Email</span>
+            <span>{t("login.email")}</span>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@empresa.com"
+              placeholder={t("login.emailPlaceholder")}
               required
               autoComplete="email"
             />
           </label>
           <label>
-            <span>Contraseña</span>
+            <span>{t("login.password")}</span>
             <input
               type="password"
               value={password}
@@ -82,12 +85,12 @@ export default function LoginPage() {
             />
           </label>
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? "Entrando…" : "Entrar"}
+            {loading ? t("login.submitting") : t("login.submit")}
           </button>
         </form>
         <SocialLoginButtons />
         <p className="auth-footer">
-          ¿No tienes cuenta? <Link to="/signup">Registrarse</Link>
+          {t("login.noAccount")} <Link to="/signup">{t("login.signupLink")}</Link>
         </p>
         </div>
       </div>

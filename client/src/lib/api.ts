@@ -144,10 +144,9 @@ async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const data = await parseJson<T & { message?: string }>(res, url);
   if (!res.ok) {
-    const msg = (data as { message?: string; error?: string }).message
-      ?? (data as { error?: string }).error
-      ?? "Request failed";
-    throw new Error(formatApiError(new Error(msg)));
+    const body = data as { message?: string; error?: string };
+    const codeOrMsg = body.error ?? body.message ?? "Request failed";
+    throw new Error(formatApiError(new Error(codeOrMsg)));
   }
   return data;
 }

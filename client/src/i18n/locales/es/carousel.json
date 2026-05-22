@@ -1,0 +1,10 @@
+{
+  "upcomingEvents": "Próximos eventos que puedes predecir",
+  "loading": "Cargando próximos eventos",
+  "prev": "Ver eventos anteriores",
+  "next": "Ver siguientes eventos",
+  "pickEvent": "Elegir evento",
+  "eventN": "Evento {{n}}: {{label}}",
+  "raceFoot": "Carrera · datos OpenF1",
+  "vs": "vs"
+}

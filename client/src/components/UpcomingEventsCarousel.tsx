@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useMediaQuery } from "../hooks/useMediaQuery";
+import i18n from "../i18n";
+import { formatDateTime } from "../lib/intl-format";
 import {
   fetchPublicF1Races,
   fetchPublicUpcomingMatches,
@@ -12,14 +15,6 @@ import {
   pickVenueForMatch,
   stadiumBackgroundUrlForMatch,
 } from "../lib/match-venue";
-
-const dateFmt = new Intl.DateTimeFormat("es-AR", {
-  weekday: "short",
-  day: "numeric",
-  month: "short",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 const DESKTOP_PAIR_MQ = "(min-width: 900px)";
 
@@ -56,10 +51,11 @@ function raceTitle(r: F1RaceSummary): string {
 }
 
 function eventAriaLabel(ev: UpcomingEvent, index: number): string {
-  if (ev.kind === "match") {
-    return `Evento ${index + 1}: ${ev.match.teamA} contra ${ev.match.teamB}`;
-  }
-  return `Evento ${index + 1}: ${raceTitle(ev.race)}`;
+  const label =
+    ev.kind === "match"
+      ? `${ev.match.teamA} vs ${ev.match.teamB}`
+      : raceTitle(ev.race);
+  return i18n.t("carousel:eventN", { n: index + 1, label });
 }
 
 function ChevronIcon({ dir }: { dir: "left" | "right" }) {
@@ -77,10 +73,10 @@ function ChevronIcon({ dir }: { dir: "left" | "right" }) {
 }
 
 function MatchSlide({ match }: { match: Match }) {
+  const { t } = useTranslation("carousel");
   const bg = stadiumBackgroundUrlForMatch(match.id);
   const [bgSrc, setBgSrc] = useState(bg);
   const venue = pickVenueForMatch(match.id);
-  const kick = new Date(match.kickoffAt);
   const urlA = getFlagImageUrl(match.teamA);
   const urlB = getFlagImageUrl(match.teamB);
 
@@ -114,7 +110,7 @@ function MatchSlide({ match }: { match: Match }) {
             ) : null}
             <span>{match.teamA}</span>
           </span>
-          <span className="match-carousel-vs">vs</span>
+          <span className="match-carousel-vs">{t("vs")}</span>
           <span className="match-carousel-team">
             {urlB ? (
               <img src={urlB} alt="" className="match-carousel-flag" width={36} height={27} />
@@ -122,7 +118,7 @@ function MatchSlide({ match }: { match: Match }) {
             <span>{match.teamB}</span>
           </span>
         </h3>
-        <p className="match-carousel-datetime">{Number.isNaN(kick.getTime()) ? "—" : dateFmt.format(kick)}</p>
+        <p className="match-carousel-datetime">{formatDateTime(match.kickoffAt)}</p>
         <p className="match-carousel-venue">
           {venue.stadium} · {venue.city}
         </p>
@@ -132,7 +128,7 @@ function MatchSlide({ match }: { match: Match }) {
 }
 
 function RaceSlide({ race }: { race: F1RaceSummary }) {
-  const start = new Date(race.raceStartAt);
+  const { t } = useTranslation("carousel");
   return (
     <article
       className="match-carousel-card f1-race-slide f1-race-slide--pit-hero"
@@ -156,10 +152,8 @@ function RaceSlide({ race }: { race: F1RaceSummary }) {
         <h3 id={`f1-race-title-${race.id}`} className="match-carousel-teams f1-race-slide-title">
           {raceTitle(race)}
         </h3>
-        <p className="match-carousel-datetime">
-          {Number.isNaN(start.getTime()) ? "—" : dateFmt.format(start)}
-        </p>
-        <p className="match-carousel-venue f1-race-slide-foot">Carrera · datos OpenF1</p>
+        <p className="match-carousel-datetime">{formatDateTime(race.raceStartAt)}</p>
+        <p className="match-carousel-venue f1-race-slide-foot">{t("raceFoot")}</p>
       </div>
     </article>
   );
@@ -173,6 +167,7 @@ function EventSlide({ event }: { event: UpcomingEvent }) {
 }
 
 export default function UpcomingEventsCarousel({ className = "" }: { className?: string }) {
+  const { t } = useTranslation("carousel");
   const [events, setEvents] = useState<UpcomingEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [slide, setSlide] = useState(0);
@@ -251,7 +246,7 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
       <section
         className={`match-carousel match-carousel--loading match-carousel--marketing ${className}`.trim()}
         aria-busy="true"
-        aria-label="Cargando próximos eventos"
+        aria-label={t("loading")}
       >
         <div className="match-carousel-shell">
           <div className="match-carousel-skeleton" />
@@ -270,11 +265,11 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
   return (
     <section
       className={`match-carousel match-carousel--marketing${pairClass} ${className}`.trim()}
-      aria-label="Próximos eventos que puedes predecir"
-      aria-roledescription="carrusel"
+      aria-label={t("upcomingEvents")}
+      aria-roledescription="carousel"
     >
       <div className="match-carousel-header">
-        <h2 className="match-carousel-heading">Próximos eventos que puedes predecir</h2>
+        <h2 className="match-carousel-heading">{t("upcomingEvents")}</h2>
       </div>
 
       {isDesktopPair ? (
@@ -284,7 +279,7 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
             className="match-carousel-arrow match-carousel-arrow--prev"
             onClick={goPrev}
             disabled={!canAdvancePair}
-            aria-label="Ver eventos anteriores"
+            aria-label={t("prev")}
           >
             <ChevronIcon dir="left" />
           </button>
@@ -303,7 +298,7 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
             className="match-carousel-arrow match-carousel-arrow--next"
             onClick={goNext}
             disabled={!canAdvancePair}
-            aria-label="Ver siguientes eventos"
+            aria-label={t("next")}
           >
             <ChevronIcon dir="right" />
           </button>
@@ -314,7 +309,7 @@ export default function UpcomingEventsCarousel({ className = "" }: { className?:
             <EventSlide event={current} />
           </div>
 
-          <div className="match-carousel-dots" role="tablist" aria-label="Elegir evento">
+          <div className="match-carousel-dots" role="tablist" aria-label={t("pickEvent")}>
             {events.map((ev, i) => (
               <button
                 key={ev.key}

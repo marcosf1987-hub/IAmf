@@ -1,0 +1,27 @@
+{
+  "hero": {
+    "title": "Analyze. Predict. Compete.",
+    "ctaStart": "Get started",
+    "ctaLogin": "I already have an account",
+    "subtitle": "Good with AI? Prove it.",
+    "lead": "Take your AI usage to the next level. Train your prompting skills by designing the winning strategy. Show you can build the most accurate AI on your team.",
+    "tipLabel": "How PromptPlay works",
+    "tip": "💡 On PromptPlay you don't fill in results by hand. On PromptPlay you design logical instructions for your AI and it simulates the full fixture for you.",
+    "countdown": "<strong>{{time}}</strong> left until the current phase submission deadline.",
+    "countdownClosed": "Model submission for this phase has closed."
+  },
+  "features": {
+    "analyze": {
+      "title": "ANALYZE",
+      "body": "Find information and use AI to spot patterns where others only see numbers."
+    },
+    "predict": {
+      "title": "PREDICT",
+      "body": "Build high-complexity prompts to generate automated projections."
+    },
+    "compete": {
+      "title": "COMPETE",
+      "body": "Measure how effective your logic is against colleagues on a live accuracy leaderboard."
+    }
+  }
+}

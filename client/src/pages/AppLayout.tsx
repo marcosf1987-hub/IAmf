@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import DisciplineSwitcher from "../components/DisciplineSwitcher";
 import { HamburgerIcon } from "../components/HamburgerIcon";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
@@ -167,6 +168,7 @@ export default function AppLayout() {
             ))}
           </nav>
           <div className="app-header-end">
+            <LanguageSwitcher compact className="app-header-lang" />
             {!arenaPicker ? <DisciplineSwitcher /> : null}
             <HeaderAccountSection
               user={user}
