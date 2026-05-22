@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../contexts/AuthContext";
 import { formatApiError, updateMe } from "../lib/api";
 
-function roleLabel(role: string): string {
-  if (role === "super_admin") return "Super administrador (plataforma)";
-  if (role === "org_admin") return "Administrador de empresa";
-  return "Participante";
+function roleLabel(role: string, t: (k: string) => string): string {
+  if (role === "super_admin") return t("roles.super_admin");
+  if (role === "org_admin") return t("roles.org_admin");
+  return t("roles.participant");
 }
 
 export default function PerfilPage() {
+  const { t } = useTranslation("profile");
   const { user, refreshSession } = useAuth();
   const [fullName, setFullName] = useState(user?.fullName ?? "");
 
@@ -26,11 +28,11 @@ export default function PerfilPage() {
     setError("");
     setSuccess("");
     if (password && password !== confirmPassword) {
-      setError("Las contraseñas no coinciden");
+      setError(t("passwordMismatch"));
       return;
     }
     if (password && password.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres");
+      setError(t("passwordMin"));
       return;
     }
 
@@ -41,7 +43,7 @@ export default function PerfilPage() {
       if (password) updates.password = password;
 
       if (Object.keys(updates).length === 0) {
-        setError("No hay cambios para guardar");
+        setError(t("nothingToSave"));
         setLoading(false);
         return;
       }
@@ -50,7 +52,7 @@ export default function PerfilPage() {
       await refreshSession();
       setPassword("");
       setConfirmPassword("");
-      setSuccess("Datos actualizados correctamente");
+      setSuccess(t("success"));
     } catch (err) {
       setError(formatApiError(err));
     } finally {
@@ -62,8 +64,8 @@ export default function PerfilPage() {
 
   return (
     <div className="page-content">
-      <h1>Mi usuario</h1>
-      <p className="page-subtitle">Ver y editar tus datos de perfil</p>
+      <h1>{t("title")}</h1>
+      <p className="page-subtitle">{t("subtitle")}</p>
 
       {error && <div className="auth-error">{error}</div>}
       {success && (
@@ -73,22 +75,22 @@ export default function PerfilPage() {
       )}
 
       <div className="perfil-info">
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Rol:</strong> {roleLabel(user.role)}</p>
+        <p><strong>{t("email")}</strong> {user.email}</p>
+        <p><strong>{t("role")}</strong> {roleLabel(user.role, t)}</p>
       </div>
 
       <form onSubmit={handleSubmit} className="perfil-form">
         <label>
-          <span>Nombre completo</span>
+          <span>{t("fullName")}</span>
           <input
             type="text"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
-            placeholder="Tu nombre"
+            placeholder={t("namePlaceholder")}
           />
         </label>
         <label>
-          <span>Nueva contraseña (dejar vacío para no cambiar)</span>
+          <span>{t("newPassword")}</span>
           <input
             type="password"
             value={password}
@@ -98,7 +100,7 @@ export default function PerfilPage() {
           />
         </label>
         <label>
-          <span>Confirmar contraseña</span>
+          <span>{t("confirmPassword")}</span>
           <input
             type="password"
             value={confirmPassword}
@@ -107,7 +109,7 @@ export default function PerfilPage() {
           />
         </label>
         <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Guardando…" : "Guardar cambios"}
+          {loading ? t("saving") : t("save")}
         </button>
       </form>
     </div>

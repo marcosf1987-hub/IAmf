@@ -1,30 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
-
-type GuidelinePhaseKey = keyof ProdeGuidelinesByPhase;
-
-const PHASE_EDITOR: {
-  key: GuidelinePhaseKey;
-  label: string;
-  placeholder: string;
-}[] = [
-  {
-    key: "groups",
-    label: "Fase de grupos",
-    placeholder: "Ej. criterios para partidos de grupo, equipos fuertes en zona, etc.",
-  },
-  {
-    key: "roundOf32",
-    label: "16avos",
-    placeholder: "Ej. criterios para cruces eliminatorios tempranos…",
-  },
-  {
-    key: "knockout",
-    label: "Eliminatorias",
-    placeholder: "Ej. favoritos a copa, estilo de juego en eliminatorias…",
-  },
-];
 import {
   fetchPredictionHistory,
   fetchProdeGuidelines,
@@ -33,12 +10,27 @@ import {
   type PredictionHistoryEntry,
 } from "../lib/api";
 import { IaBatchPromptBlock } from "../components/IaBatchPromptBlock";
+import i18n from "../i18n";
 
-const PHASE_LABELS: Record<string, string> = {
-  groups: "Fase de grupos",
-  roundOf32: "16avos",
-  knockout: "Eliminatorias",
-};
+type GuidelinePhaseKey = keyof ProdeGuidelinesByPhase;
+
+function usePhaseEditor() {
+  const { t } = useTranslation("ia");
+  return useMemo(
+    (): { key: GuidelinePhaseKey; label: string; placeholder: string }[] => [
+      { key: "groups", label: t("phases.groups"), placeholder: t("placeholders.groups") },
+      { key: "roundOf32", label: t("phases.roundOf32"), placeholder: t("placeholders.roundOf32") },
+      { key: "knockout", label: t("phases.knockout"), placeholder: t("placeholders.knockout") },
+    ],
+    [t]
+  );
+}
+
+function translatePhaseLabel(key: string | null | undefined): string {
+  if (!key) return "";
+  const k = `phases.${key}`;
+  return i18n.exists(`ia:${k}`) ? i18n.t(`ia:${k}`) : key;
+}
 
 type HistoryTimelineItem =
   | {
@@ -63,12 +55,11 @@ function formatGroupLabel(groupCode: string): string {
   return t;
 }
 
-function formatBatchTitle(phaseLabel: string | null, groupCode: string | null): string {
-  if (phaseLabel === "groups" && groupCode) {
+function formatBatchTitle(phaseKey: string | null, groupCode: string | null): string {
+  if (phaseKey === "groups" && groupCode) {
     return `Generación con IA - Fase de grupos: Grupo ${formatGroupLabel(groupCode)}`;
   }
-  const phase =
-    phaseLabel && PHASE_LABELS[phaseLabel] ? PHASE_LABELS[phaseLabel] : phaseLabel ?? "";
+  const phase = translatePhaseLabel(phaseKey) || phaseKey || "";
   if (phase) return `Generación con IA - ${phase}`;
   return "Generación con IA";
 }
@@ -188,6 +179,8 @@ function normalizeGuidelinesResponse(res: { guidelines: unknown }): ProdeGuideli
 }
 
 export default function IAPage() {
+  const { t } = useTranslation("ia");
+  const phaseEditor = usePhaseEditor();
   const location = useLocation();
   const [guidelines, setGuidelines] = useState<ProdeGuidelinesByPhase>(EMPTY_GUIDELINES);
   const [editorPhase, setEditorPhase] = useState<GuidelinePhaseKey>("groups");
@@ -265,11 +258,11 @@ export default function IAPage() {
     setExpandedBatches((prev) => ({ ...prev, [timelineKey]: !prev[timelineKey] }));
   }
 
-  const phaseMeta = PHASE_EDITOR.find((p) => p.key === editorPhase) ?? PHASE_EDITOR[0];
+  const phaseMeta = phaseEditor.find((p) => p.key === editorPhase) ?? phaseEditor[0];
 
   return (
     <div className="page-content">
-      <h1>Laboratorio de Prompts</h1>
+      <h1>{t("title")}</h1>
       <p className="ia-mundial-scope-note">
         Escribe aquí tus mejores instrucciones para la IA, guárdalos y luego genera tus resultados en{" "}
         <Link to="/app/prode">Mis Predicciones</Link>
@@ -295,7 +288,7 @@ export default function IAPage() {
                   value={editorPhase}
                   onChange={(e) => setEditorPhase(e.target.value as GuidelinePhaseKey)}
                 >
-                  {PHASE_EDITOR.map((p) => (
+                  {phaseEditor.map((p) => (
                     <option key={p.key} value={p.key}>
                       {p.label}
                     </option>

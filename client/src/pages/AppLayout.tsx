@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import DisciplineSwitcher from "../components/DisciplineSwitcher";
 import { HamburgerIcon } from "../components/HamburgerIcon";
@@ -7,7 +8,7 @@ import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
-type NavItem = { to: string; label: string; end?: boolean };
+type NavItem = { to: string; labelKey: string; end?: boolean };
 
 function isNavCurrent(pathname: string, item: NavItem): boolean {
   if (item.end) {
@@ -28,16 +29,17 @@ type HeaderAccountProps = {
 };
 
 function HeaderAccountSection({ user, logout, onAfterNavigate, className }: HeaderAccountProps) {
+  const { t } = useTranslation("app");
   return (
     <div className={className}>
       {user.role === "org_admin" && (
         <Link to="/app/admin" className="nav-admin" onClick={onAfterNavigate}>
-          Admin
+          {t("layout.admin")}
         </Link>
       )}
       {user.role === "super_admin" && (
         <Link to="/app/platform" className="nav-admin" onClick={onAfterNavigate}>
-          Plataforma
+          {t("layout.platform")}
         </Link>
       )}
       <div className="app-user">
@@ -50,7 +52,7 @@ function HeaderAccountSection({ user, logout, onAfterNavigate, className }: Head
           }}
           className="btn-logout"
         >
-          Salir
+          {t("layout.logout")}
         </button>
       </div>
     </div>
@@ -58,24 +60,25 @@ function HeaderAccountSection({ user, logout, onAfterNavigate, className }: Head
 }
 
 const NAV_FOOTBALL: NavItem[] = [
-  { to: "/app", label: "Inicio", end: true },
-  { to: "/app/prode", label: "Mis Predicciones" },
-  { to: "/app/ia", label: "Laboratorio de Prompts" },
-  { to: "/app/resultados", label: "Resultados" },
-  { to: "/app/ligas", label: "Ligas" },
-  { to: "/app/perfil", label: "Mi usuario" },
+  { to: "/app", labelKey: "nav.home", end: true },
+  { to: "/app/prode", labelKey: "nav.predictions" },
+  { to: "/app/ia", labelKey: "nav.promptLab" },
+  { to: "/app/resultados", labelKey: "nav.results" },
+  { to: "/app/ligas", labelKey: "nav.leagues" },
+  { to: "/app/perfil", labelKey: "nav.profile" },
 ];
 
 const NAV_F1: NavItem[] = [
-  { to: "/app/f1", label: "Inicio", end: true },
-  { to: "/app/f1/predicciones", label: "Predicciones" },
-  { to: "/app/f1/laboratorio", label: "Laboratorio" },
-  { to: "/app/f1/resultados", label: "Resultados" },
-  { to: "/app/f1/ligas", label: "Ligas" },
-  { to: "/app/perfil", label: "Mi usuario" },
+  { to: "/app/f1", labelKey: "nav.home", end: true },
+  { to: "/app/f1/predicciones", labelKey: "nav.f1Predictions" },
+  { to: "/app/f1/laboratorio", labelKey: "nav.f1Lab" },
+  { to: "/app/f1/resultados", labelKey: "nav.results" },
+  { to: "/app/f1/ligas", labelKey: "nav.leagues" },
+  { to: "/app/perfil", labelKey: "nav.profile" },
 ];
 
 export default function AppLayout() {
+  const { t } = useTranslation("app");
   const { user, loading, logout } = useAuth();
   const { pathname } = useLocation();
   const { discipline } = useAppDiscipline();
@@ -85,7 +88,7 @@ export default function AppLayout() {
   const arenaPicker = pathname.startsWith("/app/contexto");
   const navItems = discipline === "f1" ? NAV_F1 : NAV_FOOTBALL;
   const logoHref = discipline === "f1" ? "/app/f1" : "/app";
-  const logoSub = discipline === "f1" ? "Fórmula 1" : "Mundial 2026";
+  const logoSub = discipline === "f1" ? t("layout.logoF1") : t("layout.logoFootball");
 
   useEscapeKey(menuOpen, () => setMenuOpen(false));
 
@@ -109,7 +112,7 @@ export default function AppLayout() {
     return (
       <div className="app-loading">
         <div className="spinner" />
-        <p>Cargando…</p>
+        <p>{t("layout.loading")}</p>
       </div>
     );
   }
@@ -121,7 +124,7 @@ export default function AppLayout() {
   return (
     <div className={`app-layout app-layout--discipline-${discipline}`}>
       <a href="#main-content" className="skip-link">
-        Saltar al contenido
+        {t("layout.skipToContent")}
       </a>
       <header className={`app-header${arenaPicker ? " app-header--arena-picker" : ""}`}>
         <div className="app-header-lead">
@@ -140,7 +143,7 @@ export default function AppLayout() {
           type="button"
           className="app-menu-toggle"
           onClick={() => setMenuOpen((o) => !o)}
-          aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"}
+          aria-label={menuOpen ? t("layout.closeMenu") : t("layout.openMenu")}
           aria-expanded={menuOpen}
           aria-controls="app-header-menu-panel"
         >
@@ -153,7 +156,7 @@ export default function AppLayout() {
           id="app-header-menu-panel"
           className={`app-header-menu ${menuOpen ? "app-header-menu-open" : ""}`}
         >
-          <nav className="app-nav" aria-label="Secciones principales">
+          <nav className="app-nav" aria-label={t("layout.navSections")}>
             {navItems.map((item, i) => (
               <Link
                 key={item.to}
@@ -163,7 +166,7 @@ export default function AppLayout() {
                 onClick={() => setMenuOpen(false)}
                 aria-current={isNavCurrent(pathname, item) ? "page" : undefined}
               >
-                {item.label}
+                {t(item.labelKey)}
               </Link>
             ))}
           </nav>

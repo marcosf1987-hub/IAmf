@@ -1,5 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
+import { formatDateTime } from "../lib/intl-format";
 import UpcomingMatchesCarousel from "./UpcomingMatchesCarousel";
 import type { CompetitionQuota, MineCompetitionsResponse, ProdeStatus, ResultsDashboard } from "../lib/api";
 import { ligaDetailPath } from "../lib/discipline-paths";
@@ -118,16 +120,17 @@ function UserCircleIcon() {
 }
 
 function RankArrow({ change }: { change: number }) {
+  const { t } = useTranslation("app");
   if (change > 0) {
     return (
-      <span className="rank-arrow rank-up" aria-label="Subió puestos">
+      <span className="rank-arrow rank-up" aria-label={t("dashboard.rankUp")}>
         ↑
       </span>
     );
   }
   if (change < 0) {
     return (
-      <span className="rank-arrow rank-down" aria-label="Bajó puestos">
+      <span className="rank-arrow rank-down" aria-label={t("dashboard.rankDown")}>
         ↓
       </span>
     );
@@ -136,13 +139,14 @@ function RankArrow({ change }: { change: number }) {
 }
 
 function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
+  const { t } = useTranslation("app");
   const { competitions, quota } = mine;
   const createAllowed = quota ? canCreateMoreLeagues(quota) : false;
 
   return (
     <section className="dashboard-my-leagues" aria-labelledby="dashboard-my-leagues-title">
       <h2 id="dashboard-my-leagues-title" className="dashboard-section-heading">
-        Tus ligas
+        {t("dashboard.myLeagues")}
       </h2>
       <div className="dashboard-my-leagues-card">
         <ul className="dashboard-my-leagues-list">
@@ -152,8 +156,8 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
                 <span className="dashboard-my-leagues-name">{c.emoji ? `${c.emoji} ` : ""}{c.name}</span>
                 <span className="dashboard-my-leagues-meta">
                   {c.card.myRank != null
-                    ? `Tu puesto: #${c.card.myRank} de ${c.card.totalParticipants}`
-                    : `${c.memberCount} miembros`}
+                    ? t("dashboard.yourRank", { rank: c.card.myRank, total: c.card.totalParticipants })
+                    : t("dashboard.members", { count: c.memberCount })}
                 </span>
               </Link>
             </li>
@@ -164,7 +168,7 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
             to="/app/ligas#ligas-crear"
             className={`btn-primary${createAllowed ? "" : " dashboard-my-leagues-create--soft"}`}
           >
-            CREAR LIGA
+            {t("dashboard.createLeague")}
           </Link>
         </div>
       </div>
@@ -208,6 +212,7 @@ export default function FootballHomeOverview({
   leagueRankRows,
   rankingLabel,
 }: FootballHomeOverviewProps) {
+  const { t } = useTranslation("app");
   const { phase, deadline, countdown } = useHeroCountdown(worldCupStarted);
   const showLeaguesPanel = hasAnyLeague && !modelReady && mine != null;
 
@@ -217,38 +222,38 @@ export default function FootballHomeOverview({
   );
 
   const heroEyebrow = worldCupStarted
-    ? "Mundial 2026 · En juego"
+    ? t("dashboard.footballHero.inPlay")
     : phase
-      ? `Próximo cierre · ${phase.label}`
-      : "Mundial 2026";
+      ? t("dashboard.footballHero.nextClose", { phase: phase.label })
+      : t("dashboard.footballHero.defaultEyebrow");
 
   const heroTitle = worldCupStarted
-    ? "El torneo ya comenzó"
+    ? t("dashboard.footballHero.tournamentStarted")
     : countdown
-      ? `Faltan ${countdown}`
-      : "Calendario del torneo";
+      ? t("dashboard.footballHero.countdown", { time: countdown })
+      : t("dashboard.footballHero.calendar");
 
   const heroSub = worldCupStarted
-    ? "Seguí tus predicciones, resultados y posición en las ligas."
+    ? t("dashboard.footballHero.startedSub")
     : deadline
-      ? deadline.toLocaleString("es-AR", { dateStyle: "full", timeStyle: "short" })
-      : "Cuando se publique el calendario, verás las fechas clave aquí.";
+      ? formatDateTime(deadline, { dateStyle: "full", timeStyle: "short" })
+      : t("dashboard.footballHero.noCalendar");
 
   const hasResultsRanking =
     resultsDash.myRank != null && resultsDash.totalParticipants > 0;
 
   const rankText = hasResultsRanking
-    ? `#${resultsDash.myRank} de ${resultsDash.totalParticipants}`
+    ? t("dashboard.rankOf", { rank: resultsDash.myRank, total: resultsDash.totalParticipants })
     : universalLeague != null && universalLeague.card.totalParticipants > 0
-      ? `# N/A de ${universalLeague.card.totalParticipants}`
-      : "# N/A";
+      ? t("dashboard.rankOf", { rank: "N/A", total: universalLeague.card.totalParticipants })
+      : t("dashboard.rankNA");
 
   const pointsLabel =
     worldCupStarted && totalHits != null
-      ? `${totalHits} pts`
+      ? t("dashboard.points", { count: totalHits })
       : modelReady
-        ? `${resultsDash.totalHits} pts`
-        : "Sin datos aún";
+        ? t("dashboard.points", { count: resultsDash.totalHits })
+        : t("dashboard.noDataYet");
 
   return (
     <>
@@ -262,89 +267,89 @@ export default function FootballHomeOverview({
           {!hasAnyLeague ? (
             <>
               <Link to="/app/ligas#ligas-crear" className="btn-primary">
-                Crear una liga
+                {t("dashboard.createLeagueBtn")}
               </Link>
               <Link to="/app/ligas#ligas-unirse" className="btn-secondary">
-                Unirme a una liga
+                {t("dashboard.joinLeague")}
               </Link>
             </>
           ) : !prodeStatus?.hasGuidelines ? (
             <Link to="/app/ia" className="btn-primary">
-              Ir al Laboratorio de prompts
+              {t("dashboard.goPromptLab")}
             </Link>
           ) : !prodeStatus.hasPredictions ? (
             <Link to="/app/prode" className="btn-primary">
-              Ir a Mis predicciones
+              {t("dashboard.goPredictions")}
             </Link>
           ) : hasAnyLeague ? (
             <>
               <Link to="/app/prode" className="btn-primary">
-                Ver Mis predicciones
+                {t("dashboard.viewPredictions")}
               </Link>
               <Link to="/app/ligas#ligas-crear" className="btn-secondary">
-                Crear una liga
+                {t("dashboard.createLeagueBtn")}
               </Link>
             </>
           ) : (
             <>
               <Link to="/app/ligas#ligas-crear" className="btn-primary">
-                Crear una liga
+                {t("dashboard.createLeagueBtn")}
               </Link>
               <Link to="/app/prode" className="btn-secondary">
-                Ver Mis predicciones
+                {t("dashboard.viewPredictions")}
               </Link>
             </>
           )}
         </div>
       </section>
 
-      <section className="dashboard-overview" aria-label="Resumen Mundial principal">
+      <section className="dashboard-overview" aria-label={t("dashboard.overviewFootball")}>
         <article className="dashboard-panel dashboard-panel--model">
           <div className="dashboard-panel-head">
-            <h3>Tus predicciones</h3>
+            <h3>{t("dashboard.yourPredictions")}</h3>
             {prodeStatus?.hasGuidelines ? (
               <Link to="/app/ia" className="dashboard-inline-link">
-                Editar
+                {t("dashboard.edit")}
               </Link>
             ) : null}
           </div>
-          <p className="dashboard-panel-sub">Estado de tu IA para el Mundial</p>
+          <p className="dashboard-panel-sub">{t("dashboard.aiStatusFootball")}</p>
           <ul className="dashboard-model-status-list">
             <li className={prodeStatus?.hasGuidelines ? "" : "is-muted"}>
               <span className="dashboard-model-status-marker" aria-hidden>
                 {prodeStatus?.hasGuidelines ? "✓" : "·"}
               </span>
-              Instrucciones en el Laboratorio
+              {t("dashboard.instructionsLab")}
             </li>
             <li className={prodeStatus?.hasPredictions ? "" : "is-muted"}>
               <span className="dashboard-model-status-marker" aria-hidden>
                 {prodeStatus?.hasPredictions ? "✓" : "·"}
               </span>
-              Predicciones de partidos generadas
+              {t("dashboard.footballHero.matchPredictionsGenerated")}
             </li>
           </ul>
           {prodeStatus?.hasPredictions ? (
-            <p className="dashboard-panel-footnote">Tus marcadores están listos para la fase en curso.</p>
+            <p className="dashboard-panel-footnote">{t("dashboard.footballHero.predictionsReady")}</p>
           ) : (
             <p className="dashboard-panel-footnote">
               {hasAnyLeague
-                ? "Definí pautas y generá predicciones para competir en tus ligas."
-                : "Primero unite o creá una liga para empezar."}
+                ? t("dashboard.footballHero.footnoteWithLeague")
+                : t("dashboard.footballHero.footnoteNoLeague")}
             </p>
           )}
         </article>
 
         <article className="dashboard-panel dashboard-panel--rank">
-          <h3>Mi posición</h3>
+          <h3>{t("dashboard.footballHero.myPosition")}</h3>
           <p className="dashboard-rank-value">{rankText}</p>
           <div className="dashboard-rank-links">
             <Link to="/app/resultados" className="dashboard-rank-chip">
-              <span>Puntos totales</span>
+              <span>{t("dashboard.footballHero.totalPointsChip")}</span>
               <strong>{pointsLabel}</strong>
             </Link>
             <Link to="/app/ligas" className="dashboard-rank-chip">
-              <span>Mis ligas</span>
-              <strong>{hasAnyLeague ? "Ver mis ligas" : "Sin ligas aún"}</strong>
+              <span>{t("dashboard.footballHero.myLeaguesChip")}</span>
+              <strong>{hasAnyLeague ? t("dashboard.footballHero.viewLeagues") : t("dashboard.footballHero.noLeaguesYet")}</strong>
             </Link>
           </div>
         </article>
@@ -352,14 +357,14 @@ export default function FootballHomeOverview({
 
       {modelReady ? (
         <>
-          <div className="resultados-metrics dashboard-home-metrics" aria-label="Resumen de resultados">
+          <div className="resultados-metrics dashboard-home-metrics" aria-label={t("dashboard.footballHero.resultsSummary")}>
             <div className="resultados-metric">
               <span className="resultados-metric-value">{resultsDash.totalHits}</span>
-              <span className="resultados-metric-label">Puntos Totales</span>
+              <span className="resultados-metric-label">{t("dashboard.footballHero.metricTotalPoints")}</span>
             </div>
             <div className="resultados-metric">
               <span className="resultados-metric-value">{resultsDash.precision}%</span>
-              <span className="resultados-metric-label">Precisión del Prompt</span>
+              <span className="resultados-metric-label">{t("dashboard.footballHero.metricPrecision")}</span>
             </div>
             <div className="resultados-metric resultados-metric-rank">
               <span className="resultados-metric-value">
@@ -372,15 +377,15 @@ export default function FootballHomeOverview({
 
           <section className="dashboard-league-ranks" aria-labelledby="dashboard-league-ranks-title">
             <h2 id="dashboard-league-ranks-title" className="dashboard-section-heading">
-              Tu posición por liga
+              {t("dashboard.footballHero.positionByLeague")}
             </h2>
             {leagueRankRows.length > 0 ? (
               <div className="resultados-table-wrapper">
                 <table className="resultados-table dashboard-league-ranks-table">
                   <thead>
                     <tr>
-                      <th>Liga</th>
-                      <th>Posición</th>
+                      <th>{t("dashboard.footballHero.leagueCol")}</th>
+                      <th>{t("dashboard.footballHero.positionCol")}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -402,7 +407,7 @@ export default function FootballHomeOverview({
               </div>
             ) : (
               <p className="dashboard-league-ranks-empty">
-                Unite a una liga en Ligas &amp; Comunidad para ver tu posición en cada grupo.
+                {t("dashboard.footballHero.leagueRanksEmpty")}
               </p>
             )}
           </section>
@@ -411,7 +416,7 @@ export default function FootballHomeOverview({
 
       <section className="dashboard-tip" aria-labelledby="dashboard-tip-label">
         <span id="dashboard-tip-label" className="dashboard-tip-label">
-          Tip del día
+          {t("dashboard.tipLabel")}
         </span>
         <p className="dashboard-tip-text">{tips[tipIndex] ?? tips[0]}</p>
       </section>
@@ -420,14 +425,14 @@ export default function FootballHomeOverview({
 
       <section className="dashboard-upcoming-wrap" aria-labelledby="dashboard-football-upcoming-title">
         <h2 id="dashboard-football-upcoming-title" className="dashboard-section-heading">
-          Próximos partidos
+          {t("dashboard.footballHero.upcomingMatches")}
         </h2>
         <UpcomingMatchesCarousel variant="dashboard" className="dashboard-upcoming-carousel" />
       </section>
 
       <section className="dashboard-cards-wrap" aria-labelledby="dashboard-cards-heading">
         <h2 id="dashboard-cards-heading" className="dashboard-section-heading">
-          Accesos rápidos
+          {t("dashboard.footballHero.quickAccess")}
         </h2>
         <div className="dashboard-cards">
           <div className="dashboard-card dashboard-card-score">
@@ -436,39 +441,39 @@ export default function FootballHomeOverview({
               {worldCupStarted && totalHits != null
                 ? totalHits
                 : getCurrentPhase()
-                  ? `Faltan ${formatDaysLeft(getCurrentPhase()!.deadline)} días`
-                  : "Cerrado"}
+                  ? t("dashboard.footballHero.daysToClose", { days: formatDaysLeft(getCurrentPhase()!.deadline) })
+                  : t("dashboard.footballHero.closed")}
             </span>
             <span className="dashboard-score-label">
-              {worldCupStarted ? "Puntaje global" : "Para el cierre de carga"}
+              {worldCupStarted ? t("dashboard.footballHero.globalScore") : t("dashboard.footballHero.untilDeadline")}
             </span>
           </div>
           <Link to="/app/prode" className="dashboard-card">
             <FootballIcon />
-            <h3>Mis predicciones</h3>
-            <p>Partidos y marcadores que generó tu IA</p>
+            <h3>{t("dashboard.footballHero.cardPredictionsTitle")}</h3>
+            <p>{t("dashboard.footballHero.cardPredictionsDesc")}</p>
           </Link>
           <Link to="/app/resultados" className="dashboard-card">
             <ChartIcon />
-            <h3>Mis resultados</h3>
-            <p>Puntaje y posición en el ranking de la empresa</p>
+            <h3>{t("dashboard.footballHero.cardResultsTitle")}</h3>
+            <p>{t("dashboard.footballHero.cardResultsDesc")}</p>
           </Link>
           <Link to="/app/ligas" className="dashboard-card">
             <UsersLeagueIcon />
-            <h3>Mis Ligas</h3>
-            <p>Crea ligas con amigos, familia o compañeros y compite por mejores resultados</p>
+            <h3>{t("dashboard.footballHero.cardLeaguesTitle")}</h3>
+            <p>{t("dashboard.footballHero.cardLeaguesDesc")}</p>
           </Link>
           <Link to="/app/perfil" className="dashboard-card">
             <UserCircleIcon />
-            <h3>Mi usuario</h3>
-            <p>Datos de cuenta, alias en rankings y cierre de sesión</p>
+            <h3>{t("dashboard.footballHero.cardProfileTitle")}</h3>
+            <p>{t("dashboard.footballHero.cardProfileDesc")}</p>
           </Link>
         </div>
       </section>
 
       {modelReady ? (
         <Link to="/app/ia" className="resultados-fab">
-          Ajustar mi Prompt para la próxima fase
+          {t("dashboard.footballHero.adjustPrompt")}
         </Link>
       ) : null}
     </>

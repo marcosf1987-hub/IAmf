@@ -1,0 +1,57 @@
+{
+  "predictionsPageTitle": "Predicciones por carrera",
+  "labPageTitle": "Laboratorio F1",
+  "resultsPageTitle": "Resultados F1",
+  "tipLabel": "Tip F1",
+  "tips": [
+    "En el Laboratorio F1 podés fijar posición en parrilla, clima y estrategia de neumáticos por gran premio.",
+    "Sumá historial del circuito: victorias previas del líder, incidentes en la primera curva o safety car frecuente.",
+    "Pedí a la IA que considere degradación de gomas y ventana de paradas bajo SC; son variables que mueven el top 10."
+  ],
+  "countdown": {
+    "noData": "Sin datos aún",
+    "inProgress": "En curso o finalizada",
+    "days": "{{count}} días",
+    "hours": "{{hours}}h {{minutes}}m",
+    "minutes": "{{minutes}}m"
+  },
+  "hero": {
+    "nextEvent": "Próximo evento",
+    "nextEventNamed": "Próximo evento · {{name}}",
+    "gpInProgress": "El GP ya está en marcha",
+    "countdownToGp": "Faltan {{time}} para el GP",
+    "noCalendar": "Cuando haya calendario disponible, verás la próxima carrera aquí.",
+    "createLeague": "Crear una liga",
+    "joinLeague": "Unirme a una liga"
+  },
+  "status": {
+    "noGuidelines": "Tu guía F1 por carrera aún está vacía. Configurala en el Laboratorio.",
+    "noRaces": "Sin carreras en el calendario visible; cuando se sincronice el calendario, cargá tu top 10 antes de cada salida.",
+    "noPredictions": "Tenés pautas F1 listas, pero todavía no cargaste el top 10 en ninguna carrera.{{next}}",
+    "nextGp": " Próximo GP: {{name}}.",
+    "partial": "Top 10 cargado en {{filled}} de {{total}} carreras del calendario. Revisá predicciones pendientes antes de cada cierre.",
+    "complete": "Predicciones F1 al día para todas las carreras del calendario mostrado."
+  },
+  "panels": {
+    "yourPredictions": "Tus predicciones F1",
+    "editLab": "Editar en Laboratorio",
+    "statusSubtitle": "Top 10 por gran premio",
+    "undefined": "Sin definir",
+    "overview": "Resumen F1 principal",
+    "myLeagues": "Tus ligas F1",
+    "upcomingRaces": "Próximas carreras F1",
+    "gridPredictions": "Mis predicciones de parrilla",
+    "gridSubtitle": "Tu configuración actual para el top 3 de clasificación",
+    "racePredictions_one": "carrera con predicción cargada",
+    "racePredictions_other": "carreras con predicción cargada",
+    "championshipRank": "Mi puesto en el campeonato",
+    "totalPoints": "Total de puntos",
+    "friendsLeague": "Liga de amigos",
+    "cardPredictionsDesc": "Top 10 por gran premio según tus pautas",
+    "cardResultsDesc": "Puntaje acumulado y desempeño por carrera",
+    "cardLeaguesDesc": "Ligas privadas, invitaciones y clasificación",
+    "cardProfileDesc": "Cuenta, alias en rankings y cierre de sesión",
+    "adjustGuidelines": "Ajustar pautas F1 para la próxima carrera",
+    "quickAccess": "Accesos rápidos"
+  }
+}

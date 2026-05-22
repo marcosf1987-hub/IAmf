@@ -1,0 +1,21 @@
+{
+  "title": "My account",
+  "subtitle": "View and edit your profile",
+  "email": "Email:",
+  "role": "Role:",
+  "roles": {
+    "super_admin": "Super admin (platform)",
+    "org_admin": "Company admin",
+    "participant": "Participant"
+  },
+  "fullName": "Full name",
+  "namePlaceholder": "Your name",
+  "newPassword": "New password (leave empty to keep current)",
+  "confirmPassword": "Confirm password",
+  "save": "Save changes",
+  "saving": "Saving…",
+  "success": "Profile updated successfully",
+  "passwordMismatch": "Passwords do not match",
+  "passwordMin": "Password must be at least 6 characters",
+  "nothingToSave": "No changes to save"
+}

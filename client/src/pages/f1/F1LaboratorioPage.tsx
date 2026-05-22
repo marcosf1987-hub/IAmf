@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
 import { IaBatchPromptBlock, extractF1GuidelinesFromPrompt } from "../../components/IaBatchPromptBlock";
 import {
@@ -32,6 +33,7 @@ function racesFromTodayOnwards(list: F1RaceSummary[]): F1RaceSummary[] {
 }
 
 export default function F1LaboratorioPage() {
+  const { t } = useTranslation("f1");
   const location = useLocation();
   const [races, setRaces] = useState<F1RaceSummary[]>([]);
   const [sessionKey, setSessionKey] = useState<number | null>(null);
@@ -131,7 +133,7 @@ export default function F1LaboratorioPage() {
 
   return (
     <div className="f1-page-inner">
-      <h2 className="f1-page-title">Laboratorio F1</h2>
+      <h2 className="f1-page-title">{t("labPageTitle")}</h2>
       <p className="f1-page-lead">
         Pautas por carrera (OpenF1 <code>session_key</code>). Son la base para generar el top 10 con IA en Predicciones
         F1. El historial de prompts de F1 no se mezcla con el del Mundial.

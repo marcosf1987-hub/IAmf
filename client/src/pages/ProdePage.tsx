@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { Match, Prediction, ChampionPrediction } from "../lib/api";
 import { getFlag, getFlagImageUrl } from "../lib/flags";
@@ -12,19 +13,26 @@ import {
   formatApiError,
   generateProdePredictions,
 } from "../lib/api";
-import { getCurrentPhase, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
+import { getCurrentPhase, getPhaseLabel, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
+import { formatDateTime } from "../lib/intl-format";
 
-const STAGE_LABELS: Record<string, string> = {
-  group: "Fase de grupos",
-  roundOf32: "16vos",
-  roundOf16: "8vos",
-  quarterFinal: "4tos",
-  semiFinal: "Semis",
-  thirdPlace: "3er puesto",
-  final: "Final",
-};
+function useStageLabels(): Record<string, string> {
+  const { t } = useTranslation("prode");
+  return useMemo(
+    () => ({
+      group: t("stages.group"),
+      roundOf32: t("stages.roundOf32"),
+      roundOf16: t("stages.roundOf16"),
+      quarterFinal: t("stages.quarterFinal"),
+      semiFinal: t("stages.semiFinal"),
+      thirdPlace: t("stages.thirdPlace"),
+      final: t("stages.final"),
+    }),
+    [t]
+  );
+}
 
 /** Orden de visualización: cronológico por fase (grupos primero, final al final) */
 const STAGE_ORDER = ["group", "roundOf32", "roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"];
@@ -57,7 +65,12 @@ function isGroupStage(m: Match): boolean {
   return String(m.stage).toLowerCase() === "group";
 }
 
-function buildProdeSections(matches: Match[]): ProdeSection[] {
+function buildProdeSections(
+  matches: Match[],
+  stageLabels: Record<string, string>,
+  groupUnknownTitle: string,
+  groupTitle: (code: string) => string
+): ProdeSection[] {
   const groupMatches = matches.filter(isGroupStage);
   const knockout = matches.filter((m) => !isGroupStage(m));
 
@@ -78,7 +91,7 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
   for (const letter of GROUP_LETTERS) {
     const arr = byGroup.get(letter);
     if (arr?.length) {
-      sections.push({ id: `group-${letter}`, title: `Grupo ${letter}`, matches: arr });
+      sections.push({ id: `group-${letter}`, title: groupTitle(letter), matches: arr });
       usedCodes.add(letter);
     }
   }
@@ -92,7 +105,7 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
       const safeId = code.replace(/\s+/g, "-").replace(/[^a-zA-Z0-9_-]/g, "");
       sections.push({
         id: `group-extra-${safeId || "x"}`,
-        title: `Grupo ${code}`,
+        title: groupTitle(code),
         matches: arr,
       });
     }
@@ -102,7 +115,7 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
     withoutCode.sort(sortByKickoff);
     sections.push({
       id: "group-unknown",
-      title: "Fase de grupos (sin zona)",
+      title: groupUnknownTitle,
       matches: withoutCode,
     });
   }
@@ -118,18 +131,12 @@ function buildProdeSections(matches: Match[]): ProdeSection[] {
   for (const st of knockoutOrder) {
     const arr = byStage.get(st);
     if (arr?.length) {
-      sections.push({ id: `stage-${st}`, title: STAGE_LABELS[st] ?? st, matches: arr });
+      sections.push({ id: `stage-${st}`, title: stageLabels[st] ?? st, matches: arr });
     }
   }
 
   return sections;
 }
-
-const PHASE_LAB_NAME: Record<ProdePhaseId, string> = {
-  groups: "Fase de grupos",
-  roundOf32: "16avos",
-  knockout: "Eliminatorias",
-};
 
 const EMPTY_LAB: ProdeGuidelinesByPhase = { groups: "", roundOf32: "", knockout: "" };
 
@@ -192,6 +199,8 @@ function ProdePageSkeleton() {
 }
 
 export default function ProdePage() {
+  const { t } = useTranslation("prode");
+  const stageLabels = useStageLabels();
   const { showFlash } = useFlash();
   const navigate = useNavigate();
   const location = useLocation();
@@ -209,7 +218,13 @@ export default function ProdePage() {
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
-  const sections = useMemo(() => buildProdeSections(matches), [matches]);
+  const sections = useMemo(
+    () =>
+      buildProdeSections(matches, stageLabels, t("groupUnknown"), (code) =>
+        t("groupTitle", { code })
+      ),
+    [matches, stageLabels, t]
+  );
 
   const groupSections = useMemo(
     () => sections.filter((s) => s.id.startsWith("group-")),
@@ -293,7 +308,7 @@ export default function ProdePage() {
     async (phase: ProdePhaseId) => {
       if (!pautasForPhase(phase, labGuidelines).trim()) {
         setError(
-          `No tienes pautas guardadas para ${PHASE_LAB_NAME[phase]} en el Laboratorio. Escribe y guarda ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.`
+          t("noGuidelinesPhase", { phase: getPhaseLabel(phase) })
         );
         return;
       }
@@ -371,7 +386,7 @@ export default function ProdePage() {
     }
     if (!pautasForPhase(currentPhase.phase, labGuidelines).trim()) {
       setError(
-        `No tienes pautas guardadas para ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio. Escribe y guarda ese bloque antes de generar.`
+        t("noGuidelinesPhaseShort", { phase: getPhaseLabel(currentPhase.phase) })
       );
       return;
     }
@@ -398,7 +413,7 @@ export default function ProdePage() {
     <div className="page-content page-content--prode prode-page">
       <header className="prode-page-header">
         <div className="prode-page-header-inner">
-          <h1 className="prode-page-title">Prode FIFA 2026</h1>
+          <h1 className="prode-page-title">{t("pageTitle")}</h1>
           <p className="page-subtitle prode-page-subtitle">
             Genera aquí tus predicciones con IA a partir de las pautas generadas en el Laboratorio de Prompts.
             {currentPhase ? (
@@ -432,7 +447,7 @@ export default function ProdePage() {
                   matches.length === 0
                     ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
                     : !hasLabGuidelinesForCurrentPhase
-                      ? `Guarda las pautas de ${PHASE_LAB_NAME[currentPhase.phase]} en el Laboratorio antes de generar.`
+                      ? t("saveGuidelinesBefore", { phase: getPhaseLabel(currentPhase.phase) })
                       : undefined
                 }
               >
@@ -485,7 +500,7 @@ npx prisma db seed`}
           <section className="prode-groups-stage" aria-labelledby="prode-sim-groups-heading">
             <div className="prode-groups-stage-head">
               <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
-                Fase de grupos
+                {t("groupStageNav")}
               </h2>
             </div>
             <div className="prode-groups-grid">
@@ -541,7 +556,9 @@ npx prisma db seed`}
                   <div className="prode-match-grid">
                     {section.matches.map((m) => {
                       const pred = predictions[m.id];
-                      return <MatchCard key={m.id} match={m} prediction={pred} />;
+                      return (
+                        <MatchCard key={m.id} match={m} prediction={pred} stageLabels={stageLabels} />
+                      );
                     })}
                   </div>
                 </div>
@@ -721,8 +738,17 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
   );
 }
 
-function MatchCard({ match, prediction }: { match: Match; prediction?: Prediction }) {
-  const date = new Date(match.kickoffAt).toLocaleDateString("es-AR", {
+function MatchCard({
+  match,
+  prediction,
+  stageLabels,
+}: {
+  match: Match;
+  prediction?: Prediction;
+  stageLabels: Record<string, string>;
+}) {
+  const { t } = useTranslation("prode");
+  const date = formatDateTime(match.kickoffAt, {
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -735,8 +761,8 @@ function MatchCard({ match, prediction }: { match: Match; prediction?: Predictio
       <div className="prode-card-header">
         <span className="prode-stage">
           {match.stage === "group" && match.groupCode
-            ? `Grupo ${match.groupCode}`
-            : STAGE_LABELS[match.stage] ?? match.stage}
+            ? t("groupTitle", { code: match.groupCode })
+            : stageLabels[match.stage] ?? match.stage}
         </span>
         <span className="prode-date">{date}</span>
       </div>

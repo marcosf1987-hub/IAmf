@@ -1,0 +1,21 @@
+{
+  "title": "Mi usuario",
+  "subtitle": "Ver y editar tus datos de perfil",
+  "email": "Email:",
+  "role": "Rol:",
+  "roles": {
+    "super_admin": "Super administrador (plataforma)",
+    "org_admin": "Administrador de empresa",
+    "participant": "Participante"
+  },
+  "fullName": "Nombre completo",
+  "namePlaceholder": "Tu nombre",
+  "newPassword": "Nueva contraseña (dejar vacío para no cambiar)",
+  "confirmPassword": "Confirmar contraseña",
+  "save": "Guardar cambios",
+  "saving": "Guardando…",
+  "success": "Datos actualizados correctamente",
+  "passwordMismatch": "Las contraseñas no coinciden",
+  "passwordMin": "La contraseña debe tener al menos 6 caracteres",
+  "nothingToSave": "No hay cambios para guardar"
+}

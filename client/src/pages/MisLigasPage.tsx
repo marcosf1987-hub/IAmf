@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { useFlash } from "../contexts/FlashContext";
@@ -239,6 +240,7 @@ export default function MisLigasPage() {
 }
 
 function LigasCommunityHome() {
+  const { t } = useTranslation("ligas");
   const { showFlash } = useFlash();
   const ligasBase = useLigasBasePath();
   const isF1Shell = useIsF1AppShell();
@@ -322,11 +324,8 @@ function LigasCommunityHome() {
   return (
     <div className="page-content ligas-page ligas-community">
       <header className="ligas-hero">
-        <h1>Mis Ligas</h1>
-        <p className="ligas-lead">
-          Crea tus ligas de amigos, familia o con compañeros de trabajo y compite para ver quién logra mejores
-          resultados.
-        </p>
+        <h1>{t("title")}</h1>
+        <p className="ligas-lead">{t("lead")}</p>
       </header>
 
       {error && <div className="auth-error">{error}</div>}

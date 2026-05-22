@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   LineChart,
@@ -14,11 +15,12 @@ import { fetchResultsDashboard, formatApiError } from "../lib/api";
 import { EmptyState } from "../components/EmptyState";
 
 function RankArrow({ change }: { change: number }) {
+  const { t } = useTranslation("resultados");
   if (change > 0) {
-    return <span className="rank-arrow rank-up" aria-label="Subió puestos">↑</span>;
+    return <span className="rank-arrow rank-up" aria-label={t("rankUp")}>↑</span>;
   }
   if (change < 0) {
-    return <span className="rank-arrow rank-down" aria-label="Bajó puestos">↓</span>;
+    return <span className="rank-arrow rank-down" aria-label={t("rankDown")}>↓</span>;
   }
   return <span className="rank-arrow rank-same">—</span>;
 }
@@ -36,6 +38,7 @@ const EMPTY_DATA: ResultsDashboard = {
 };
 
 export default function ResultadosPage() {
+  const { t } = useTranslation("resultados");
   const [data, setData] = useState<ResultsDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -60,7 +63,7 @@ export default function ResultadosPage() {
       <div className="page-content">
         <div className="app-loading">
           <div className="spinner" />
-          <p>Cargando resultados…</p>
+          <p>{t("loading")}</p>
         </div>
       </div>
     );
@@ -93,7 +96,7 @@ export default function ResultadosPage() {
 
   return (
     <div className="page-content resultados-page">
-      <h1>Mis resultados</h1>
+      <h1>{t("title")}</h1>
 
       {error && <div className="auth-error">{error}</div>}
 

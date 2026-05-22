@@ -1,0 +1,14 @@
+{
+  "title": "Laboratorio de Prompts",
+  "subtitle": "Configurá las instrucciones de tu IA por fase del torneo",
+  "phases": {
+    "groups": "Fase de grupos",
+    "roundOf32": "16avos",
+    "knockout": "Eliminatorias"
+  },
+  "placeholders": {
+    "groups": "Ej. criterios para partidos de grupo, equipos fuertes en zona, etc.",
+    "roundOf32": "Ej. criterios para cruces eliminatorios tempranos…",
+    "knockout": "Ej. favoritos a copa, estilo de juego en eliminatorias…"
+  }
+}

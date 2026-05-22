@@ -1,0 +1,14 @@
+{
+  "title": "Prompt lab",
+  "subtitle": "Configure your AI instructions per tournament phase",
+  "phases": {
+    "groups": "Group stage",
+    "roundOf32": "Round of 32",
+    "knockout": "Knockout"
+  },
+  "placeholders": {
+    "groups": "E.g. criteria for group matches, strong teams in the zone, etc.",
+    "roundOf32": "E.g. criteria for early knockout ties…",
+    "knockout": "E.g. cup favorites, knockout playing style…"
+  }
+}

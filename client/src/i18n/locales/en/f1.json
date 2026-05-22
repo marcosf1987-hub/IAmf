@@ -1,0 +1,57 @@
+{
+  "predictionsPageTitle": "Predictions per race",
+  "labPageTitle": "F1 Lab",
+  "resultsPageTitle": "F1 Results",
+  "tipLabel": "F1 tip",
+  "tips": [
+    "In the F1 Lab you can set grid position, weather and tyre strategy per grand prix.",
+    "Add circuit history: leader wins, turn-one incidents or frequent safety cars.",
+    "Ask the AI to consider tyre degradation and pit windows under SC; they shape the top 10."
+  ],
+  "countdown": {
+    "noData": "No data yet",
+    "inProgress": "In progress or finished",
+    "days": "{{count}} days",
+    "hours": "{{hours}}h {{minutes}}m",
+    "minutes": "{{minutes}}m"
+  },
+  "hero": {
+    "nextEvent": "Next event",
+    "nextEventNamed": "Next event · {{name}}",
+    "gpInProgress": "The GP is underway",
+    "countdownToGp": "{{time}} until the GP",
+    "noCalendar": "When the calendar is available, you'll see the next race here.",
+    "createLeague": "Create a league",
+    "joinLeague": "Join a league"
+  },
+  "status": {
+    "noGuidelines": "Your per-race F1 guide is empty. Set it up in the Lab.",
+    "noRaces": "No races on the visible calendar; once synced, load your top 10 before each start.",
+    "noPredictions": "F1 guidelines are ready, but you haven't loaded a top 10 for any race yet.{{next}}",
+    "nextGp": " Next GP: {{name}}.",
+    "partial": "Top 10 loaded for {{filled}} of {{total}} races on the calendar. Check pending picks before each deadline.",
+    "complete": "F1 predictions are up to date for all races on the calendar."
+  },
+  "panels": {
+    "yourPredictions": "Your F1 predictions",
+    "editLab": "Edit in Lab",
+    "statusSubtitle": "Top 10 per grand prix",
+    "undefined": "Not set",
+    "overview": "F1 overview",
+    "myLeagues": "Your F1 leagues",
+    "upcomingRaces": "Upcoming F1 races",
+    "gridPredictions": "My grid predictions",
+    "gridSubtitle": "Your current setup for the classification top 3",
+    "racePredictions_one": "race with prediction loaded",
+    "racePredictions_other": "races with predictions loaded",
+    "championshipRank": "My championship place",
+    "totalPoints": "Total points",
+    "friendsLeague": "Friends league",
+    "cardPredictionsDesc": "Top 10 per grand prix from your guidelines",
+    "cardResultsDesc": "Cumulative score and performance per race",
+    "cardLeaguesDesc": "Private leagues, invites and standings",
+    "cardProfileDesc": "Account, leaderboard alias and sign out",
+    "adjustGuidelines": "Adjust F1 guidelines for the next race",
+    "quickAccess": "Quick links"
+  }
+}

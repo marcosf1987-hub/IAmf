@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   fetchF1MySummary,
@@ -22,6 +23,7 @@ const EMPTY_DASH: ResultsDashboard = {
 };
 
 export default function F1ResultadosPage() {
+  const { t } = useTranslation("f1");
   const [summary, setSummary] = useState<{ totalPoints: number; byRace: F1SummaryByRace[] } | null>(null);
   const [dash, setDash] = useState<ResultsDashboard>(EMPTY_DASH);
   const [error, setError] = useState("");
@@ -70,7 +72,7 @@ export default function F1ResultadosPage() {
 
   return (
     <div className="f1-page-inner resultados-page">
-      <h2 className="f1-page-title">Resultados F1</h2>
+      <h2 className="f1-page-title">{t("resultsPageTitle")}</h2>
       <p className="resultados-f1-rules">
         Puntuación: <strong>1</strong> punto por cada piloto incluido en el top 10 (aunque esté en otra posición),{" "}
         <strong>+10</strong> extra por ganador correcto (P1 exacto), y <strong>+5</strong> extra por P2/P3 exactos. Datos

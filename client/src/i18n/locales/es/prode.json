@@ -1,0 +1,25 @@
+{
+  "title": "Mis predicciones",
+  "subtitle": "Fixture del Mundial generado por tu IA",
+  "phases": {
+    "groups": "Fase de grupos",
+    "roundOf32": "Fase de 16avos",
+    "knockout": "8vos, 4tos, semis y final"
+  },
+  "stages": {
+    "group": "Fase de grupos",
+    "roundOf32": "16vos",
+    "roundOf16": "8vos",
+    "quarterFinal": "4tos",
+    "semiFinal": "Semis",
+    "thirdPlace": "3er puesto",
+    "final": "Final"
+  },
+  "groupTitle": "Grupo {{code}}",
+  "groupUnknown": "Grupos sin código",
+  "pageTitle": "Prode FIFA 2026",
+  "groupStageNav": "Fase de grupos",
+  "noGuidelinesPhase": "No tienes pautas guardadas para {{phase}} en el Laboratorio. Escribe y guarda ese bloque en el Laboratorio antes de generar predicciones con IA para esta etapa.",
+  "noGuidelinesPhaseShort": "No tienes pautas guardadas para {{phase}} en el Laboratorio. Escribe y guarda ese bloque antes de generar.",
+  "saveGuidelinesBefore": "Guarda las pautas de {{phase}} en el Laboratorio antes de generar."
+}

@@ -1,10 +1,9 @@
+import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { markContextPickerShownToday, useAppDiscipline } from "../contexts/AppDisciplineContext";
 
-/**
- * Intersticial: primera visita del día a /app — elegir disciplina (estilo “Arena”).
- */
 export default function ContextChoicePage() {
+  const { t } = useTranslation("app");
   const navigate = useNavigate();
   const { setDiscipline } = useAppDiscipline();
 
@@ -26,59 +25,52 @@ export default function ContextChoicePage() {
   return (
     <div className="context-choice-page">
       <header className="context-choice-hero">
-        <p className="context-choice-eyebrow">Selección de arena</p>
+        <p className="context-choice-eyebrow">{t("context.eyebrow")}</p>
         <h1 className="context-choice-title">
-          Seleccioná tu <em className="context-choice-title-accent">Arena</em>
+          <Trans i18nKey="context.title" ns="app" components={{ em: <em className="context-choice-title-accent" /> }} />
         </h1>
-        <p className="context-choice-lead">
-          Elige dónde quieres jugar, crea tus ligas y compite. Después podrás cambiar de disciplina con el selector en el
-          menú.
-        </p>
+        <p className="context-choice-lead">{t("context.lead")}</p>
       </header>
 
       <div className="context-choice-cards">
         <button type="button" className="context-choice-card context-choice-card--football" onClick={chooseFootball}>
           <div className="context-choice-card-media" aria-hidden>
-            <span className="context-choice-card-badge context-choice-card-badge--tag">FIFA WORLD CUP 2026</span>
+            <span className="context-choice-card-badge context-choice-card-badge--tag">{t("context.wcBadge")}</span>
             <div className="context-choice-card-media-shine" />
             <div className="context-choice-card-overlay">
               <span className="context-choice-overlay-line">
-                <span className="context-choice-overlay-strong">Mundial 2026</span>
+                <span className="context-choice-overlay-strong">{t("context.wcTitle")}</span>
                 <span className="context-choice-overlay-sep"> — </span>
-                <span className="context-choice-overlay-sub">Entrena la IA ganadora</span>
+                <span className="context-choice-overlay-sub">{t("context.wcSub")}</span>
               </span>
             </div>
           </div>
           <div className="context-choice-card-foot">
-            <p className="context-choice-card-desc">
-              Configura tu IA goleadora y domina el campo con prompts estratégicos.
-            </p>
+            <p className="context-choice-card-desc">{t("context.wcDesc")}</p>
           </div>
         </button>
 
         <button type="button" className="context-choice-card context-choice-card--f1" onClick={chooseF1}>
           <div className="context-choice-card-media" aria-hidden>
-            <span className="context-choice-card-badge context-choice-card-badge--tag">F1 WORLD CHAMPIONSHIP</span>
+            <span className="context-choice-card-badge context-choice-card-badge--tag">{t("context.f1Badge")}</span>
             <div className="context-choice-card-media-shine context-choice-card-media-shine--f1" />
             <div className="context-choice-card-overlay">
               <span className="context-choice-overlay-line">
-                <span className="context-choice-overlay-strong">Fórmula 1</span>
+                <span className="context-choice-overlay-strong">{t("context.f1Title")}</span>
                 <span className="context-choice-overlay-sep"> — </span>
-                <span className="context-choice-overlay-sub">Predice el podio con tu prompt</span>
+                <span className="context-choice-overlay-sub">{t("context.f1Sub")}</span>
               </span>
             </div>
           </div>
           <div className="context-choice-card-foot">
-            <p className="context-choice-card-desc">
-              Domina la velocidad y predice el podio ganador.
-            </p>
+            <p className="context-choice-card-desc">{t("context.f1Desc")}</p>
           </div>
         </button>
       </div>
 
       <p className="context-choice-footer">
         <button type="button" className="context-choice-skip btn-secondary btn-sm" onClick={skip}>
-          Ir al inicio sin elegir (se mantiene tu última preferencia)
+          {t("context.skip")}
         </button>
       </p>
     </div>
