@@ -337,14 +337,8 @@ button:focus:not(:focus-visible) {
   color: var(--accent);
 }
 
-.home-header-lang {
-  margin-right: 0.5rem;
-}
-
 .home-nav-lang {
-  width: 100%;
-  justify-content: center;
-  margin-bottom: 0.75rem;
+  flex-shrink: 0;
 }
 
 .app-header-lang {
@@ -352,8 +346,10 @@ button:focus:not(:focus-visible) {
 }
 
 @media (max-width: 768px) {
-  .home-header-lang {
-    display: none;
+  .home-nav-lang {
+    width: 100%;
+    justify-content: center;
+    margin-bottom: 0.75rem;
   }
 }
 
@@ -438,6 +434,7 @@ a.home-logo:hover .home-logo-brand {
 
 .home-nav {
   display: flex;
+  align-items: center;
   gap: 2rem;
 }
 

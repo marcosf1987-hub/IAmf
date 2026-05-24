@@ -42,7 +42,6 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           <span className="home-logo-brand">Promptplay</span>
           <span className="home-logo-sub">World Cup Edition</span>
         </Link>
-        <LanguageSwitcher compact className="home-header-lang" />
         <button
           type="button"
           className="home-menu-toggle"
@@ -60,7 +59,7 @@ export default function MarketingLayout({ children, mainVariant = "default" }: P
           />
         )}
         <nav className={`home-nav ${menuOpen ? "home-nav-open" : ""}`}>
-          <LanguageSwitcher className="home-nav-lang" />
+          <LanguageSwitcher compact className="home-nav-lang" />
           <Link to="/login" className="nav-link" onClick={() => setMenuOpen(false)}>
             {t("nav.login")}
           </Link>
