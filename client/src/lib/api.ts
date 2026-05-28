@@ -174,11 +174,15 @@ export type Prediction = {
 
 export type UserRole = "super_admin" | "org_admin" | "member";
 
+export type CompanyCompetitionScope = "football" | "f1" | "all";
+
 export type CompanySummary = {
   id: string;
   name: string;
   slug: string;
   seatLimit: number;
+  /** Qué competiciones pueden usar los usuarios de la empresa */
+  competitionScope?: CompanyCompetitionScope;
 };
 
 export type OrgUsage = {
@@ -361,8 +365,13 @@ export type PlatformCompanyRow = {
   invitationCount: number;
   /** Ligas/competencias creadas bajo esta empresa */
   competitionCount?: number;
+  competitionScope: CompanyCompetitionScope;
   stripeCustomerId: string | null;
   orgAdmins: PlatformOrgAdminRef[];
+};
+
+export type PlatformSettings = {
+  defaultCompetitionScope: CompanyCompetitionScope;
 };
 
 export type PlatformOverview = {
@@ -423,15 +432,45 @@ export async function createPlatformCompany(body: {
   });
 }
 
+export async function fetchPlatformSettings(): Promise<PlatformSettings> {
+  return fetchAuth("/platform/settings");
+}
+
+export async function updatePlatformSettings(
+  data: PlatformSettings
+): Promise<PlatformSettings> {
+  return fetchAuth("/platform/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function patchPlatformCompany(
+  companyId: string,
+  data: { seatLimit?: number; competitionScope?: CompanyCompetitionScope }
+): Promise<{
+  company: {
+    id: string;
+    name: string;
+    slug: string;
+    seatLimit: number;
+    competitionScope: CompanyCompetitionScope;
+  };
+}> {
+  return fetchAuth(`/platform/companies/${companyId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+}
+
+/** @deprecated Usar patchPlatformCompany */
 export async function patchPlatformCompanySeat(
   companyId: string,
   seatLimit: number
 ): Promise<{ company: { id: string; name: string; slug: string; seatLimit: number } }> {
-  return fetchAuth(`/platform/companies/${companyId}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ seatLimit }),
-  });
+  return patchPlatformCompany(companyId, { seatLimit });
 }
 
 export async function resetPlatformOrgAdminPassword(
@@ -1142,13 +1181,20 @@ export async function fetchAdminAiConfig(): Promise<{ config: AiConfig | null }>
   return fetchAuth("/admin/ai-config");
 }
 
-export async function fetchAdminCompanyConfig(): Promise<{ anonymizationEnabled: boolean }> {
+export async function fetchAdminCompanyConfig(): Promise<{
+  anonymizationEnabled: boolean;
+  competitionScope: CompanyCompetitionScope;
+}> {
   return fetchAuth("/admin/company-config");
 }
 
 export async function updateAdminCompanyConfig(data: {
+  anonymizationEnabled?: boolean;
+  competitionScope?: CompanyCompetitionScope;
+}): Promise<{
   anonymizationEnabled: boolean;
-}): Promise<{ anonymizationEnabled: boolean }> {
+  competitionScope: CompanyCompetitionScope;
+}> {
   return fetchAuth("/admin/company-config", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },

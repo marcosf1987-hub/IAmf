@@ -53,9 +53,29 @@ export const platformCreateCompanySchema = z.object({
   seatLimit: z.number().int().min(1).max(100000).optional().default(50),
 });
 
-export const platformPatchCompanySchema = z.object({
-  seatLimit: z.number().int().min(1).max(100000),
-  competitionLimit: z.number().int().min(1).max(10000).nullable().optional(),
+export const companyCompetitionScopeSchema = z.enum(["football", "f1", "all"]);
+
+export const platformPatchCompanySchema = z
+  .object({
+    seatLimit: z.number().int().min(1).max(100000).optional(),
+    competitionLimit: z.number().int().min(1).max(10000).nullable().optional(),
+    competitionScope: companyCompetitionScopeSchema.optional(),
+  })
+  .refine(
+    (data) =>
+      data.seatLimit !== undefined ||
+      data.competitionLimit !== undefined ||
+      data.competitionScope !== undefined,
+    { message: "at_least_one_field" }
+  );
+
+export const platformSettingsSchema = z.object({
+  defaultCompetitionScope: companyCompetitionScopeSchema,
+});
+
+export const adminCompanyConfigSchema = z.object({
+  anonymizationEnabled: z.boolean().optional(),
+  competitionScope: companyCompetitionScopeSchema.optional(),
 });
 
 export const createCompetitionSchema = z.object({

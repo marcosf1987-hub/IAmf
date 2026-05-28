@@ -29,6 +29,13 @@ enum CompetitionDiscipline {
   f1
 }
 
+/// Qué competiciones pueden jugar los usuarios de una empresa B2B.
+enum CompanyCompetitionScope {
+  football
+  f1
+  all
+}
+
 model Company {
   id        String   @id @default(cuid())
   name      String
@@ -54,7 +61,16 @@ model CompanyConfig {
   companyId          String   @unique
   company            Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   anonymizationEnabled Boolean @default(true)
+  /// Mundial (football), F1 o ambas. Pool público suele usar `all`.
+  competitionScope   CompanyCompetitionScope @default(all)
   updatedAt          DateTime @updatedAt
+}
+
+/// Ajustes globales de plataforma (fila única id = "default").
+model PlatformConfig {
+  id                      String                  @id @default("default")
+  defaultCompetitionScope CompanyCompetitionScope @default(all)
+  updatedAt               DateTime                @updatedAt
 }
 
 model AiConfig {

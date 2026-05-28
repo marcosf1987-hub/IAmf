@@ -9,6 +9,7 @@ import {
   FREE_MAX_MEMBERS_PER_COMPETITION,
   FREE_MIN_MEMBERS,
 } from "./competition-constants";
+import { assertCompanyDisciplineAllowed } from "./company-competition-scope";
 import { isPlatformCompanySlug } from "./org-seat";
 import { getCompetitionCardSnapshot } from "./competition-snapshot";
 import {
@@ -58,6 +59,13 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
   app.get("/competitions/mine", requireAuth, async (req, res) => {
     const { userId, companyId } = (req as AuthedRequest).auth;
     const discipline = parseDisciplineQuery(req.query.discipline);
+    if (discipline) {
+      const allowed = await assertCompanyDisciplineAllowed(prisma, companyId, discipline);
+      if (!allowed.ok) {
+        res.status(403).json({ error: "competition_scope_forbidden", scope: allowed.scope, discipline });
+        return;
+      }
+    }
     const rows = await prisma.competitionMember.findMany({
       where: {
         userId,
@@ -163,6 +171,16 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     }
 
     const platform = isPlatformCompanySlug(company.slug);
+
+    const scopeCheck = await assertCompanyDisciplineAllowed(prisma, companyId, discipline);
+    if (!scopeCheck.ok) {
+      res.status(403).json({
+        error: "competition_scope_forbidden",
+        scope: scopeCheck.scope,
+        discipline,
+      });
+      return;
+    }
 
     if (platform) {
       const created = await prisma.competition.count({

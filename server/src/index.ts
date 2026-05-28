@@ -20,7 +20,12 @@ import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
 import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } from "./sync-match-results";
 import { anonymizeUserId, isExactHit } from "./leaderboard";
-import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
+import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, adminCompanyConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
+import {
+  assertCompanyDisciplineAllowed,
+  makeRequireCompanyDiscipline,
+  resolveCompanyCompetitionScope,
+} from "./company-competition-scope";
 import { encrypt, decrypt } from "./crypto-util";
 import { registerB2BRoutes } from "./b2b-routes";
 import { isPlatformCompanySlug } from "./org-seat";
@@ -48,6 +53,7 @@ function routeParamId(req: express.Request): string | undefined {
 
 const app = express();
 const prisma = new PrismaClient();
+const requireFootballDiscipline = makeRequireCompanyDiscipline(prisma, "football");
 
 function parseAllowedOrigins(): Set<string> {
   const out = new Set<string>();
@@ -417,7 +423,7 @@ app.post("/auth/logout", (_req, res) => {
   res.status(204).end();
 });
 
-app.get("/matches", requireAuth, async (_req, res) => {
+app.get("/matches", requireAuth, requireFootballDiscipline, async (_req, res) => {
   try {
     const rows = await prisma.match.findMany({
       orderBy: { kickoffAt: "asc" },
@@ -441,7 +447,7 @@ app.get("/matches", requireAuth, async (_req, res) => {
   }
 });
 
-app.post("/predictions", requireAuth, async (req, res) => {
+app.post("/predictions", requireAuth, requireFootballDiscipline, async (req, res) => {
   const parsed = predictionSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "invalid_body" });
@@ -685,7 +691,7 @@ const KNOCKOUT_STAGE_LABEL: Partial<Record<MatchStage, string>> = {
   final: "Final",
 };
 
-app.post("/ai/generate-prode-predictions", requireAuth, async (req, res) => {
+app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
   const phase = (req.body?.phase as string) || "groups";
   const rawGroupCode = req.body?.groupCode;
@@ -995,7 +1001,7 @@ app.get("/prompts/me", requireAuth, async (req, res) => {
   res.status(200).json({ prompts: logs });
 });
 
-app.get("/prode/champion-prediction", requireAuth, async (req, res) => {
+app.get("/prode/champion-prediction", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
   const pred = await prisma.prodeChampionPrediction.findUnique({
     where: { userId },
@@ -1004,7 +1010,7 @@ app.get("/prode/champion-prediction", requireAuth, async (req, res) => {
   res.status(200).json({ championPrediction: pred });
 });
 
-app.get("/predictions/me/history", requireAuth, async (req, res) => {
+app.get("/predictions/me/history", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
   const limitRaw = Number.parseInt(String(req.query.limit ?? "400"), 10);
   const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 1000) : 400;
@@ -1079,7 +1085,7 @@ app.get("/predictions/me/history", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/predictions/me", requireAuth, async (req, res) => {
+app.get("/predictions/me", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
   const predictions = await prisma.prediction.findMany({
     where: { userId },
@@ -1091,7 +1097,7 @@ app.get("/predictions/me", requireAuth, async (req, res) => {
   res.status(200).json({ predictions });
 });
 
-app.get("/results/me", requireAuth, async (req, res) => {
+app.get("/results/me", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId } = (req as AuthedRequest).auth;
   const predictions = await prisma.prediction.findMany({
     where: { userId },
@@ -1123,30 +1129,43 @@ app.get("/results/me", requireAuth, async (req, res) => {
 
 app.get("/admin/company-config", requireAdmin, async (req, res) => {
   const { companyId } = (req as AuthedRequest).auth;
-  const config = await prisma.companyConfig.findUnique({
-    where: { companyId },
-  });
+  const [config, competitionScope] = await Promise.all([
+    prisma.companyConfig.findUnique({ where: { companyId } }),
+    resolveCompanyCompetitionScope(prisma, companyId),
+  ]);
   res.status(200).json({
     anonymizationEnabled: config?.anonymizationEnabled ?? true,
+    competitionScope: config?.competitionScope ?? competitionScope,
   });
 });
 
 app.patch("/admin/company-config", requireAdmin, async (req, res) => {
   const { companyId } = (req as AuthedRequest).auth;
-  const anonymizationEnabled = req.body?.anonymizationEnabled;
-  if (typeof anonymizationEnabled !== "boolean") {
+  const parsed = adminCompanyConfigSchema.safeParse(req.body);
+  if (!parsed.success || Object.keys(parsed.data).length === 0) {
     res.status(400).json({ error: "invalid_body" });
     return;
   }
+  const { anonymizationEnabled, competitionScope } = parsed.data;
   const config = await prisma.companyConfig.upsert({
     where: { companyId },
-    create: { companyId, anonymizationEnabled },
-    update: { anonymizationEnabled },
+    create: {
+      companyId,
+      anonymizationEnabled: anonymizationEnabled ?? true,
+      ...(competitionScope !== undefined ? { competitionScope } : {}),
+    },
+    update: {
+      ...(anonymizationEnabled !== undefined ? { anonymizationEnabled } : {}),
+      ...(competitionScope !== undefined ? { competitionScope } : {}),
+    },
   });
-  res.status(200).json({ anonymizationEnabled: config.anonymizationEnabled });
+  res.status(200).json({
+    anonymizationEnabled: config.anonymizationEnabled,
+    competitionScope: config.competitionScope,
+  });
 });
 
-app.get("/leaderboard", requireAuth, async (req, res) => {
+app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
 
   const [matchesWithResult, companyUsers, companyConfig] = await Promise.all([
@@ -1224,6 +1243,13 @@ app.get("/leaderboard", requireAuth, async (req, res) => {
 app.get("/results/dashboard", requireAuth, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
   const discipline = parseDisciplineQuery(req.query.discipline);
+  if (discipline) {
+    const allowed = await assertCompanyDisciplineAllowed(prisma, companyId, discipline);
+    if (!allowed.ok) {
+      res.status(403).json({ error: "competition_scope_forbidden", scope: allowed.scope, discipline });
+      return;
+    }
+  }
   try {
     const payload = await buildResultsDashboardPayload(prisma, userId, companyId, discipline);
     res.status(200).json(payload);
@@ -1868,7 +1894,7 @@ app.patch("/me", requireAuth, async (req, res) => {
   res.status(200).json(me);
 });
 
-app.get("/me/prode-status", requireAuth, async (req, res) => {
+app.get("/me/prode-status", requireAuth, requireFootballDiscipline, async (req, res) => {
   try {
     const { userId } = (req as AuthedRequest).auth;
     const [guidelines, predCount] = await Promise.all([
@@ -1894,7 +1920,7 @@ app.get("/me/prode-status", requireAuth, async (req, res) => {
   }
 });
 
-app.get("/me/guidelines", requireAuth, async (req, res) => {
+app.get("/me/guidelines", requireAuth, requireFootballDiscipline, async (req, res) => {
   try {
     const { userId } = (req as AuthedRequest).auth;
     const g = await prisma.prodeGuidelines.findUnique({
@@ -1914,7 +1940,7 @@ app.get("/me/guidelines", requireAuth, async (req, res) => {
   }
 });
 
-app.patch("/me/guidelines", requireAuth, async (req, res) => {
+app.patch("/me/guidelines", requireAuth, requireFootballDiscipline, async (req, res) => {
   const parsed = prodeGuidelinesSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "invalid_body" });

@@ -18,6 +18,7 @@ import {
   updateAdminAiConfig,
   updateAdminCompanyConfig,
   updateAdminUser,
+  type CompanyCompetitionScope,
   type CompanySummary,
   type OrgInvitationRow,
   type OrgUsage,
@@ -276,7 +277,10 @@ export default function AdminPage() {
   const [toInput, setToInput] = useState(() => defaultReportRange().to);
   const [rangeAllTime, setRangeAllTime] = useState(false);
 
-  const [companyConfig, setCompanyConfig] = useState<{ anonymizationEnabled: boolean } | null>(null);
+  const [companyConfig, setCompanyConfig] = useState<{
+    anonymizationEnabled: boolean;
+    competitionScope: CompanyCompetitionScope;
+  } | null>(null);
   const [aiConfig, setAiConfig] = useState<{
     provider: string;
     model: string;
@@ -962,16 +966,23 @@ function ConfigTab({
   config,
   onSave,
 }: {
-  config: { anonymizationEnabled: boolean } | null;
-  onSave: (data: { anonymizationEnabled: boolean }) => Promise<void>;
+  config: { anonymizationEnabled: boolean; competitionScope: CompanyCompetitionScope } | null;
+  onSave: (data: {
+    anonymizationEnabled: boolean;
+    competitionScope: CompanyCompetitionScope;
+  }) => Promise<void>;
 }) {
   const [anonymizationEnabled, setAnonymizationEnabled] = useState(true);
+  const [competitionScope, setCompetitionScope] = useState<CompanyCompetitionScope>("all");
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState("");
   const [ok, setOk] = useState("");
 
   useEffect(() => {
-    if (config) setAnonymizationEnabled(config.anonymizationEnabled);
+    if (config) {
+      setAnonymizationEnabled(config.anonymizationEnabled);
+      setCompetitionScope(config.competitionScope);
+    }
   }, [config]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -980,7 +991,7 @@ function ConfigTab({
     setOk("");
     setSubmitting(true);
     try {
-      await onSave({ anonymizationEnabled });
+      await onSave({ anonymizationEnabled, competitionScope });
       setOk("Configuración guardada.");
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Error al guardar");
@@ -991,13 +1002,29 @@ function ConfigTab({
 
   return (
     <div className="admin-section">
-      <h2>Configuración de la plataforma</h2>
+      <h2>Configuración de la empresa</h2>
       <p className="page-subtitle">
-        Define cómo se muestran los datos en rankings y resultados.
+        Define qué competiciones pueden usar tus usuarios y cómo se muestran los rankings.
       </p>
       {err && <div className="auth-error">{err}</div>}
       {ok && <div className="auth-success">{ok}</div>}
-      <form onSubmit={handleSubmit} className="admin-form" style={{ maxWidth: 480 }}>
+      <form onSubmit={handleSubmit} className="admin-form" style={{ maxWidth: 520 }}>
+        <label className="admin-config-toggle">
+          <span className="admin-config-label">
+            <strong>Competiciones para tu equipo</strong>
+            <small>
+              Los usuarios de la empresa solo podrán jugar en la disciplina elegida (Mundial, F1 o ambas).
+            </small>
+          </span>
+          <select
+            value={competitionScope}
+            onChange={(e) => setCompetitionScope(e.target.value as CompanyCompetitionScope)}
+          >
+            <option value="all">Todas las competiciones</option>
+            <option value="football">Solo Mundial (fútbol)</option>
+            <option value="f1">Solo F1</option>
+          </select>
+        </label>
         <label className="admin-config-toggle">
           <span className="admin-config-label">
             <strong>Anonimización de usuarios</strong>

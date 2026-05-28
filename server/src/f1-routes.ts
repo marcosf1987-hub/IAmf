@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import type { Prisma, PrismaClient } from "@prisma/client";
 import type { AuthedRequest } from "./auth";
 import { requireAuth } from "./auth";
+import { makeRequireCompanyDiscipline } from "./company-competition-scope";
 import { parseAiF1Top10Placements } from "./ai-parse";
 import { chat } from "./ai-provider";
 import {
@@ -50,6 +51,8 @@ function isF1PredictionWindowClosed(raceStartAt: Date): boolean {
 }
 
 export function registerF1Routes(app: Express, prisma: PrismaClient): void {
+  const requireF1Discipline = makeRequireCompanyDiscipline(prisma, "f1");
+
   app.get("/public/f1/races", async (req, res) => {
     try {
       const yearRaw = req.query.year;
@@ -121,7 +124,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.get("/f1/races", requireAuth, async (_req, res) => {
+  app.get("/f1/races", requireAuth, requireF1Discipline, async (_req, res) => {
     try {
       const races = await prisma.f1Race.findMany({
         orderBy: [{ year: "desc" }, { raceStartAt: "asc" }],
@@ -160,7 +163,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.get("/f1/me/predictions", requireAuth, async (req, res) => {
+  app.get("/f1/me/predictions", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     try {
       const preds = await prisma.f1Prediction.findMany({
@@ -211,7 +214,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
   });
 
   /** Prompts de generación top-10 F1 (mismo criterio que el texto enviado a la IA). */
-  app.get("/f1/me/prompt-logs", requireAuth, async (req, res) => {
+  app.get("/f1/me/prompt-logs", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     try {
       const logs = await prisma.promptLog.findMany({
@@ -249,7 +252,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.put("/f1/predictions/:raceId", requireAuth, async (req, res) => {
+  app.put("/f1/predictions/:raceId", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     const raceId = routeRaceId(req);
     if (!raceId) {
@@ -285,7 +288,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.post("/f1/predictions/:raceId/generate-ai", requireAuth, async (req, res) => {
+  app.post("/f1/predictions/:raceId/generate-ai", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId, companyId } = (req as AuthedRequest).auth;
     const raceId = routeRaceId(req);
     if (!raceId) {
@@ -393,7 +396,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.get("/f1/me/summary", requireAuth, async (req, res) => {
+  app.get("/f1/me/summary", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     try {
       const races = await loadF1RacesForScoring(prisma);
@@ -430,7 +433,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.get("/f1/me/guidelines", requireAuth, async (req, res) => {
+  app.get("/f1/me/guidelines", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     try {
       const g = await prisma.prodeGuidelines.findUnique({ where: { userId } });
@@ -443,7 +446,7 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  app.put("/f1/me/guidelines", requireAuth, async (req, res) => {
+  app.put("/f1/me/guidelines", requireAuth, requireF1Discipline, async (req, res) => {
     const { userId } = (req as AuthedRequest).auth;
     const parsed = f1GuidelineBodySchema.safeParse(req.body);
     if (!parsed.success) {

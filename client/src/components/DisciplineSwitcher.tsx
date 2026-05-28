@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useAuth } from "../contexts/AuthContext";
 import { useAppDiscipline, type AppDiscipline } from "../contexts/AppDisciplineContext";
+import { allowedDisciplines, scopeAllowsDiscipline } from "../lib/company-competition-scope";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
 function Chevron({ open }: { open: boolean }) {
@@ -21,9 +23,12 @@ function DisciplineEmoji({ kind }: { kind: "football" | "f1" }) {
 
 export default function DisciplineSwitcher() {
   const { t } = useTranslation("app");
+  const { company } = useAuth();
+  const scope = company?.competitionScope;
   const { discipline, setDiscipline } = useAppDiscipline();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const options = allowedDisciplines(scope);
 
   useEscapeKey(open, () => setOpen(false));
 
@@ -36,8 +41,11 @@ export default function DisciplineSwitcher() {
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
+  if (options.length <= 1) return null;
+
   function pick(d: AppDiscipline) {
     setOpen(false);
+    if (!scopeAllowsDiscipline(scope, d)) return;
     if (d === discipline) return;
     setDiscipline(d, { navigateToHub: true });
   }
@@ -62,18 +70,22 @@ export default function DisciplineSwitcher() {
       </button>
       {open ? (
         <ul className="discipline-switcher-menu" role="listbox">
-          <li role="option" aria-selected={discipline === "football"}>
-            <button type="button" className="discipline-switcher-option" onClick={() => pick("football")}>
-              <DisciplineEmoji kind="football" />
-              <span>{t("discipline.football")}</span>
-            </button>
-          </li>
-          <li role="option" aria-selected={discipline === "f1"}>
-            <button type="button" className="discipline-switcher-option" onClick={() => pick("f1")}>
-              <DisciplineEmoji kind="f1" />
-              <span>{t("discipline.f1")}</span>
-            </button>
-          </li>
+          {options.includes("football") ? (
+            <li role="option" aria-selected={discipline === "football"}>
+              <button type="button" className="discipline-switcher-option" onClick={() => pick("football")}>
+                <DisciplineEmoji kind="football" />
+                <span>{t("discipline.football")}</span>
+              </button>
+            </li>
+          ) : null}
+          {options.includes("f1") ? (
+            <li role="option" aria-selected={discipline === "f1"}>
+              <button type="button" className="discipline-switcher-option" onClick={() => pick("f1")}>
+                <DisciplineEmoji kind="f1" />
+                <span>{t("discipline.f1")}</span>
+              </button>
+            </li>
+          ) : null}
         </ul>
       ) : null}
     </div>

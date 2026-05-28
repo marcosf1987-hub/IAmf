@@ -20,8 +20,14 @@ async function main() {
 
   await prisma.companyConfig.upsert({
     where: { companyId: platformCompany.id },
-    update: { anonymizationEnabled: false },
-    create: { companyId: platformCompany.id, anonymizationEnabled: false },
+    update: { anonymizationEnabled: false, competitionScope: "all" },
+    create: { companyId: platformCompany.id, anonymizationEnabled: false, competitionScope: "all" },
+  });
+
+  await prisma.platformConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", defaultCompetitionScope: "all" },
   });
 
   const email = "admin@demo.com";

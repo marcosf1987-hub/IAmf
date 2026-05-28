@@ -8,14 +8,18 @@ import {
   fetchPlatformCompanies,
   fetchPlatformOverview,
   fetchPlatformPublicPoolUsers,
-  patchPlatformCompanySeat,
+  fetchPlatformSettings,
+  patchPlatformCompany,
   resetPlatformOrgAdminPassword,
   updatePlatformAiConfig,
+  updatePlatformSettings,
   type AiConfig,
+  type CompanyCompetitionScope,
   type PlatformCompanyRow,
   type PlatformOverview,
   type PlatformPublicPoolUser,
 } from "../lib/api";
+import { scopeLabel } from "../lib/company-competition-scope";
 
 export default function PlatformAdminPage() {
   const { user } = useAuth();
@@ -34,6 +38,10 @@ export default function PlatformAdminPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [seatEdits, setSeatEdits] = useState<Record<string, string>>({});
+  const [scopeEdits, setScopeEdits] = useState<Record<string, CompanyCompetitionScope>>({});
+  const [defaultScope, setDefaultScope] = useState<CompanyCompetitionScope>("all");
+  const [defaultScopeDraft, setDefaultScopeDraft] = useState<CompanyCompetitionScope>("all");
+  const [savingDefaultScope, setSavingDefaultScope] = useState(false);
 
   const [resetTarget, setResetTarget] = useState<{ userId: string; email: string } | null>(null);
   const [resetPass, setResetPass] = useState("");
@@ -48,16 +56,22 @@ export default function PlatformAdminPage() {
     setLoading(true);
     setError("");
     try {
-      const [{ companies: list }, ov, pool, aiRes] = await Promise.all([
+      const [{ companies: list }, ov, pool, aiRes, settings] = await Promise.all([
         fetchPlatformCompanies(),
         fetchPlatformOverview(),
         fetchPlatformPublicPoolUsers(100, poolFilter),
         fetchPlatformAiConfig(),
+        fetchPlatformSettings(),
       ]);
       setCompanies(list);
       setOverview(ov);
       setPublicPoolUsers(pool.users);
       setPlatformAiConfig(aiRes.config);
+      setDefaultScope(settings.defaultCompetitionScope);
+      setDefaultScopeDraft(settings.defaultCompetitionScope);
+      const scopes: Record<string, CompanyCompetitionScope> = {};
+      for (const c of list) scopes[c.id] = c.competitionScope;
+      setScopeEdits(scopes);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al cargar");
       setCompanies([]);
@@ -105,10 +119,40 @@ export default function PlatformAdminPage() {
     setError("");
     setSuccessMsg("");
     try {
-      await patchPlatformCompanySeat(id, n);
+      await patchPlatformCompany(id, { seatLimit: n });
       await reload();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error al actualizar cupos");
+    }
+  }
+
+  async function saveCompanyScope(id: string) {
+    const scope = scopeEdits[id];
+    if (!scope) return;
+    setError("");
+    setSuccessMsg("");
+    try {
+      await patchPlatformCompany(id, { competitionScope: scope });
+      setSuccessMsg("Competiciones de la empresa actualizadas.");
+      await reload();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Error al actualizar competiciones");
+    }
+  }
+
+  async function saveDefaultScope(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingDefaultScope(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await updatePlatformSettings({ defaultCompetitionScope: defaultScopeDraft });
+      setDefaultScope(res.defaultCompetitionScope);
+      setSuccessMsg("Valor por defecto para nuevas empresas guardado.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar valor por defecto");
+    } finally {
+      setSavingDefaultScope(false);
     }
   }
 
@@ -330,6 +374,30 @@ export default function PlatformAdminPage() {
       </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
+        <h2>Competiciones por defecto (nuevas empresas)</h2>
+        <p className="page-subtitle" style={{ marginTop: "0.25rem" }}>
+          Las empresas B2B nuevas heredan esta opción. Cada admin de empresa puede cambiarla después para su equipo.
+          Actual: <strong>{scopeLabel(defaultScope)}</strong>.
+        </p>
+        <form onSubmit={saveDefaultScope} className="admin-form" style={{ maxWidth: 420, marginTop: "0.75rem" }}>
+          <label>
+            <span>Al crear empresa</span>
+            <select
+              value={defaultScopeDraft}
+              onChange={(e) => setDefaultScopeDraft(e.target.value as CompanyCompetitionScope)}
+            >
+              <option value="all">Todas las competiciones</option>
+              <option value="football">Solo Mundial</option>
+              <option value="f1">Solo F1</option>
+            </select>
+          </label>
+          <button type="submit" className="btn-primary" disabled={savingDefaultScope}>
+            {savingDefaultScope ? "Guardando…" : "Guardar valor por defecto"}
+          </button>
+        </form>
+      </section>
+
+      <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Nueva empresa + admin</h2>
         <form onSubmit={handleCreate} className="admin-form" style={{ maxWidth: 520 }}>
           <label>
@@ -446,6 +514,7 @@ export default function PlatformAdminPage() {
                   <th className="platform-companies-col-narrow">Usuarios</th>
                   <th className="platform-companies-col-narrow">Ligas</th>
                   <th className="platform-companies-col-narrow">Invitaciones</th>
+                  <th>Competiciones</th>
                   <th>Cupos</th>
                 </tr>
               </thead>
@@ -485,6 +554,31 @@ export default function PlatformAdminPage() {
                     <td className="platform-companies-col-narrow">{c.userCount}</td>
                     <td className="platform-companies-col-narrow">{c.competitionCount ?? "—"}</td>
                     <td className="platform-companies-col-narrow">{c.invitationCount}</td>
+                    <td>
+                      <select
+                        className="admin-input-inline"
+                        style={{ minWidth: 160 }}
+                        value={scopeEdits[c.id] ?? c.competitionScope}
+                        onChange={(e) =>
+                          setScopeEdits((s) => ({
+                            ...s,
+                            [c.id]: e.target.value as CompanyCompetitionScope,
+                          }))
+                        }
+                      >
+                        <option value="all">Todas</option>
+                        <option value="football">Solo Mundial</option>
+                        <option value="f1">Solo F1</option>
+                      </select>{" "}
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={() => saveCompanyScope(c.id)}
+                        disabled={(scopeEdits[c.id] ?? c.competitionScope) === c.competitionScope}
+                      >
+                        Guardar
+                      </button>
+                    </td>
                     <td>
                       <input
                         key={`${c.id}-${c.seatLimit}`}

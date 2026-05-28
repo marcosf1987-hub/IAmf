@@ -10,7 +10,12 @@ import {
   platformCreateCompanySchema,
   platformPatchCompanySchema,
   platformResetOrgAdminPasswordSchema,
+  platformSettingsSchema,
 } from "./validators";
+import {
+  getPlatformDefaultCompetitionScope,
+  resolveCompanyCompetitionScope,
+} from "./company-competition-scope";
 import { encrypt } from "./crypto-util";
 import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
@@ -413,6 +418,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
 
     const passwordHash = await hashPassword(adminPassword);
+    const defaultScope = await getPlatformDefaultCompetitionScope(prisma);
     const result = await prisma.$transaction(async (tx) => {
       const comp = await tx.company.create({
         data: {
@@ -433,7 +439,11 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         select: { id: true, email: true, role: true, companyId: true },
       });
       await tx.companyConfig.create({
-        data: { companyId: comp.id, anonymizationEnabled: true },
+        data: {
+          companyId: comp.id,
+          anonymizationEnabled: true,
+          competitionScope: defaultScope,
+        },
       });
       return { company: comp, adminUser };
     });
@@ -557,6 +567,14 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       },
     });
     const companyIds = companies.map((c) => c.id);
+    const configRows =
+      companyIds.length === 0
+        ? []
+        : await prisma.companyConfig.findMany({
+            where: { companyId: { in: companyIds } },
+            select: { companyId: true, competitionScope: true },
+          });
+    const scopeByCompany = new Map(configRows.map((c) => [c.companyId, c.competitionScope]));
     const orgAdminRows =
       companyIds.length === 0
         ? []
@@ -586,9 +604,32 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         invitationCount: c._count.invitations,
         competitionCount: c._count.competitions,
         stripeCustomerId: c.stripeCustomerId,
+        competitionScope: scopeByCompany.get(c.id) ?? "all",
         orgAdmins: orgAdminsByCompany.get(c.id) ?? [],
       })),
     });
+  });
+
+  app.get("/platform/settings", superAuth, async (_req, res) => {
+    const defaultCompetitionScope = await getPlatformDefaultCompetitionScope(prisma);
+    res.status(200).json({ defaultCompetitionScope });
+  });
+
+  app.patch("/platform/settings", superAuth, async (req, res) => {
+    const parsed = platformSettingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+    const row = await prisma.platformConfig.upsert({
+      where: { id: "default" },
+      create: {
+        id: "default",
+        defaultCompetitionScope: parsed.data.defaultCompetitionScope,
+      },
+      update: { defaultCompetitionScope: parsed.data.defaultCompetitionScope },
+    });
+    res.status(200).json({ defaultCompetitionScope: row.defaultCompetitionScope });
   });
 
   /** Super admin: nueva contraseña para un usuario `org_admin` de una empresa (no plataforma). */
@@ -640,17 +681,35 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       res.status(404).json({ error: "not_found" });
       return;
     }
-    const updated = await prisma.company.update({
-      where: { id },
-      data: {
-        seatLimit: parsed.data.seatLimit,
-        ...(parsed.data.competitionLimit !== undefined
-          ? { competitionLimit: parsed.data.competitionLimit }
-          : {}),
-      },
-      select: { id: true, name: true, slug: true, seatLimit: true, competitionLimit: true },
-    });
-    res.status(200).json({ company: updated });
+    const companyData: { seatLimit?: number; competitionLimit?: number | null } = {};
+    if (parsed.data.seatLimit !== undefined) companyData.seatLimit = parsed.data.seatLimit;
+    if (parsed.data.competitionLimit !== undefined) {
+      companyData.competitionLimit = parsed.data.competitionLimit;
+    }
+    const updated =
+      Object.keys(companyData).length > 0
+        ? await prisma.company.update({
+            where: { id },
+            data: companyData,
+            select: { id: true, name: true, slug: true, seatLimit: true, competitionLimit: true },
+          })
+        : await prisma.company.findUniqueOrThrow({
+            where: { id },
+            select: { id: true, name: true, slug: true, seatLimit: true, competitionLimit: true },
+          });
+    if (parsed.data.competitionScope !== undefined) {
+      await prisma.companyConfig.upsert({
+        where: { companyId: id },
+        create: {
+          companyId: id,
+          competitionScope: parsed.data.competitionScope,
+          anonymizationEnabled: true,
+        },
+        update: { competitionScope: parsed.data.competitionScope },
+      });
+    }
+    const competitionScope = await resolveCompanyCompetitionScope(prisma, id, existing.slug);
+    res.status(200).json({ company: { ...updated, competitionScope } });
   });
 
   /**

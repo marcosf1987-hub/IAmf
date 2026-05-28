@@ -1,4 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
+import { resolveCompanyCompetitionScope } from "./company-competition-scope";
 import { buildOrgSeatSnapshot } from "./org-seat";
 
 export async function buildMeResponse(prisma: PrismaClient, userId: string) {
@@ -17,11 +18,18 @@ export async function buildMeResponse(prisma: PrismaClient, userId: string) {
   });
   if (!row) return null;
   const billingBase = process.env.BILLING_CHECKOUT_BASE_URL?.trim();
-  const usage = await buildOrgSeatSnapshot(
-    prisma,
-    row.companyId,
-    billingBase && billingBase.length > 0 ? billingBase : null
-  );
+  const [usage, competitionScope] = await Promise.all([
+    buildOrgSeatSnapshot(
+      prisma,
+      row.companyId,
+      billingBase && billingBase.length > 0 ? billingBase : null
+    ),
+    resolveCompanyCompetitionScope(prisma, row.companyId, row.company.slug),
+  ]);
   const { company, ...user } = row;
-  return { user, company, usage };
+  return {
+    user,
+    company: { ...company, competitionScope },
+    usage,
+  };
 }

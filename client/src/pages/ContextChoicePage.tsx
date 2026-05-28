@@ -1,11 +1,22 @@
+import { useEffect } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { markContextPickerShownToday, useAppDiscipline } from "../contexts/AppDisciplineContext";
+import { useAuth } from "../contexts/AuthContext";
+import { allowedDisciplines } from "../lib/company-competition-scope";
 
 export default function ContextChoicePage() {
   const { t } = useTranslation("app");
   const navigate = useNavigate();
+  const { company } = useAuth();
   const { setDiscipline } = useAppDiscipline();
+  const options = allowedDisciplines(company?.competitionScope);
+
+  useEffect(() => {
+    if (options.length !== 1) return;
+    markContextPickerShownToday();
+    setDiscipline(options[0], { navigateToHub: true });
+  }, [options, setDiscipline]);
 
   function chooseFootball() {
     markContextPickerShownToday();
@@ -33,6 +44,7 @@ export default function ContextChoicePage() {
       </header>
 
       <div className="context-choice-cards">
+        {options.includes("football") ? (
         <button type="button" className="context-choice-card context-choice-card--football" onClick={chooseFootball}>
           <div className="context-choice-card-media" aria-hidden>
             <span className="context-choice-card-badge context-choice-card-badge--tag">{t("context.wcBadge")}</span>
@@ -49,7 +61,9 @@ export default function ContextChoicePage() {
             <p className="context-choice-card-desc">{t("context.wcDesc")}</p>
           </div>
         </button>
+        ) : null}
 
+        {options.includes("f1") ? (
         <button type="button" className="context-choice-card context-choice-card--f1" onClick={chooseF1}>
           <div className="context-choice-card-media" aria-hidden>
             <span className="context-choice-card-badge context-choice-card-badge--tag">{t("context.f1Badge")}</span>
@@ -66,13 +80,16 @@ export default function ContextChoicePage() {
             <p className="context-choice-card-desc">{t("context.f1Desc")}</p>
           </div>
         </button>
+        ) : null}
       </div>
 
+      {options.length > 1 ? (
       <p className="context-choice-footer">
         <button type="button" className="context-choice-skip btn-secondary btn-sm" onClick={skip}>
           {t("context.skip")}
         </button>
       </p>
+      ) : null}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
+import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
 import DisciplineSwitcher from "../components/DisciplineSwitcher";
 import { HamburgerIcon } from "../components/HamburgerIcon";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useAppDiscipline } from "../contexts/AppDisciplineContext";
 import { useAuth } from "../contexts/AuthContext";
+import { scopeAllowsDiscipline } from "../lib/company-competition-scope";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 
 type NavItem = { to: string; labelKey: string; end?: boolean };
@@ -77,15 +78,40 @@ const NAV_F1: NavItem[] = [
   { to: "/app/perfil", labelKey: "nav.profile" },
 ];
 
+function isFootballAppPath(pathname: string): boolean {
+  if (!pathname.startsWith("/app")) return false;
+  if (pathname.startsWith("/app/f1")) return false;
+  if (pathname.startsWith("/app/contexto")) return false;
+  if (pathname === "/app" || pathname === "/app/") return false;
+  if (pathname.startsWith("/app/admin") || pathname.startsWith("/app/platform")) return false;
+  if (pathname.startsWith("/app/perfil")) return false;
+  return true;
+}
+
 export default function AppLayout() {
   const { t } = useTranslation("app");
-  const { user, loading, logout } = useAuth();
+  const { user, company, loading, logout } = useAuth();
   const { pathname } = useLocation();
-  const { discipline } = useAppDiscipline();
+  const navigate = useNavigate();
+  const { discipline, setDiscipline } = useAppDiscipline();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuFirstLinkRef = useRef<HTMLAnchorElement>(null);
+  const scope = company?.competitionScope;
 
   const arenaPicker = pathname.startsWith("/app/contexto");
+
+  useEffect(() => {
+    if (!scope || scope === "all") return;
+    if (pathname.startsWith("/app/f1") && !scopeAllowsDiscipline(scope, "f1")) {
+      setDiscipline("football", { navigateToHub: true });
+      navigate("/app", { replace: true });
+      return;
+    }
+    if (isFootballAppPath(pathname) && !scopeAllowsDiscipline(scope, "football")) {
+      setDiscipline("f1", { navigateToHub: true });
+      navigate("/app/f1", { replace: true });
+    }
+  }, [pathname, scope, navigate, setDiscipline]);
   const navItems = discipline === "f1" ? NAV_F1 : NAV_FOOTBALL;
   const logoHref = discipline === "f1" ? "/app/f1" : "/app";
   const logoSub = discipline === "f1" ? t("layout.logoF1") : t("layout.logoFootball");
