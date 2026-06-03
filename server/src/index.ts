@@ -36,6 +36,7 @@ import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
 import { registerCompetitionInviteRoutes } from "./competition-invite-routes";
 import { registerF1Routes } from "./f1-routes";
+import { getMailStatus, logMailConfigAtStartup } from "./mail";
 import { mountOAuthRoutes } from "./oauth";
 import {
   startOpenF1ResultAutoSync,
@@ -244,6 +245,11 @@ app.get("/", (_req, res) => {
 
 app.get("/health", (_req, res) => {
   res.status(200).json({ ok: true });
+});
+
+/** Diagnóstico de correo (sin secretos). provider=brevo-api evita SMTP en Railway Hobby. */
+app.get("/health/mail", (_req, res) => {
+  res.status(200).json(getMailStatus());
 });
 
 /** Próximos partidos (sin auth: home marketing y /app). */
@@ -1985,6 +1991,7 @@ const port = Number(process.env.PORT ?? 4000);
 app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
+  logMailConfigAtStartup();
   startFootballDataResultAutoSync(prisma);
   startOpenF1ResultAutoSync(prisma);
   if (process.env.OPENF1_BOOTSTRAP_SYNC !== "false") {

@@ -205,7 +205,9 @@ En el servicio **backend** configurá (recomendado):
 | `MAIL_FROM` | Remitente verificado, ej. `noreply@promptplay.pro` |
 | `MAIL_FROM_NAME` | Opcional, ej. `PromptPlay` |
 
-Redeploy del backend. Las variables `SMTP_*` son opcionales (solo útiles en local o Railway Pro).
+Redeploy del backend. **Quitá** `SMTP_HOST`, `SMTP_USER` y `SMTP_PASS` en Hobby si usás API (si quedan, antes el servidor podía intentar SMTP y dar `connection timeout`).
+
+Comprobación: `GET https://<tu-api>/health/mail` debe devolver `"provider":"brevo-api"` y `"configured":true`.
 
 ---
 

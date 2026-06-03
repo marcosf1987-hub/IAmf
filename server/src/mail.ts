@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+const BREVO_FETCH_TIMEOUT_MS = 25_000;
 
 function escapeHtml(s: string): string {
   return s
@@ -10,8 +11,16 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
-function isBrevoApiConfigured(): boolean {
-  return Boolean(process.env.BREVO_API_KEY?.trim() && resolveMailFrom());
+/** Clave API Brevo (HTTPS). Alias legacy Sendinblue. */
+function readBrevoApiKey(): string | undefined {
+  const key =
+    process.env.BREVO_API_KEY?.trim() ||
+    process.env.SENDINBLUE_API_KEY?.trim();
+  return key || undefined;
+}
+
+function hasBrevoApiKey(): boolean {
+  return Boolean(readBrevoApiKey());
 }
 
 function isSmtpConfigured(): boolean {
@@ -22,12 +31,11 @@ function isSmtpConfigured(): boolean {
   );
 }
 
-/** True si hay API Brevo (HTTPS, recomendado en Railway Hobby) o SMTP completo. */
-export function isMailConfigured(): boolean {
-  return isBrevoApiConfigured() || isSmtpConfigured();
+function resolveMailFromForApi(): string | null {
+  return process.env.MAIL_FROM?.trim() || null;
 }
 
-function resolveMailFrom(): string | null {
+function resolveMailFromForSmtp(): string | null {
   const from = process.env.MAIL_FROM?.trim();
   if (from) return from;
   if (isSmtpConfigured()) return process.env.SMTP_USER!.trim();
@@ -38,8 +46,77 @@ function resolveMailFromName(): string {
   return process.env.MAIL_FROM_NAME?.trim() || "PromptPlay";
 }
 
-function useBrevoApi(): boolean {
-  return isBrevoApiConfigured();
+/** True si hay API Brevo (HTTPS, recomendado en Railway Hobby) o SMTP completo. */
+export function isMailConfigured(): boolean {
+  if (hasBrevoApiKey()) {
+    return Boolean(resolveMailFromForApi());
+  }
+  return isSmtpConfigured() && Boolean(resolveMailFromForSmtp());
+}
+
+export type MailStatus = {
+  configured: boolean;
+  provider: "brevo-api" | "smtp" | "none";
+  brevoApiKeySet: boolean;
+  mailFromSet: boolean;
+  smtpConfigured: boolean;
+  hint?: string;
+};
+
+/** Diagnóstico sin secretos (GET /health/mail). */
+export function getMailStatus(): MailStatus {
+  const brevoApiKeySet = hasBrevoApiKey();
+  const mailFromSet = Boolean(resolveMailFromForApi());
+  const smtpConfigured = isSmtpConfigured();
+
+  if (brevoApiKeySet) {
+    if (!mailFromSet) {
+      return {
+        configured: false,
+        provider: "brevo-api",
+        brevoApiKeySet: true,
+        mailFromSet: false,
+        smtpConfigured,
+        hint: "Definí MAIL_FROM (remitente verificado en Brevo). No uses solo SMTP en Railway Hobby.",
+      };
+    }
+    return {
+      configured: true,
+      provider: "brevo-api",
+      brevoApiKeySet: true,
+      mailFromSet: true,
+      smtpConfigured,
+      hint: smtpConfigured
+        ? "Se usará API Brevo (HTTPS), no SMTP. Podés quitar SMTP_* en Railway Hobby."
+        : undefined,
+    };
+  }
+
+  if (smtpConfigured) {
+    return {
+      configured: true,
+      provider: "smtp",
+      brevoApiKeySet: false,
+      mailFromSet: Boolean(resolveMailFromForSmtp()),
+      smtpConfigured: true,
+      hint: "SMTP suele fallar con connection timeout en Railway Hobby. Usá BREVO_API_KEY + MAIL_FROM.",
+    };
+  }
+
+  return {
+    configured: false,
+    provider: "none",
+    brevoApiKeySet: false,
+    mailFromSet: false,
+    smtpConfigured: false,
+    hint: "Configurá BREVO_API_KEY y MAIL_FROM en el servicio backend.",
+  };
+}
+
+export function logMailConfigAtStartup(): void {
+  const s = getMailStatus();
+  // eslint-disable-next-line no-console
+  console.info("[mail] startup", JSON.stringify(s));
 }
 
 type SendPayload = {
@@ -50,10 +127,16 @@ type SendPayload = {
 };
 
 async function sendViaBrevoApi(payload: SendPayload): Promise<{ ok: boolean; error?: string }> {
-  const apiKey = process.env.BREVO_API_KEY!.trim();
-  const fromEmail = resolveMailFrom();
-  if (!fromEmail) {
+  const apiKey = readBrevoApiKey();
+  const fromEmail = resolveMailFromForApi();
+  if (!apiKey) {
     return { ok: false, error: "mail_not_configured" };
+  }
+  if (!fromEmail) {
+    return {
+      ok: false,
+      error: "Falta MAIL_FROM en el servidor (remitente verificado en Brevo).",
+    };
   }
 
   try {
@@ -71,6 +154,7 @@ async function sendViaBrevoApi(payload: SendPayload): Promise<{ ok: boolean; err
         htmlContent: payload.html,
         textContent: payload.text,
       }),
+      signal: AbortSignal.timeout(BREVO_FETCH_TIMEOUT_MS),
     });
 
     if (res.ok) {
@@ -98,7 +182,7 @@ async function sendViaBrevoApi(payload: SendPayload): Promise<{ ok: boolean; err
 }
 
 async function sendViaSmtp(payload: SendPayload): Promise<{ ok: boolean; error?: string }> {
-  const from = resolveMailFrom();
+  const from = resolveMailFromForSmtp();
   if (!from || !isSmtpConfigured()) {
     return { ok: false, error: "mail_not_configured" };
   }
@@ -111,6 +195,9 @@ async function sendViaSmtp(payload: SendPayload): Promise<{ ok: boolean; error?:
     host,
     port,
     secure,
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 15_000,
     auth: {
       user: process.env.SMTP_USER!.trim(),
       pass: process.env.SMTP_PASS!.trim(),
@@ -130,18 +217,25 @@ async function sendViaSmtp(payload: SendPayload): Promise<{ ok: boolean; error?:
     const msg = e instanceof Error ? e.message : String(e);
     // eslint-disable-next-line no-console
     console.error("[mail] sendViaSmtp failed:", msg);
-    return { ok: false, error: msg };
+    const hint =
+      /timeout/i.test(msg) && hasBrevoApiKey()
+        ? `${msg} (¿SMTP_* aún activo sin MAIL_FROM? Quitá SMTP o definí MAIL_FROM para usar API.)`
+        : /timeout/i.test(msg)
+          ? `${msg} (Railway Hobby bloquea SMTP; usá BREVO_API_KEY + MAIL_FROM.)`
+          : msg;
+    return { ok: false, error: hint };
   }
 }
 
 async function dispatchMail(payload: SendPayload): Promise<{ ok: boolean; error?: string }> {
-  if (!isMailConfigured()) {
-    return { ok: false, error: "mail_not_configured" };
-  }
-  if (useBrevoApi()) {
+  if (hasBrevoApiKey()) {
+    // Nunca SMTP si hay clave API (evita timeout en Railway Hobby con SMTP_* residuales).
     return sendViaBrevoApi(payload);
   }
-  return sendViaSmtp(payload);
+  if (isSmtpConfigured()) {
+    return sendViaSmtp(payload);
+  }
+  return { ok: false, error: "mail_not_configured" };
 }
 
 export async function sendInvitationEmail(opts: {
