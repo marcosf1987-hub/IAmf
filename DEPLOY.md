@@ -193,6 +193,22 @@ El frontend es estático después del build. Necesitás decirle **en el build** 
 
 ---
 
+## Correo (invitaciones) — Brevo API en plan Hobby
+
+Railway **Hobby** bloquea SMTP saliente (puertos 587/465); verás `connection timeout` si solo usás SMTP.
+
+En el servicio **backend** configurá (recomendado):
+
+| Variable | Valor |
+|----------|--------|
+| `BREVO_API_KEY` | Clave API de Brevo (`xkeysib-...`, pestaña API keys, no la clave SMTP) |
+| `MAIL_FROM` | Remitente verificado, ej. `noreply@promptplay.pro` |
+| `MAIL_FROM_NAME` | Opcional, ej. `PromptPlay` |
+
+Redeploy del backend. Las variables `SMTP_*` son opcionales (solo útiles en local o Railway Pro).
+
+---
+
 ## Parte I — CORS, cookies de sesión y errores típicos
 
 - El backend usa **allowlist de CORS** con **`credentials: true`** (cookies HttpOnly en el dominio del API). Debés configurar:

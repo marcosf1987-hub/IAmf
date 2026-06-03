@@ -171,14 +171,14 @@ function EquipoTab({
         </button>
         {mailConfigured === false && (
           <p className="auth-error" style={{ marginTop: "0.75rem" }}>
-            El servidor no tiene SMTP configurado: no se envían correos automáticos. Configura SMTP_HOST,
-            SMTP_USER y SMTP_PASS en Railway (backend). Igual puedes copiar el enlace de cada invitación abajo.
+            El servidor no tiene correo configurado: definí BREVO_API_KEY y MAIL_FROM en Railway (backend), o
+            SMTP_HOST, SMTP_USER y SMTP_PASS. Igual puedes copiar el enlace de cada invitación abajo.
           </p>
         )}
         <p className="admin-date-range-hint" style={{ marginTop: "0.75rem" }}>
           {mailConfigured
             ? "Se envía un correo con el enlace a cada dirección. Si falla el envío, el enlace sigue disponible aquí."
-            : "Con SMTP en el backend, se envían los mails automáticamente; si no, copia el enlace manualmente."}
+            : "Con Brevo API o SMTP en el backend, se envían los mails automáticamente; si no, copia el enlace manualmente."}
         </p>
       </form>
 
