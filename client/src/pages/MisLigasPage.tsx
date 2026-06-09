@@ -44,11 +44,16 @@ function parseEmails(raw: string): string[] {
 }
 
 function canCreateMore(q: CompetitionQuota): boolean {
+  if (typeof q.canCreate === "boolean") return q.canCreate;
   if (q.scope === "user") {
     return q.maxCreatedByMe != null && q.createdByMe < q.maxCreatedByMe;
   }
   if (q.maxCompany == null) return true;
   return (q.companyTotal ?? 0) < q.maxCompany;
+}
+
+function isB2BMember(userRole: string | undefined, companySlug: string | undefined): boolean {
+  return companySlug !== "platform-internal" && userRole === "member";
 }
 
 function quotaHint(q: CompetitionQuota): string {
@@ -241,6 +246,7 @@ export default function MisLigasPage() {
 
 function LigasCommunityHome() {
   const { t } = useTranslation("ligas");
+  const { user, company } = useAuth();
   const { showFlash } = useFlash();
   const ligasBase = useLigasBasePath();
   const isF1Shell = useIsF1AppShell();
@@ -319,44 +325,48 @@ function LigasCommunityHome() {
 
   const q = data?.quota;
   const competitions = data?.competitions ?? [];
+  const b2bMember = isB2BMember(user?.role, company?.slug);
   const createAllowed = q ? canCreateMore(q) : false;
+  const showCreateSection = !b2bMember;
 
   return (
     <div className="page-content ligas-page ligas-community">
       <header className="ligas-hero">
         <h1>{t("title")}</h1>
-        <p className="ligas-lead">{t("lead")}</p>
+        <p className="ligas-lead">{b2bMember ? "Tus ligas de empresa: la universal de tu organización y las privadas a las que te invitó tu administrador." : t("lead")}</p>
       </header>
 
       {error && <div className="auth-error">{error}</div>}
 
       <section className="ligas-global-actions" id="ligas-crear" aria-label="Acciones globales">
-        <article className="ligas-action-box" aria-labelledby="ligas-crear-title">
-          <header className="ligas-action-box-head">
-            <h2 id="ligas-crear-title" className="ligas-action-box-title">
-              Crear nueva liga
-            </h2>
-            {q ? <span className="ligas-quota-pill">{quotaHint(q)}</span> : null}
-          </header>
-          <p className="ligas-action-box-desc">
-            Configura las reglas, invita a tus amigos y compite en tu propio grupo cerrado.
-          </p>
-          <button
-            type="button"
-            className="btn-primary ligas-btn-primary ligas-action-cta"
-            disabled={!createAllowed}
-            onClick={() => setModalOpen(true)}
-          >
-            Crear Liga
-          </button>
-          {!createAllowed && q && (
-            <p className="ligas-hint-muted">
-              {q.scope === "user"
-                ? "Llegaste al máximo de ligas que podés crear."
-                : "Tu empresa alcanzó el cupo de competencias."}
+        {showCreateSection ? (
+          <article className="ligas-action-box" aria-labelledby="ligas-crear-title">
+            <header className="ligas-action-box-head">
+              <h2 id="ligas-crear-title" className="ligas-action-box-title">
+                Crear nueva liga
+              </h2>
+              {q ? <span className="ligas-quota-pill">{quotaHint(q)}</span> : null}
+            </header>
+            <p className="ligas-action-box-desc">
+              Configura las reglas, invita a tus amigos y compite en tu propio grupo cerrado.
             </p>
-          )}
-        </article>
+            <button
+              type="button"
+              className="btn-primary ligas-btn-primary ligas-action-cta"
+              disabled={!createAllowed}
+              onClick={() => setModalOpen(true)}
+            >
+              Crear Liga
+            </button>
+            {!createAllowed && q && (
+              <p className="ligas-hint-muted">
+                {q.scope === "user"
+                  ? "Llegaste al máximo de ligas que podés crear."
+                  : "Tu empresa alcanzó el cupo de competencias."}
+              </p>
+            )}
+          </article>
+        ) : null}
 
         <article className="ligas-action-box" id="ligas-unirse" aria-labelledby="ligas-unirse-title">
           <form className="ligas-join-form" onSubmit={handleJoin} aria-describedby={joinMsg ? "ligas-join-err" : undefined}>
@@ -400,22 +410,32 @@ function LigasCommunityHome() {
         {competitions.length === 0 ? (
           <EmptyState
             title="Todavía no estás en ninguna liga"
-            description="Creá una para invitar a tu grupo o unite con el código que te compartieron."
+            description={
+              b2bMember
+                ? "Cuando tu administrador te invite a una liga privada aparecerá acá. La liga universal de tu empresa se asigna automáticamente."
+                : "Creá una para invitar a tu grupo o unite con el código que te compartieron."
+            }
             action={
-              <>
-                <button
-                  type="button"
-                  className="btn-primary"
-                  onClick={() => setModalOpen(true)}
-                  disabled={!createAllowed}
-                  title={!createAllowed && q ? "Llegaste al máximo de ligas que podés crear." : undefined}
-                >
-                  Crear mi primera liga
-                </button>
+              b2bMember ? (
                 <button type="button" className="btn-secondary" onClick={focusJoinCode}>
-                  Tengo un código
+                  Tengo un código de invitación
                 </button>
-              </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    className="btn-primary"
+                    onClick={() => setModalOpen(true)}
+                    disabled={!createAllowed}
+                    title={!createAllowed && q ? "Llegaste al máximo de ligas que podés crear." : undefined}
+                  >
+                    Crear mi primera liga
+                  </button>
+                  <button type="button" className="btn-secondary" onClick={focusJoinCode}>
+                    Tengo un código
+                  </button>
+                </>
+              )
             }
           />
         ) : (

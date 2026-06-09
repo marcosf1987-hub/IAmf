@@ -30,7 +30,7 @@ import { encrypt, decrypt } from "./crypto-util";
 import { registerB2BRoutes } from "./b2b-routes";
 import { isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
-import { ensureUniversalLeagueMembership } from "./universal-league";
+import { backfillAllCompanyUniversalLeagues, ensureUniversalLeagueMembership } from "./universal-league";
 import { parseDisciplineQuery } from "./discipline-query";
 import { buildResultsDashboardPayload } from "./results-dashboard";
 import { registerCompetitionRoutes } from "./competitions-routes";
@@ -1992,6 +1992,18 @@ app.listen(port, () => {
   // eslint-disable-next-line no-console
   console.log(`API listening on http://localhost:${port}`);
   logMailConfigAtStartup();
+  void (async () => {
+    try {
+      const r = await backfillAllCompanyUniversalLeagues(prisma);
+      // eslint-disable-next-line no-console
+      console.log(
+        `Ligas universales B2B: ${r.companies} empresa(s), ${r.users} usuario(s) sincronizados`
+      );
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("backfillAllCompanyUniversalLeagues:", e);
+    }
+  })();
   startFootballDataResultAutoSync(prisma);
   startOpenF1ResultAutoSync(prisma);
   if (process.env.OPENF1_BOOTSTRAP_SYNC !== "false") {

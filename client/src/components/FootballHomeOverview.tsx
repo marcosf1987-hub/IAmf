@@ -48,6 +48,7 @@ export type FootballHomeOverviewProps = {
 };
 
 function canCreateMoreLeagues(q: CompetitionQuota): boolean {
+  if (typeof q.canCreate === "boolean") return q.canCreate;
   if (q.scope === "user") {
     return q.maxCreatedByMe != null && q.createdByMe < q.maxCreatedByMe;
   }
@@ -163,14 +164,13 @@ function DashboardMyLeaguesPanel({ mine }: { mine: MineCompetitionsResponse }) {
             </li>
           ))}
         </ul>
-        <div className="dashboard-my-leagues-actions">
-          <Link
-            to="/app/ligas#ligas-crear"
-            className={`btn-primary${createAllowed ? "" : " dashboard-my-leagues-create--soft"}`}
-          >
-            {t("dashboard.createLeague")}
-          </Link>
-        </div>
+        {createAllowed ? (
+          <div className="dashboard-my-leagues-actions">
+            <Link to="/app/ligas#ligas-crear" className="btn-primary">
+              {t("dashboard.createLeague")}
+            </Link>
+          </div>
+        ) : null}
       </div>
     </section>
   );
@@ -215,6 +215,7 @@ export default function FootballHomeOverview({
   const { t } = useTranslation("app");
   const { phase, deadline, countdown } = useHeroCountdown(worldCupStarted);
   const showLeaguesPanel = hasAnyLeague && !modelReady && mine != null;
+  const createAllowed = mine?.quota ? canCreateMoreLeagues(mine.quota) : false;
 
   const universalLeague = useMemo(
     () => mine?.competitions.find((c) => isProtectedUniversalLeague({ slug: c.slug, name: c.name })),
@@ -266,10 +267,12 @@ export default function FootballHomeOverview({
         <div className="dashboard-hero-actions">
           {!hasAnyLeague ? (
             <>
-              <Link to="/app/ligas#ligas-crear" className="btn-primary">
-                {t("dashboard.createLeagueBtn")}
-              </Link>
-              <Link to="/app/ligas#ligas-unirse" className="btn-secondary">
+              {createAllowed ? (
+                <Link to="/app/ligas#ligas-crear" className="btn-primary">
+                  {t("dashboard.createLeagueBtn")}
+                </Link>
+              ) : null}
+              <Link to="/app/ligas#ligas-unirse" className={createAllowed ? "btn-secondary" : "btn-primary"}>
                 {t("dashboard.joinLeague")}
               </Link>
             </>
@@ -286,16 +289,20 @@ export default function FootballHomeOverview({
               <Link to="/app/prode" className="btn-primary">
                 {t("dashboard.viewPredictions")}
               </Link>
-              <Link to="/app/ligas#ligas-crear" className="btn-secondary">
-                {t("dashboard.createLeagueBtn")}
-              </Link>
+              {createAllowed ? (
+                <Link to="/app/ligas#ligas-crear" className="btn-secondary">
+                  {t("dashboard.createLeagueBtn")}
+                </Link>
+              ) : null}
             </>
           ) : (
             <>
-              <Link to="/app/ligas#ligas-crear" className="btn-primary">
-                {t("dashboard.createLeagueBtn")}
-              </Link>
-              <Link to="/app/prode" className="btn-secondary">
+              {createAllowed ? (
+                <Link to="/app/ligas#ligas-crear" className="btn-primary">
+                  {t("dashboard.createLeagueBtn")}
+                </Link>
+              ) : null}
+              <Link to="/app/prode" className={createAllowed ? "btn-secondary" : "btn-primary"}>
                 {t("dashboard.viewPredictions")}
               </Link>
             </>

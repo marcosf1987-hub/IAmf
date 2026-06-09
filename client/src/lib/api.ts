@@ -777,6 +777,8 @@ export type CompetitionQuota = {
   maxCreatedByMe: number | null;
   companyTotal: number | null;
   maxCompany: number | null;
+  /** Si el usuario actual puede crear ligas (pool: cupo personal; B2B: solo org_admin). */
+  canCreate: boolean;
 };
 
 export type CompetitionCardSnapshot = {

@@ -11,6 +11,7 @@ import {
   fetchMyCompetitions,
   fetchPublicF1Drivers,
   fetchPublicF1Races,
+  type CompetitionQuota,
   type F1RaceSummary,
   type MyCompetitionSummary,
 } from "../lib/api";
@@ -81,6 +82,7 @@ function formatF1Countdown(iso: string): string {
 
 type Props = {
   leagueSummaries?: MyCompetitionSummary[];
+  quota?: CompetitionQuota;
   /** Línea de estado bajo la bienvenida del dashboard (pestaña F1). */
   onStatusLine?: (line: string) => void;
 };
@@ -97,7 +99,17 @@ function padTop3(placements: (number | null)[]): [number | null, number | null, 
   return [a[0] ?? null, a[1] ?? null, a[2] ?? null];
 }
 
-export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props) {
+function canCreateLeagues(q: CompetitionQuota | undefined): boolean {
+  if (!q) return false;
+  if (typeof q.canCreate === "boolean") return q.canCreate;
+  if (q.scope === "user") {
+    return q.maxCreatedByMe != null && q.createdByMe < q.maxCreatedByMe;
+  }
+  if (q.maxCompany == null) return true;
+  return (q.companyTotal ?? 0) < q.maxCompany;
+}
+
+export default function F1HomeOverview({ leagueSummaries, quota: quotaProp, onStatusLine }: Props) {
   const [summary, setSummary] = useState<{ totalPoints: number } | null>(null);
   const [predRaces, setPredRaces] = useState(0);
   const [predDriverCtx, setPredDriverCtx] = useState<PredDriverCtx | null>(null);
@@ -114,18 +126,26 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
   const [f1Err, setF1Err] = useState("");
   const [tipIx] = useState(() => Math.floor(Math.random() * Math.max(f1Tips.length, 1)));
   const [leagueRows, setLeagueRows] = useState<MyCompetitionSummary[] | null>(leagueSummaries ?? null);
+  const [quota, setQuota] = useState<CompetitionQuota | undefined>(quotaProp);
 
   useEffect(() => {
     if (leagueSummaries) setLeagueRows(leagueSummaries);
   }, [leagueSummaries]);
 
   useEffect(() => {
-    if (leagueSummaries) return;
+    if (quotaProp) setQuota(quotaProp);
+  }, [quotaProp]);
+
+  useEffect(() => {
+    if (leagueSummaries && quotaProp) return;
     let cancelled = false;
     (async () => {
       try {
         const mine = await fetchMyCompetitions("f1");
-        if (!cancelled) setLeagueRows(mine.competitions);
+        if (!cancelled) {
+          setLeagueRows(mine.competitions);
+          setQuota(mine.quota);
+        }
       } catch {
         if (!cancelled) setLeagueRows([]);
       }
@@ -133,7 +153,7 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
     return () => {
       cancelled = true;
     };
-  }, [leagueSummaries]);
+  }, [leagueSummaries, quotaProp]);
 
   useEffect(() => {
     let cancelled = false;
@@ -228,6 +248,7 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
   );
 
   const hasAnyLeague = (leagueRows?.length ?? 0) > 0;
+  const createAllowed = canCreateLeagues(quota);
   const rankText =
     generalLeague?.card.myRank != null && generalLeague.card.totalParticipants > 0
       ? t("dashboard.rankOf", { ns: "app", rank: generalLeague.card.myRank, total: generalLeague.card.totalParticipants })
@@ -253,10 +274,12 @@ export default function F1HomeOverview({ leagueSummaries, onStatusLine }: Props)
             : t("hero.noCalendar")}
         </p>
         <div className="dashboard-hero-actions">
-          <Link to="/app/f1/ligas#ligas-crear" className="btn-primary">
-            {t("hero.createLeague", { ns: "f1" })}
-          </Link>
-          <Link to="/app/f1/ligas#ligas-unirse" className="btn-secondary">
+          {createAllowed ? (
+            <Link to="/app/f1/ligas#ligas-crear" className="btn-primary">
+              {t("hero.createLeague", { ns: "f1" })}
+            </Link>
+          ) : null}
+          <Link to="/app/f1/ligas#ligas-unirse" className={createAllowed ? "btn-secondary" : "btn-primary"}>
             {t("hero.joinLeague", { ns: "f1" })}
           </Link>
         </div>

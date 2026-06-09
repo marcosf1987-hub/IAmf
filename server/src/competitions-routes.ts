@@ -18,7 +18,10 @@ import {
   joinCompetitionCodeSchema,
   patchCompetitionSchema,
 } from "./validators";
-import { isProtectedUniversalCompetitionSlug } from "./universal-league";
+import {
+  ensureCompanyUniversalLeagueMembership,
+  isProtectedUniversalCompetitionSlug,
+} from "./universal-league";
 import { createCompetitionEmailInvitation } from "./competition-invite-routes";
 import { parseDisciplineQuery } from "./discipline-query";
 
@@ -53,7 +56,7 @@ function slugifyName(name: string): string {
 
 export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/competitions/mine", requireAuth, async (req, res) => {
-    const { userId, companyId } = (req as AuthedRequest).auth;
+    const { userId, companyId, role } = (req as AuthedRequest).auth;
     const discipline = parseDisciplineQuery(req.query.discipline);
     if (discipline) {
       const allowed = await assertCompanyDisciplineAllowed(prisma, companyId, discipline);
@@ -62,6 +65,24 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         return;
       }
     }
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { slug: true, competitionLimit: true },
+    });
+    if (!company) {
+      res.status(400).json({ error: "no_company" });
+      return;
+    }
+
+    const platform = isPlatformCompanySlug(company.slug);
+    if (!platform) {
+      try {
+        await ensureCompanyUniversalLeagueMembership(prisma, userId);
+      } catch (e) {
+        console.error("ensureCompanyUniversalLeagueMembership (competitions/mine):", e);
+      }
+    }
+
     const rows = await prisma.competitionMember.findMany({
       where: {
         userId,
@@ -86,22 +107,14 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       },
       orderBy: { joinedAt: "desc" },
     });
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-      select: { slug: true, competitionLimit: true },
-    });
-    if (!company) {
-      res.status(400).json({ error: "no_company" });
-      return;
-    }
 
-    const platform = isPlatformCompanySlug(company.slug);
     let quota: {
       scope: "user" | "company";
       createdByMe: number;
       maxCreatedByMe: number | null;
       companyTotal: number | null;
       maxCompany: number | null;
+      canCreate: boolean;
     };
     if (platform) {
       const createdByMe = await prisma.competition.count({
@@ -113,17 +126,23 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
         maxCreatedByMe: FREE_MAX_COMPETITIONS_PER_USER,
         companyTotal: null,
         maxCompany: null,
+        canCreate: createdByMe < FREE_MAX_COMPETITIONS_PER_USER,
       };
     } else {
       const companyTotal = await prisma.competition.count({
         where: { companyId },
       });
+      const isOrgAdmin = role === "org_admin" || role === "super_admin";
+      const canCreate =
+        isOrgAdmin &&
+        (company.competitionLimit == null || companyTotal < company.competitionLimit);
       quota = {
         scope: "company",
         createdByMe: await prisma.competition.count({ where: { createdById: userId } }),
         maxCreatedByMe: null,
         companyTotal,
         maxCompany: company.competitionLimit,
+        canCreate,
       };
     }
 
@@ -153,7 +172,7 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
       return;
     }
 
-    const { userId, companyId } = (req as AuthedRequest).auth;
+    const { userId, companyId, role } = (req as AuthedRequest).auth;
     const { name, maxMembers, description, discipline } = parsed.data;
     const presentationEmoji = discipline === "f1" ? "🏎️" : "⚽";
 
@@ -167,6 +186,13 @@ export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): v
     }
 
     const platform = isPlatformCompanySlug(company.slug);
+    if (!platform && role !== "org_admin" && role !== "super_admin") {
+      res.status(403).json({
+        error: "forbidden",
+        message: "Solo el administrador de empresa puede crear ligas.",
+      });
+      return;
+    }
 
     const scopeCheck = await assertCompanyDisciplineAllowed(prisma, companyId, discipline);
     if (!scopeCheck.ok) {

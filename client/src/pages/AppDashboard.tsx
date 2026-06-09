@@ -186,7 +186,11 @@ export default function AppDashboard() {
           rankingLabel={rankingLabel}
         />
       ) : (
-        <F1HomeOverview leagueSummaries={mine?.competitions} onStatusLine={onF1DashboardStatus} />
+        <F1HomeOverview
+          leagueSummaries={mine?.competitions}
+          quota={mine?.quota}
+          onStatusLine={onF1DashboardStatus}
+        />
       )}
     </div>
   );
