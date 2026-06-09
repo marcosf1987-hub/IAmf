@@ -6190,6 +6190,94 @@ a.btn-oauth--unconfigured {
   margin-bottom: 0.5rem;
 }
 
+/* Super admin plataforma */
+.page-content--platform-admin {
+  max-width: 1280px;
+}
+
+.platform-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .platform-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.platform-settings-col .admin-form {
+  max-width: none;
+}
+
+.platform-overview-cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+@media (max-width: 900px) {
+  .platform-overview-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .platform-overview-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.platform-overview-card {
+  border: 1px solid var(--border);
+  padding: 1rem 1.25rem;
+  min-width: 0;
+}
+
+.platform-overview-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.platform-overview-card-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.platform-overview-card-sub {
+  font-size: 0.85rem;
+  margin-top: 0.35rem;
+  color: var(--text-muted);
+}
+
+.platform-users-table-wrap {
+  max-width: none;
+  width: 100%;
+  margin: 0;
+}
+
+.platform-users-table {
+  width: 100%;
+  table-layout: auto;
+  font-size: 0.85rem;
+}
+
+.platform-users-table th,
+.platform-users-table td {
+  padding: 0.6rem 0.5rem;
+  white-space: nowrap;
+}
+
+.platform-users-table td.platform-users-col-wrap {
+  white-space: normal;
+  min-width: 8rem;
+}
+
 /* Plataforma → tabla Empresas (no usar max-width 900px del admin genérico) */
 .platform-companies-wrap {
   max-width: none;

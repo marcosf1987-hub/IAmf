@@ -241,34 +241,53 @@ export default function PlatformAdminPage() {
   }
 
   return (
-    <div className="page-content">
+    <div className="page-content page-content--platform-admin">
       <h1>Administración de plataforma</h1>
-      <p className="page-subtitle">
-        Pool público (registro abierto y Google), liga universal, empresas B2B, cupos y accesos de administradores.
-      </p>
-      <p className="page-subtitle" style={{ marginTop: "-0.5rem", marginBottom: "1rem" }}>
-        <strong>IA del pool público</strong> se configura en el bloque siguiente (usuarios en{" "}
-        <code className="platform-slug-code">platform-internal</code>). No está en Admin de empresa.
-      </p>
 
       {error && <div className="auth-error">{error}</div>}
       {successMsg && <div className="auth-success">{successMsg}</div>}
 
-      <section className="admin-section" id="ia-pool-publico" style={{ marginBottom: "2rem" }}>
-        {loading ? (
-          <p className="placeholder-text">Cargando configuración de IA…</p>
-        ) : (
-          <AiConfigTab
-            config={platformAiConfig}
-            title="IA del pool público"
-            lead="Proveedor, modelo y API key para usuarios en la org platform-internal (registro público y Google). Si no hay fila en BD, el backend usa solo variables de entorno (p. ej. OPENAI_API_KEY)."
-            successMessage="Configuración de IA del pool guardada."
-            onSave={async (data) => {
-              const { config } = await updatePlatformAiConfig(data);
-              setPlatformAiConfig(config);
-            }}
-          />
-        )}
+      <section className="admin-section platform-settings-row">
+        <div className="platform-settings-grid">
+          <div className="platform-settings-col" id="ia-pool-publico">
+            {loading ? (
+              <p className="placeholder-text">Cargando configuración de IA…</p>
+            ) : (
+              <AiConfigTab
+                config={platformAiConfig}
+                title="IA del pool público"
+                lead=""
+                successMessage="Configuración de IA del pool guardada."
+                onSave={async (data) => {
+                  const { config } = await updatePlatformAiConfig(data);
+                  setPlatformAiConfig(config);
+                }}
+              />
+            )}
+          </div>
+          <div className="platform-settings-col">
+            <h2>Competiciones por defecto (nuevas empresas)</h2>
+            <p className="page-subtitle" style={{ marginTop: "0.25rem" }}>
+              Las empresas B2B nuevas heredan esta opción. Actual: <strong>{scopeLabel(defaultScope)}</strong>.
+            </p>
+            <form onSubmit={saveDefaultScope} className="admin-form" style={{ marginTop: "0.75rem" }}>
+              <label>
+                <span>Al crear empresa</span>
+                <select
+                  value={defaultScopeDraft}
+                  onChange={(e) => setDefaultScopeDraft(e.target.value as CompanyCompetitionScope)}
+                >
+                  <option value="all">Todas las competiciones</option>
+                  <option value="football">Solo Mundial</option>
+                  <option value="f1">Solo F1</option>
+                </select>
+              </label>
+              <button type="submit" className="btn-primary" disabled={savingDefaultScope}>
+                {savingDefaultScope ? "Guardando…" : "Guardar valor por defecto"}
+              </button>
+            </form>
+          </div>
+        </div>
       </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
@@ -282,65 +301,27 @@ export default function PlatformAdminPage() {
         {loading ? (
           <p className="placeholder-text">Cargando resumen…</p>
         ) : overview ? (
-          <div className="platform-overview-cards" style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
-            <div
-              style={{
-                border: "1px solid var(--border)",
-                padding: "1rem 1.25rem",
-                minWidth: 200,
-              }}
-            >
-              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
-                Usuarios pool público
-              </div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>{overview.publicPoolUserCount}</div>
+          <div className="platform-overview-cards">
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Usuarios pool público</div>
+              <div className="platform-overview-card-value">{overview.publicPoolUserCount}</div>
             </div>
-            <div
-              style={{
-                border: "1px solid var(--border)",
-                padding: "1rem 1.25rem",
-                minWidth: 220,
-              }}
-            >
-              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
-                Liga universal (miembros)
-              </div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Liga universal (miembros)</div>
+              <div className="platform-overview-card-value">
                 {overview.universalLeague?.memberCount ?? "—"}
               </div>
               {overview.universalLeague && (
-                <div style={{ fontSize: "0.85rem", marginTop: "0.35rem", color: "var(--text-muted)" }}>
-                  {overview.universalLeague.name}
-                </div>
+                <div className="platform-overview-card-sub">{overview.universalLeague.name}</div>
               )}
             </div>
-            <div
-              style={{
-                border: "1px solid var(--border)",
-                padding: "1rem 1.25rem",
-                minWidth: 200,
-              }}
-            >
-              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
-                Invit. ligas pendientes
-              </div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
-                {overview.pendingCompetitionInvites ?? 0}
-              </div>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Invit. ligas pendientes</div>
+              <div className="platform-overview-card-value">{overview.pendingCompetitionInvites ?? 0}</div>
             </div>
-            <div
-              style={{
-                border: "1px solid var(--border)",
-                padding: "1rem 1.25rem",
-                minWidth: 200,
-              }}
-            >
-              <div className="placeholder-text" style={{ fontSize: "0.75rem", textTransform: "uppercase" }}>
-                Invit. ligas aceptadas
-              </div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 700 }}>
-                {overview.acceptedCompetitionInvites ?? 0}
-              </div>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Invit. ligas aceptadas</div>
+              <div className="platform-overview-card-value">{overview.acceptedCompetitionInvites ?? 0}</div>
             </div>
           </div>
         ) : null}
@@ -365,8 +346,9 @@ export default function PlatformAdminPage() {
               <input
                 type="search"
                 className="admin-input-inline"
-                style={{ minWidth: 200, flex: "1 1 180px" }}
-                placeholder="Filtrar por empresa (nombre o slug)…"
+                style={{ minWidth: 220, flex: "1 1 200px" }}
+                list="platform-company-options"
+                placeholder="Empresa (buscar o elegir)…"
                 value={companyFilterDraft}
                 onChange={(e) => setCompanyFilterDraft(e.target.value)}
                 onKeyDown={(e) => {
@@ -375,6 +357,19 @@ export default function PlatformAdminPage() {
                   }
                 }}
               />
+              <datalist id="platform-company-options">
+                <option value="platform-internal">Pool público</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+                {companies.map((c) => (
+                  <option key={`${c.id}-name`} value={c.name}>
+                    {c.slug}
+                  </option>
+                ))}
+              </datalist>
               <button
                 type="button"
                 className="btn-secondary btn-sm"
@@ -457,8 +452,11 @@ export default function PlatformAdminPage() {
               Mostrando {platformUsers.length} de {platformUsersTotal} usuario{platformUsersTotal === 1 ? "" : "s"}
               {platformUsersTotal > platformUsers.length ? " (límite 100 por consulta)" : ""}.
             </p>
-            <div className="admin-table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
-              <table className="admin-table">
+            <div
+              className="admin-table-wrap platform-users-table-wrap"
+              style={{ maxHeight: 420, overflow: "auto" }}
+            >
+              <table className="admin-table platform-users-table">
                 <thead>
                   <tr>
                     <th>Email</th>
@@ -467,7 +465,7 @@ export default function PlatformAdminPage() {
                     <th>Rol</th>
                     <th>Logins</th>
                     <th>Prompts</th>
-                    <th>Predicciones</th>
+                    <th>Predicc.</th>
                     <th>Alta</th>
                     <th>Acciones</th>
                   </tr>
@@ -477,7 +475,7 @@ export default function PlatformAdminPage() {
                     <tr key={u.id}>
                       <td>{u.email}</td>
                       <td>{u.fullName ?? "—"}</td>
-                      <td>
+                      <td className="platform-users-col-wrap">
                         <span>{u.company.name}</span>
                         <br />
                         <code className="platform-slug-code" style={{ fontSize: "0.75rem" }}>
@@ -521,30 +519,6 @@ export default function PlatformAdminPage() {
               : "Aún no hay usuarios registrados en la plataforma."}
           </p>
         )}
-      </section>
-
-      <section className="admin-section" style={{ marginBottom: "2rem" }}>
-        <h2>Competiciones por defecto (nuevas empresas)</h2>
-        <p className="page-subtitle" style={{ marginTop: "0.25rem" }}>
-          Las empresas B2B nuevas heredan esta opción. Cada admin de empresa puede cambiarla después para su equipo.
-          Actual: <strong>{scopeLabel(defaultScope)}</strong>.
-        </p>
-        <form onSubmit={saveDefaultScope} className="admin-form" style={{ maxWidth: 420, marginTop: "0.75rem" }}>
-          <label>
-            <span>Al crear empresa</span>
-            <select
-              value={defaultScopeDraft}
-              onChange={(e) => setDefaultScopeDraft(e.target.value as CompanyCompetitionScope)}
-            >
-              <option value="all">Todas las competiciones</option>
-              <option value="football">Solo Mundial</option>
-              <option value="f1">Solo F1</option>
-            </select>
-          </label>
-          <button type="submit" className="btn-primary" disabled={savingDefaultScope}>
-            {savingDefaultScope ? "Guardando…" : "Guardar valor por defecto"}
-          </button>
-        </form>
       </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>

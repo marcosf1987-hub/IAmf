@@ -122,7 +122,7 @@ export default function AiConfigTab({
   return (
     <div className="admin-section">
       <h2>{title}</h2>
-      <p className="page-subtitle">{lead}</p>
+      {lead ? <p className="page-subtitle">{lead}</p> : null}
       {err && <div className="auth-error">{err}</div>}
       {ok && <div className="auth-success">{ok}</div>}
       <form onSubmit={(e) => void handleSubmit(e)} className="admin-form" style={{ maxWidth: 480 }}>
