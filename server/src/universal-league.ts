@@ -10,6 +10,13 @@ export const UNIVERSAL_COMPETITION_SLUG = "liga-universal-promptplay";
 /** Liga universal F1 (misma empresa platform-internal). */
 export const UNIVERSAL_F1_COMPETITION_SLUG = "liga-universal-f1-promptplay";
 
+/** Empresas B2B sin liga universal automática de empresa. */
+const COMPANY_UNIVERSAL_LEAGUE_DISABLED_SLUGS = new Set(["reciduca"]);
+
+export function isCompanyUniversalLeagueDisabled(companySlug: string): boolean {
+  return COMPANY_UNIVERSAL_LEAGUE_DISABLED_SLUGS.has(companySlug);
+}
+
 export function companyUniversalFootballSlug(companySlug: string): string {
   return `liga-universal-${companySlug}`;
 }
@@ -21,6 +28,8 @@ export function companyUniversalF1Slug(companySlug: string): string {
 /** Slugs de ligas universales del pool o de empresas B2B (no editables / no eliminables). */
 export function isProtectedUniversalCompetitionSlug(slug: string): boolean {
   if (slug === UNIVERSAL_COMPETITION_SLUG || slug === UNIVERSAL_F1_COMPETITION_SLUG) return true;
+  if (slug === companyUniversalFootballSlug("reciduca")) return false;
+  if (slug === companyUniversalF1Slug("reciduca")) return false;
   if (slug.startsWith("liga-universal-f1-")) return true;
   return slug.startsWith("liga-universal-");
 }
@@ -171,7 +180,9 @@ export async function ensureCompanyUniversalLeagues(
     where: { id: companyId },
     select: { slug: true },
   });
-  if (!company || isPlatformCompanySlug(company.slug)) return;
+  if (!company || isPlatformCompanySlug(company.slug) || isCompanyUniversalLeagueDisabled(company.slug)) {
+    return;
+  }
 
   const footballSlug = companyUniversalFootballSlug(company.slug);
   const f1Slug = companyUniversalF1Slug(company.slug);
@@ -261,6 +272,11 @@ export async function ensureCompanyUniversalLeagueMembership(
   });
   if (!company || isPlatformCompanySlug(company.slug)) return;
 
+  if (isCompanyUniversalLeagueDisabled(company.slug)) {
+    await removeCompanyUniversalLeagueMembership(prisma, userId, company.slug);
+    return;
+  }
+
   const bootstrapUserId = (await resolveCompanyUniversalBootstrapUser(prisma, company.id)) ?? userId;
   await ensureCompanyUniversalLeagues(prisma, company.id, bootstrapUserId);
 
@@ -298,16 +314,11 @@ export async function backfillAllCompanyUniversalLeagues(
 ): Promise<{ companies: number; users: number }> {
   const companies = await prisma.company.findMany({
     where: { NOT: { slug: "platform-internal" } },
-    select: { id: true },
+    select: { id: true, slug: true },
   });
 
   let usersSynced = 0;
   for (const company of companies) {
-    const bootstrapUserId = await resolveCompanyUniversalBootstrapUser(prisma, company.id);
-    if (!bootstrapUserId) continue;
-
-    await ensureCompanyUniversalLeagues(prisma, company.id, bootstrapUserId);
-
     const users = await prisma.user.findMany({
       where: {
         companyId: company.id,
@@ -317,6 +328,19 @@ export async function backfillAllCompanyUniversalLeagues(
       select: { id: true },
     });
 
+    if (isCompanyUniversalLeagueDisabled(company.slug)) {
+      for (const u of users) {
+        await removeCompanyUniversalLeagueMembership(prisma, u.id, company.slug);
+        usersSynced += 1;
+      }
+      continue;
+    }
+
+    const bootstrapUserId = await resolveCompanyUniversalBootstrapUser(prisma, company.id);
+    if (!bootstrapUserId) continue;
+
+    await ensureCompanyUniversalLeagues(prisma, company.id, bootstrapUserId);
+
     for (const u of users) {
       await ensureCompanyUniversalLeagueMembership(prisma, u.id);
       usersSynced += 1;
@@ -324,6 +348,42 @@ export async function backfillAllCompanyUniversalLeagues(
   }
 
   return { companies: companies.length, users: usersSynced };
+}
+
+/** Quita al usuario de las ligas universales de su empresa B2B (si existen). */
+export async function removeCompanyUniversalLeagueMembership(
+  prisma: PrismaDb,
+  userId: string,
+  companySlug: string
+): Promise<void> {
+  if (isPlatformCompanySlug(companySlug)) return;
+
+  const company = await prisma.company.findUnique({
+    where: { slug: companySlug },
+    select: { id: true },
+  });
+  if (!company) return;
+
+  const comps = await prisma.competition.findMany({
+    where: {
+      companyId: company.id,
+      slug: {
+        in: [
+          companyUniversalFootballSlug(companySlug),
+          companyUniversalF1Slug(companySlug),
+        ],
+      },
+    },
+    select: { id: true },
+  });
+  if (comps.length === 0) return;
+
+  await prisma.competitionMember.deleteMany({
+    where: {
+      userId,
+      competitionId: { in: comps.map((c) => c.id) },
+    },
+  });
 }
 
 /** Quita al usuario de las ligas universales del pool público (platform-internal). */
