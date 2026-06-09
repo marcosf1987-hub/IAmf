@@ -73,6 +73,10 @@ export const platformSettingsSchema = z.object({
   defaultCompetitionScope: companyCompetitionScopeSchema,
 });
 
+export const platformTransferUserSchema = z.object({
+  companyId: z.string().trim().min(1).max(64),
+});
+
 export const adminCompanyConfigSchema = z.object({
   anonymizationEnabled: z.boolean().optional(),
   competitionScope: companyCompetitionScopeSchema.optional(),

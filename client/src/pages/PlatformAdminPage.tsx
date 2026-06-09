@@ -11,6 +11,7 @@ import {
   fetchPlatformUsers,
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
+  transferPlatformUserToCompany,
   updatePlatformAiConfig,
   updatePlatformSettings,
   type AiConfig,
@@ -48,6 +49,10 @@ export default function PlatformAdminPage() {
   const [resetPass, setResetPass] = useState("");
   const [resetPass2, setResetPass2] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
+
+  const [transferTarget, setTransferTarget] = useState<{ userId: string; email: string } | null>(null);
+  const [transferCompanyId, setTransferCompanyId] = useState("");
+  const [transferBusy, setTransferBusy] = useState(false);
 
   const [userFilter, setUserFilter] = useState("");
   const [userFilterDraft, setUserFilterDraft] = useState("");
@@ -159,6 +164,41 @@ export default function PlatformAdminPage() {
     } finally {
       setSavingDefaultScope(false);
     }
+  }
+
+  async function submitTransfer(e: React.FormEvent) {
+    e.preventDefault();
+    if (!transferTarget || !transferCompanyId) return;
+    setError("");
+    setSuccessMsg("");
+    const emailLabel = transferTarget.email;
+    const companyName = companies.find((c) => c.id === transferCompanyId)?.name ?? "empresa";
+    setTransferBusy(true);
+    try {
+      await transferPlatformUserToCompany(transferTarget.userId, transferCompanyId);
+      setTransferTarget(null);
+      setTransferCompanyId("");
+      setSuccessMsg(`${emailLabel} movido a ${companyName} como member (fuera del pool y liga universal pública).`);
+      await reload();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Error al mover usuario";
+      if (msg.includes("seats_exceeded")) {
+        setError("La empresa destino no tiene cupos disponibles.");
+      } else if (msg.includes("not_found")) {
+        setError("Solo se pueden mover usuarios activos del pool público (platform-internal).");
+      } else if (msg.includes("invalid_target")) {
+        setError("Empresa destino no válida.");
+      } else {
+        setError(msg);
+      }
+    } finally {
+      setTransferBusy(false);
+    }
+  }
+
+  function cancelTransfer() {
+    setTransferTarget(null);
+    setTransferCompanyId("");
   }
 
   async function submitPasswordReset(e: React.FormEvent) {
@@ -363,6 +403,54 @@ export default function PlatformAdminPage() {
           </div>
         )}
 
+        {transferTarget && (
+          <div
+            className="platform-transfer-panel"
+            style={{
+              marginTop: "0.75rem",
+              marginBottom: "1rem",
+              padding: "1rem",
+              border: "1px solid var(--border)",
+              maxWidth: 480,
+            }}
+          >
+            <p style={{ marginTop: 0, marginBottom: "0.75rem" }}>
+              <strong>Mover a empresa B2B:</strong> {transferTarget.email}
+            </p>
+            <p className="page-subtitle" style={{ marginTop: 0, marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+              Sale del pool público y de la liga universal global. Quedará como <strong>member</strong> en la empresa
+              destino y entrará en su liga universal.
+            </p>
+            <form onSubmit={submitTransfer} className="admin-form" style={{ gap: "0.75rem" }}>
+              <label>
+                <span>Empresa destino</span>
+                <select
+                  value={transferCompanyId}
+                  onChange={(e) => setTransferCompanyId(e.target.value)}
+                  required
+                  className="admin-input-inline"
+                  style={{ width: "100%", maxWidth: 360 }}
+                >
+                  <option value="">Seleccionar…</option>
+                  {companies.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.slug})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+                <button type="submit" className="btn-primary" disabled={transferBusy || !transferCompanyId}>
+                  {transferBusy ? "Moviendo…" : "Mover usuario"}
+                </button>
+                <button type="button" className="btn-secondary" onClick={cancelTransfer} disabled={transferBusy}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
         {!loading && platformUsers.length > 0 && (
           <div style={{ marginTop: "0.25rem" }}>
             <p className="page-subtitle" style={{ marginTop: 0, marginBottom: "0.5rem" }}>
@@ -381,6 +469,7 @@ export default function PlatformAdminPage() {
                     <th>Prompts</th>
                     <th>Predicciones</th>
                     <th>Alta</th>
+                    <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -400,6 +489,24 @@ export default function PlatformAdminPage() {
                       <td>{u.prompts}</td>
                       <td>{u.predictions}</td>
                       <td>{new Date(u.createdAt).toLocaleString("es-AR")}</td>
+                      <td>
+                        {u.company.slug === "platform-internal" ? (
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm"
+                            onClick={() => {
+                              setSuccessMsg("");
+                              setError("");
+                              setTransferTarget({ userId: u.id, email: u.email });
+                              setTransferCompanyId("");
+                            }}
+                          >
+                            Mover a empresa
+                          </button>
+                        ) : (
+                          <span className="placeholder-text">—</span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

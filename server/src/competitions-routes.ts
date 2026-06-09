@@ -18,9 +18,9 @@ import {
   joinCompetitionCodeSchema,
   patchCompetitionSchema,
 } from "./validators";
+import { isProtectedUniversalCompetitionSlug } from "./universal-league";
 import { createCompetitionEmailInvitation } from "./competition-invite-routes";
 import { parseDisciplineQuery } from "./discipline-query";
-import { UNIVERSAL_COMPETITION_SLUG, UNIVERSAL_F1_COMPETITION_SLUG } from "./universal-league";
 
 function routeParamId(req: Request): string | undefined {
   const raw = req.params.id;
@@ -49,10 +49,6 @@ function slugifyName(name: string): string {
     .replace(/^-|-$/g, "")
     .slice(0, 48);
   return s.length > 0 ? s : "liga";
-}
-
-function isProtectedUniversalCompetitionSlug(slug: string): boolean {
-  return slug === UNIVERSAL_COMPETITION_SLUG || slug === UNIVERSAL_F1_COMPETITION_SLUG;
 }
 
 export function registerCompetitionRoutes(app: Express, prisma: PrismaClient): void {

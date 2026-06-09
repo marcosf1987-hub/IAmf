@@ -11,6 +11,7 @@ import {
   platformPatchCompanySchema,
   platformResetOrgAdminPasswordSchema,
   platformSettingsSchema,
+  platformTransferUserSchema,
 } from "./validators";
 import {
   getPlatformDefaultCompetitionScope,
@@ -20,7 +21,12 @@ import { encrypt } from "./crypto-util";
 import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { setSessionCookies } from "./session-cookie";
-import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
+import {
+  UNIVERSAL_COMPETITION_SLUG,
+  ensureCompanyUniversalLeagueMembership,
+  ensureCompanyUniversalLeagues,
+  removePlatformUniversalLeagueMembership,
+} from "./universal-league";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
@@ -251,6 +257,14 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       return u;
     });
 
+    if (!isPlatformCompanySlug(company.slug)) {
+      try {
+        await ensureCompanyUniversalLeagueMembership(prisma, user.id);
+      } catch (e) {
+        console.error("ensureCompanyUniversalLeagueMembership (invite accept):", e);
+      }
+    }
+
     const access = signAccessToken({
       userId: user.id,
       role: user.role,
@@ -448,6 +462,12 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       return { company: comp, adminUser };
     });
 
+    try {
+      await ensureCompanyUniversalLeagues(prisma, result.company.id, result.adminUser.id);
+    } catch (e) {
+      console.error("ensureCompanyUniversalLeagues (create company):", e);
+    }
+
     res.status(201).json({
       company: {
         id: result.company.id,
@@ -623,6 +643,95 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     );
 
     res.status(200).json({ users: rows, total });
+  });
+
+  /** Mover usuario del pool público (platform-internal) a una empresa B2B como member. */
+  app.patch("/platform/users/:userId/company", superAuth, async (req, res) => {
+    const userId = routeParamUserId(req);
+    if (!userId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const parsed = platformTransferUserSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+    const { companyId: targetCompanyId } = parsed.data;
+
+    const targetCompany = await prisma.company.findUnique({
+      where: { id: targetCompanyId },
+      select: { id: true, name: true, slug: true, seatLimit: true },
+    });
+    if (!targetCompany || isPlatformCompanySlug(targetCompany.slug)) {
+      res.status(400).json({ error: "invalid_target" });
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { company: { select: { id: true, slug: true } } },
+    });
+    if (
+      !user ||
+      user.status !== "active" ||
+      user.role === "super_admin" ||
+      !user.company ||
+      !isPlatformCompanySlug(user.company.slug)
+    ) {
+      res.status(404).json({ error: "not_found" });
+      return;
+    }
+
+    const activeSeats = await prisma.user.count({
+      where: {
+        companyId: targetCompany.id,
+        status: "active",
+        role: { in: ["org_admin", "member"] },
+      },
+    });
+    if (activeSeats >= targetCompany.seatLimit) {
+      res.status(403).json({ error: "seats_exceeded" });
+      return;
+    }
+
+    const updated = await prisma.$transaction(async (tx) => {
+      await removePlatformUniversalLeagueMembership(tx, userId);
+      return tx.user.update({
+        where: { id: userId },
+        data: {
+          companyId: targetCompany.id,
+          role: "member",
+          tokenVersion: { increment: 1 },
+        },
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          status: true,
+          companyId: true,
+        },
+      });
+    });
+
+    try {
+      await ensureCompanyUniversalLeagueMembership(prisma, userId);
+    } catch (e) {
+      console.error("ensureCompanyUniversalLeagueMembership (transfer):", e);
+    }
+
+    res.status(200).json({
+      ok: true,
+      user: {
+        ...updated,
+        company: {
+          id: targetCompany.id,
+          name: targetCompany.name,
+          slug: targetCompany.slug,
+        },
+      },
+    });
   });
 
   app.get("/platform/companies", superAuth, async (_req, res) => {

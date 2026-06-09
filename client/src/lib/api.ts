@@ -435,6 +435,28 @@ export async function fetchPlatformUsers(params?: {
   return fetchAuth(`/platform/users?${qs.toString()}`);
 }
 
+export async function transferPlatformUserToCompany(
+  userId: string,
+  companyId: string
+): Promise<{
+  ok: true;
+  user: {
+    id: string;
+    email: string;
+    fullName: string | null;
+    role: string;
+    status: string;
+    companyId: string;
+    company: { id: string; name: string; slug: string };
+  };
+}> {
+  return fetchAuth(`/platform/users/${encodeURIComponent(userId)}/company`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ companyId }),
+  });
+}
+
 export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {
   return fetchAuth("/platform/companies");
 }
