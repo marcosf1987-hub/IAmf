@@ -398,6 +398,19 @@ export type PlatformPublicPoolUser = {
   createdAt: string;
 };
 
+export type PlatformUserRow = {
+  id: string;
+  email: string;
+  fullName: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+  company: { id: string; name: string; slug: string };
+  logins: number;
+  prompts: number;
+  predictions: number;
+};
+
 export async function fetchPlatformOverview(): Promise<PlatformOverview> {
   return fetchAuth("/platform/overview");
 }
@@ -409,6 +422,17 @@ export async function fetchPlatformPublicPoolUsers(
   const qs = new URLSearchParams({ limit: String(limit) });
   if (q?.trim()) qs.set("q", q.trim());
   return fetchAuth(`/platform/public-pool-users?${qs.toString()}`);
+}
+
+export async function fetchPlatformUsers(params?: {
+  limit?: number;
+  q?: string;
+  company?: string;
+}): Promise<{ users: PlatformUserRow[]; total: number }> {
+  const qs = new URLSearchParams({ limit: String(params?.limit ?? 100) });
+  if (params?.q?.trim()) qs.set("q", params.q.trim());
+  if (params?.company?.trim()) qs.set("company", params.company.trim());
+  return fetchAuth(`/platform/users?${qs.toString()}`);
 }
 
 export async function fetchPlatformCompanies(): Promise<{ companies: PlatformCompanyRow[] }> {

@@ -7,8 +7,8 @@ import {
   fetchPlatformAiConfig,
   fetchPlatformCompanies,
   fetchPlatformOverview,
-  fetchPlatformPublicPoolUsers,
   fetchPlatformSettings,
+  fetchPlatformUsers,
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
   updatePlatformAiConfig,
@@ -17,7 +17,7 @@ import {
   type CompanyCompetitionScope,
   type PlatformCompanyRow,
   type PlatformOverview,
-  type PlatformPublicPoolUser,
+  type PlatformUserRow,
 } from "../lib/api";
 import { scopeLabel } from "../lib/company-competition-scope";
 
@@ -25,7 +25,8 @@ export default function PlatformAdminPage() {
   const { user } = useAuth();
   const [companies, setCompanies] = useState<PlatformCompanyRow[]>([]);
   const [overview, setOverview] = useState<PlatformOverview | null>(null);
-  const [publicPoolUsers, setPublicPoolUsers] = useState<PlatformPublicPoolUser[]>([]);
+  const [platformUsers, setPlatformUsers] = useState<PlatformUserRow[]>([]);
+  const [platformUsersTotal, setPlatformUsersTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
@@ -48,24 +49,27 @@ export default function PlatformAdminPage() {
   const [resetPass2, setResetPass2] = useState("");
   const [resetBusy, setResetBusy] = useState(false);
 
-  const [poolFilter, setPoolFilter] = useState("");
-  const [poolFilterDraft, setPoolFilterDraft] = useState("");
+  const [userFilter, setUserFilter] = useState("");
+  const [userFilterDraft, setUserFilterDraft] = useState("");
+  const [companyFilter, setCompanyFilter] = useState("");
+  const [companyFilterDraft, setCompanyFilterDraft] = useState("");
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [{ companies: list }, ov, pool, aiRes, settings] = await Promise.all([
+      const [{ companies: list }, ov, usersRes, aiRes, settings] = await Promise.all([
         fetchPlatformCompanies(),
         fetchPlatformOverview(),
-        fetchPlatformPublicPoolUsers(100, poolFilter),
+        fetchPlatformUsers({ limit: 100, q: userFilter, company: companyFilter }),
         fetchPlatformAiConfig(),
         fetchPlatformSettings(),
       ]);
       setCompanies(list);
       setOverview(ov);
-      setPublicPoolUsers(pool.users);
+      setPlatformUsers(usersRes.users);
+      setPlatformUsersTotal(usersRes.total);
       setPlatformAiConfig(aiRes.config);
       setDefaultScope(settings.defaultCompetitionScope);
       setDefaultScopeDraft(settings.defaultCompetitionScope);
@@ -76,11 +80,12 @@ export default function PlatformAdminPage() {
       setError(e instanceof Error ? e.message : "Error al cargar");
       setCompanies([]);
       setOverview(null);
-      setPublicPoolUsers([]);
+      setPlatformUsers([]);
+      setPlatformUsersTotal(0);
     } finally {
       setLoading(false);
     }
-  }, [poolFilter]);
+  }, [userFilter, companyFilter]);
 
   useEffect(() => {
     void reload();
@@ -302,35 +307,53 @@ export default function PlatformAdminPage() {
 
         {!loading && (
           <div style={{ marginTop: "1.25rem" }}>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Registros del pool público</h3>
+            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Usuarios de la plataforma</h3>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
               <input
                 type="search"
                 className="admin-input-inline"
-                style={{ minWidth: 220, flex: "1 1 200px" }}
+                style={{ minWidth: 200, flex: "1 1 180px" }}
                 placeholder="Filtrar por email o nombre…"
-                value={poolFilterDraft}
-                onChange={(e) => setPoolFilterDraft(e.target.value)}
+                value={userFilterDraft}
+                onChange={(e) => setUserFilterDraft(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
-                    setPoolFilter(poolFilterDraft.trim());
+                    setUserFilter(userFilterDraft.trim());
+                  }
+                }}
+              />
+              <input
+                type="search"
+                className="admin-input-inline"
+                style={{ minWidth: 200, flex: "1 1 180px" }}
+                placeholder="Filtrar por empresa (nombre o slug)…"
+                value={companyFilterDraft}
+                onChange={(e) => setCompanyFilterDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setCompanyFilter(companyFilterDraft.trim());
                   }
                 }}
               />
               <button
                 type="button"
                 className="btn-secondary btn-sm"
-                onClick={() => setPoolFilter(poolFilterDraft.trim())}
+                onClick={() => {
+                  setUserFilter(userFilterDraft.trim());
+                  setCompanyFilter(companyFilterDraft.trim());
+                }}
               >
                 Buscar
               </button>
-              {poolFilter ? (
+              {userFilter || companyFilter ? (
                 <button
                   type="button"
                   className="btn-secondary btn-sm"
                   onClick={() => {
-                    setPoolFilter("");
-                    setPoolFilterDraft("");
+                    setUserFilter("");
+                    setUserFilterDraft("");
+                    setCompanyFilter("");
+                    setCompanyFilterDraft("");
                   }}
                 >
                   Limpiar
@@ -340,24 +363,42 @@ export default function PlatformAdminPage() {
           </div>
         )}
 
-        {!loading && publicPoolUsers.length > 0 && (
+        {!loading && platformUsers.length > 0 && (
           <div style={{ marginTop: "0.25rem" }}>
-            <div className="admin-table-wrap" style={{ maxHeight: 320, overflow: "auto" }}>
+            <p className="page-subtitle" style={{ marginTop: 0, marginBottom: "0.5rem" }}>
+              Mostrando {platformUsers.length} de {platformUsersTotal} usuario{platformUsersTotal === 1 ? "" : "s"}
+              {platformUsersTotal > platformUsers.length ? " (límite 100 por consulta)" : ""}.
+            </p>
+            <div className="admin-table-wrap" style={{ maxHeight: 420, overflow: "auto" }}>
               <table className="admin-table">
                 <thead>
                   <tr>
                     <th>Email</th>
                     <th>Nombre</th>
+                    <th>Empresa</th>
                     <th>Rol</th>
+                    <th>Logins</th>
+                    <th>Prompts</th>
+                    <th>Predicciones</th>
                     <th>Alta</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {publicPoolUsers.map((u) => (
+                  {platformUsers.map((u) => (
                     <tr key={u.id}>
                       <td>{u.email}</td>
                       <td>{u.fullName ?? "—"}</td>
+                      <td>
+                        <span>{u.company.name}</span>
+                        <br />
+                        <code className="platform-slug-code" style={{ fontSize: "0.75rem" }}>
+                          {u.company.slug}
+                        </code>
+                      </td>
                       <td>{u.role}</td>
+                      <td>{u.logins}</td>
+                      <td>{u.prompts}</td>
+                      <td>{u.predictions}</td>
                       <td>{new Date(u.createdAt).toLocaleString("es-AR")}</td>
                     </tr>
                   ))}
@@ -366,9 +407,11 @@ export default function PlatformAdminPage() {
             </div>
           </div>
         )}
-        {!loading && publicPoolUsers.length === 0 && (
+        {!loading && platformUsers.length === 0 && (
           <p className="placeholder-text" style={{ marginTop: "0.5rem" }}>
-            {poolFilter ? "No hay usuarios que coincidan con el filtro." : "Aún no hay usuarios en el pool público."}
+            {userFilter || companyFilter
+              ? "No hay usuarios que coincidan con los filtros."
+              : "Aún no hay usuarios registrados en la plataforma."}
           </p>
         )}
       </section>

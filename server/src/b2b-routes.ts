@@ -1,6 +1,6 @@
 import crypto from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
-import type { PrismaClient } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 import { signAccessToken, verifyAccessToken, getAccessTokenFromRequest, type AuthedRequest } from "./auth";
 import { hashPassword } from "./password";
 import {
@@ -550,6 +550,79 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       take: limit,
     });
     res.status(200).json({ users });
+  });
+
+  /** Todos los usuarios de la plataforma (super admin), con empresa y métricas de uso. */
+  app.get("/platform/users", superAuth, async (req, res) => {
+    const rawLimit = req.query.limit;
+    const parsedLimit = rawLimit !== undefined && rawLimit !== "" ? parseInt(String(rawLimit), 10) : 80;
+    const limit = Math.min(200, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 80));
+    const qRaw = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const companyRaw = typeof req.query.company === "string" ? req.query.company.trim() : "";
+
+    const where: Prisma.UserWhereInput = {
+      role: { not: "super_admin" },
+      ...(qRaw.length > 0
+        ? {
+            OR: [
+              { email: { contains: qRaw, mode: "insensitive" } },
+              { fullName: { contains: qRaw, mode: "insensitive" } },
+            ],
+          }
+        : {}),
+      ...(companyRaw.length > 0
+        ? {
+            company: {
+              OR: [
+                { name: { contains: companyRaw, mode: "insensitive" } },
+                { slug: { contains: companyRaw, mode: "insensitive" } },
+              ],
+            },
+          }
+        : {}),
+    };
+
+    const [total, users] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          fullName: true,
+          role: true,
+          status: true,
+          createdAt: true,
+          company: { select: { id: true, name: true, slug: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: limit,
+      }),
+    ]);
+
+    const rows = await Promise.all(
+      users.map(async (u) => {
+        const [logins, prompts, predictions] = await Promise.all([
+          prisma.loginEvent.count({ where: { userId: u.id } }),
+          prisma.promptLog.count({ where: { userId: u.id } }),
+          prisma.prediction.count({ where: { userId: u.id } }),
+        ]);
+        return {
+          id: u.id,
+          email: u.email,
+          fullName: u.fullName,
+          role: u.role,
+          status: u.status,
+          createdAt: u.createdAt,
+          company: u.company,
+          logins,
+          prompts,
+          predictions,
+        };
+      })
+    );
+
+    res.status(200).json({ users: rows, total });
   });
 
   app.get("/platform/companies", superAuth, async (_req, res) => {
