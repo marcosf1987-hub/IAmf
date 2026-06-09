@@ -8,7 +8,9 @@ import { useIsF1AppShell, useLigasBasePath } from "../hooks/useLigasBasePath";
 import type { CompetitionDiscipline } from "../lib/api";
 import type {
   CompetitionDetailResponse,
+  CompetitionLeaderboardBlock,
   CompetitionQuota,
+  LeaderboardEntry,
   MineCompetitionsResponse,
   MyCompetitionSummary,
   ResultsDashboard,
@@ -62,6 +64,25 @@ function quotaHint(q: CompetitionQuota): string {
   }
   if (q.maxCompany == null) return `Empresa: ${q.companyTotal ?? 0} competencias`;
   return `Empresa: ${q.companyTotal ?? 0} / ${q.maxCompany}`;
+}
+
+function leagueRankingRows(
+  block: CompetitionLeaderboardBlock | undefined,
+  members: CompetitionDetailResponse["members"]
+): LeaderboardEntry[] {
+  if (block && block.leaderboard.length > 0) return block.leaderboard;
+  return [...members]
+    .sort((a, b) => {
+      const nameA = (a.fullName?.trim() || a.email).toLowerCase();
+      const nameB = (b.fullName?.trim() || b.email).toLowerCase();
+      return nameA.localeCompare(nameB, "es", { sensitivity: "base" });
+    })
+    .map((m, i) => ({
+      userId: m.userId,
+      alias: m.fullName?.trim() || m.email,
+      hits: 0,
+      rank: i + 1,
+    }));
 }
 
 function isProtectedUniversalLeague(input: { slug?: string | null; name?: string | null }): boolean {
@@ -684,6 +705,10 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
   const { competition, members, myRole } = detail;
   const isAdmin = myRole === "competition_admin";
   const block = dash?.competitionLeaderboards.find((b) => b.id === competitionId);
+  const rankingRows = leagueRankingRows(block, members);
+  const rankingParticipants = block?.totalParticipants ?? members.length;
+  const myLeagueRank =
+    block?.myRank ?? rankingRows.find((r) => r.userId === user?.id)?.rank ?? null;
   const isF1Liga = competition.discipline === "f1";
 
   function setTab(next: "ranking" | "config") {
@@ -741,27 +766,29 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
               ? "Puntos F1 según el top 10 oficial (OpenF1) y tus predicciones por carrera; el ranking es sólo entre miembros de esta liga."
               : "Mismas predicciones que en el global; acá el puntaje es solo entre miembros de esta liga."}
           </p>
-          {block ? (
+          {rankingParticipants > 0 ? (
             <div className="ligas-your-rank-strip" role="region" aria-label="Tu posición en esta liga">
               <div className="ligas-your-rank-main">
                 <span className="ligas-your-rank-label">Tu lugar en esta liga</span>
-                {block.myRank != null && block.totalParticipants > 0 ? (
+                {myLeagueRank != null && rankingParticipants > 0 ? (
                   <p className="ligas-your-rank-value">
-                    <strong>#{block.myRank}</strong>
-                    <span className="ligas-your-rank-of"> de {block.totalParticipants} participantes</span>
-                    <RankDelta change={block.rankChange} />
+                    <strong>#{myLeagueRank}</strong>
+                    <span className="ligas-your-rank-of"> de {rankingParticipants} participantes</span>
+                    {block ? <RankDelta change={block.rankChange} /> : null}
                   </p>
                 ) : (
                   <p className="ligas-your-rank-muted">
-                    {isF1Liga
-                      ? "Aún sin posición: cuando una carrera tenga resultado oficial (top 10) en OpenF1, tu puesto aparecerá aquí y en la tabla."
-                      : "Aún sin posición: cuando haya resultados en el torneo, tu puesto aparecerá aquí y en la tabla."}
+                    {rankingRows.every((r) => r.hits === 0)
+                      ? "Sin puntos aún: la tabla muestra a todos los miembros en orden alfabético hasta que haya resultados."
+                      : isF1Liga
+                        ? "Aún sin posición: cuando una carrera tenga resultado oficial (top 10) en OpenF1, tu puesto aparecerá aquí."
+                        : "Aún sin posición: cuando haya resultados en el torneo, tu puesto se actualizará aquí."}
                   </p>
                 )}
               </div>
             </div>
           ) : null}
-          {block && block.leaderboard.length > 0 ? (
+          {rankingRows.length > 0 ? (
             <div className="ligas-table-wrap">
               <table className="ligas-table">
                 <thead>
@@ -772,7 +799,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
                   </tr>
                 </thead>
                 <tbody>
-                  {block.leaderboard.map((row) => (
+                  {rankingRows.map((row) => (
                     <tr key={row.userId} className={user?.id === row.userId ? "ligas-row-me" : ""}>
                       <td>{row.rank}</td>
                       <td>{row.alias}</td>
@@ -784,12 +811,8 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
             </div>
           ) : (
             <EmptyState
-              title="Todavía no hay ranking en esta liga"
-              description={
-                isF1Liga
-                  ? "Cuando OpenF1 tenga el top 10 de una carrera cerrada y los miembros tengan predicciones F1, la tabla se completará automáticamente."
-                  : "Cuando se publiquen resultados de partidos y los miembros tengan predicciones, la tabla se completará automáticamente."
-              }
+              title="Todavía no hay miembros en esta liga"
+              description="Cuando alguien se una a la liga, aparecerá en esta tabla."
             />
           )}
           <Link to={isF1Shell ? "/app/f1/resultados" : "/app/resultados"} className="ligas-link-results">

@@ -92,7 +92,11 @@ export function computeLeaderboardForUsers(
         hits: hitsByUser.get(uid) ?? 0,
       };
     })
-    .sort((a, b) => b.hits - a.hits)
+    .sort(
+      (a, b) =>
+        b.hits - a.hits ||
+        a.alias.localeCompare(b.alias, "es", { sensitivity: "base" })
+    )
     .map((r, i) => ({ ...r, rank: i + 1 }));
 
   const prevHitsByUser = new Map<string, number>();
@@ -121,5 +125,41 @@ export function computeLeaderboardForUsers(
     myRank,
     totalParticipants: companyUserIds.length,
     rankChange: myRankChange,
+  };
+}
+
+/** Lista de miembros con 0 puntos, orden alfabético por nombre visible (sin resultados aún). */
+export function buildAlphabeticalMemberLeaderboard(
+  companyUsers: DashboardUserRow[],
+  anonymize: boolean,
+  companyIdForAnonymization: string,
+  currentUserId: string
+): {
+  leaderboard: LeaderboardRowOut[];
+  myRank: number | null;
+  totalParticipants: number;
+  rankChange: number;
+} {
+  const rows = companyUsers
+    .map((u) => {
+      const alias = anonymize
+        ? anonymizeUserId(u.id, companyIdForAnonymization)
+        : u.fullName?.trim() || u.email || "Usuario";
+      return { userId: u.id, alias, hits: 0 };
+    })
+    .sort((a, b) => a.alias.localeCompare(b.alias, "es", { sensitivity: "base" }));
+
+  const leaderboard = rows.map((r, i) => ({
+    ...r,
+    rank: i + 1,
+    rankChange: 0,
+  }));
+
+  const myEntry = leaderboard.find((r) => r.userId === currentUserId);
+  return {
+    leaderboard,
+    myRank: myEntry?.rank ?? null,
+    totalParticipants: companyUsers.length,
+    rankChange: 0,
   };
 }

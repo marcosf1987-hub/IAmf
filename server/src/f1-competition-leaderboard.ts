@@ -51,9 +51,18 @@ export function buildF1LeagueLeaderboardRows(
   totalParticipants: number;
 } {
   const userById = new Map(memberUsers.map((u) => [u.id, u]));
+  const aliasFor = (uid: string): string => {
+    const u = userById.get(uid);
+    if (anonymizeCompetition && u) return anonymizeUserId(uid, companyIdForAnonymization);
+    return u?.fullName?.trim() || u?.email || "Usuario";
+  };
   const sorted = [...memberIds]
     .map((uid) => ({ userId: uid, points: totals.get(uid) ?? 0 }))
-    .sort((a, b) => b.points - a.points || a.userId.localeCompare(b.userId));
+    .sort(
+      (a, b) =>
+        b.points - a.points ||
+        aliasFor(a.userId).localeCompare(aliasFor(b.userId), "es", { sensitivity: "base" })
+    );
   const leaderboard: F1LeagueLeaderboardRow[] = sorted.map((row, i) => {
     const u = userById.get(row.userId);
     const alias =

@@ -1,6 +1,10 @@
 import type { PrismaClient } from "@prisma/client";
 import type { CompetitionDiscipline } from "./discipline-query";
-import { computeLeaderboardForUsers, isExactHit } from "./leaderboard";
+import {
+  buildAlphabeticalMemberLeaderboard,
+  computeLeaderboardForUsers,
+  isExactHit,
+} from "./leaderboard";
 import { isPlatformCompanySlug } from "./org-seat";
 import {
   buildF1LeagueLeaderboardRows,
@@ -123,6 +127,21 @@ async function buildCompetitionLeaderboardsForMemberships(
     }
 
     if (matchIds.length === 0) {
+      const lb = buildAlphabeticalMemberLeaderboard(
+        memberUsers,
+        anonymizeCompetition,
+        comp.companyId,
+        userId
+      );
+      competitionLeaderboards.push({
+        id: comp.id,
+        name: comp.name,
+        slug: comp.slug,
+        leaderboard: lb.leaderboard,
+        myRank: lb.myRank,
+        totalParticipants: lb.totalParticipants,
+        rankChange: lb.rankChange,
+      });
       continue;
     }
 
