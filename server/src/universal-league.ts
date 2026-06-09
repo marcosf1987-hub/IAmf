@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { CompetitionMemberRole, type Prisma, type PrismaClient } from "@prisma/client";
 
 type PrismaDb = PrismaClient | Prisma.TransactionClient;
-import { CompetitionMemberRole } from "@prisma/client";
 import { isPlatformCompanySlug } from "./org-seat";
 
 /** Slug fijo de la competencia “pool público” (una por plataforma). */
@@ -26,7 +25,7 @@ export function isProtectedUniversalCompetitionSlug(slug: string): boolean {
   return slug.startsWith("liga-universal-");
 }
 
-async function allocateInviteCode(prisma: PrismaClient): Promise<string> {
+async function allocateInviteCode(prisma: PrismaDb): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
     const code = `MUNDIAL-IA-${randomBytes(3).toString("hex").toUpperCase()}`;
     const clash = await prisma.competition.findUnique({
@@ -38,7 +37,7 @@ async function allocateInviteCode(prisma: PrismaClient): Promise<string> {
   throw new Error("invite_code_exhausted");
 }
 
-async function allocateF1InviteCode(prisma: PrismaClient): Promise<string> {
+async function allocateF1InviteCode(prisma: PrismaDb): Promise<string> {
   for (let attempt = 0; attempt < 40; attempt++) {
     const code = `F1-IA-${randomBytes(3).toString("hex").toUpperCase()}`;
     const clash = await prisma.competition.findUnique({
