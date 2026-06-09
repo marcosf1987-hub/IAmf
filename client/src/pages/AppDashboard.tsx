@@ -110,7 +110,14 @@ export default function AppDashboard() {
         );
         setMine({
           competitions: [],
-          quota: { scope: "user", createdByMe: 0, maxCreatedByMe: null, companyTotal: null, maxCompany: null },
+          quota: {
+            scope: "user",
+            createdByMe: 0,
+            maxCreatedByMe: null,
+            companyTotal: null,
+            maxCompany: null,
+            canCreate: false,
+          },
         });
         setResultsDash(EMPTY_DASH);
         setLoadError(t("dashboard.loadError"));
