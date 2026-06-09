@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import AiConfigTab from "../components/AiConfigTab";
@@ -21,6 +21,83 @@ import {
   type PlatformUserRow,
 } from "../lib/api";
 import { scopeLabel } from "../lib/company-competition-scope";
+
+type CompanyFilterOption = { value: string; label: string };
+
+function CompanyFilterCombobox({
+  value,
+  onChange,
+  options,
+  onApply,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  options: CompanyFilterOption[];
+  onApply: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const filtered = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q)
+    );
+  }, [options, value]);
+
+  useEffect(() => {
+    function onDocClick(e: MouseEvent) {
+      if (!rootRef.current?.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, []);
+
+  return (
+    <div className="platform-company-combobox" ref={rootRef}>
+      <input
+        type="search"
+        className="admin-input-inline platform-company-combobox-input"
+        placeholder="Empresa (buscar o elegir)…"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            setOpen(false);
+            onApply();
+          }
+          if (e.key === "Escape") setOpen(false);
+        }}
+        autoComplete="off"
+      />
+      {open && filtered.length > 0 ? (
+        <ul className="platform-company-combobox-menu" role="listbox">
+          {filtered.map((o) => (
+            <li key={`${o.value}-${o.label}`}>
+              <button
+                type="button"
+                role="option"
+                className="platform-company-combobox-option"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+              >
+                {o.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
 
 export default function PlatformAdminPage() {
   const { user } = useAuth();
@@ -59,6 +136,15 @@ export default function PlatformAdminPage() {
   const [companyFilter, setCompanyFilter] = useState("");
   const [companyFilterDraft, setCompanyFilterDraft] = useState("");
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
+
+  const companyFilterOptions = useMemo<CompanyFilterOption[]>(
+    () => [
+      { value: "", label: "Todas las empresas" },
+      { value: "platform-internal", label: "Pool público (platform-internal)" },
+      ...companies.map((c) => ({ value: c.slug, label: `${c.name} (${c.slug})` })),
+    ],
+    [companies]
+  );
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -343,33 +429,12 @@ export default function PlatformAdminPage() {
                   }
                 }}
               />
-              <input
-                type="search"
-                className="admin-input-inline"
-                style={{ minWidth: 220, flex: "1 1 200px" }}
-                list="platform-company-options"
-                placeholder="Empresa (buscar o elegir)…"
+              <CompanyFilterCombobox
                 value={companyFilterDraft}
-                onChange={(e) => setCompanyFilterDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    setCompanyFilter(companyFilterDraft.trim());
-                  }
-                }}
+                onChange={setCompanyFilterDraft}
+                options={companyFilterOptions}
+                onApply={() => setCompanyFilter(companyFilterDraft.trim())}
               />
-              <datalist id="platform-company-options">
-                <option value="platform-internal">Pool público</option>
-                {companies.map((c) => (
-                  <option key={c.id} value={c.slug}>
-                    {c.name}
-                  </option>
-                ))}
-                {companies.map((c) => (
-                  <option key={`${c.id}-name`} value={c.name}>
-                    {c.slug}
-                  </option>
-                ))}
-              </datalist>
               <button
                 type="button"
                 className="btn-secondary btn-sm"
@@ -452,11 +517,19 @@ export default function PlatformAdminPage() {
               Mostrando {platformUsers.length} de {platformUsersTotal} usuario{platformUsersTotal === 1 ? "" : "s"}
               {platformUsersTotal > platformUsers.length ? " (límite 100 por consulta)" : ""}.
             </p>
-            <div
-              className="admin-table-wrap platform-users-table-wrap"
-              style={{ maxHeight: 420, overflow: "auto" }}
-            >
+            <div className="admin-table-wrap platform-users-table-wrap" style={{ maxHeight: 420 }}>
               <table className="admin-table platform-users-table">
+                <colgroup>
+                  <col className="platform-users-col-email" />
+                  <col className="platform-users-col-name" />
+                  <col className="platform-users-col-company" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-date" />
+                  <col className="platform-users-col-actions" />
+                </colgroup>
                 <thead>
                   <tr>
                     <th>Email</th>
@@ -473,21 +546,22 @@ export default function PlatformAdminPage() {
                 <tbody>
                   {platformUsers.map((u) => (
                     <tr key={u.id}>
-                      <td>{u.email}</td>
-                      <td>{u.fullName ?? "—"}</td>
-                      <td className="platform-users-col-wrap">
-                        <span>{u.company.name}</span>
-                        <br />
-                        <code className="platform-slug-code" style={{ fontSize: "0.75rem" }}>
-                          {u.company.slug}
-                        </code>
+                      <td className="platform-users-col-email" title={u.email}>
+                        {u.email}
                       </td>
-                      <td>{u.role}</td>
-                      <td>{u.logins}</td>
-                      <td>{u.prompts}</td>
-                      <td>{u.predictions}</td>
-                      <td>{new Date(u.createdAt).toLocaleString("es-AR")}</td>
-                      <td>
+                      <td className="platform-users-col-name">{u.fullName ?? "—"}</td>
+                      <td className="platform-users-col-company" title={`${u.company.name} (${u.company.slug})`}>
+                        {u.company.name}{" "}
+                        <span className="platform-users-company-slug">({u.company.slug})</span>
+                      </td>
+                      <td className="platform-users-col-narrow">{u.role}</td>
+                      <td className="platform-users-col-narrow">{u.logins}</td>
+                      <td className="platform-users-col-narrow">{u.prompts}</td>
+                      <td className="platform-users-col-narrow">{u.predictions}</td>
+                      <td className="platform-users-col-date">
+                        {new Date(u.createdAt).toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="platform-users-col-actions">
                         {u.company.slug === "platform-internal" ? (
                           <button
                             type="button"
@@ -499,7 +573,7 @@ export default function PlatformAdminPage() {
                               setTransferCompanyId("");
                             }}
                           >
-                            Mover a empresa
+                            Mover
                           </button>
                         ) : (
                           <span className="placeholder-text">—</span>
@@ -678,44 +752,52 @@ export default function PlatformAdminPage() {
                     <td className="platform-companies-col-narrow">{c.userCount}</td>
                     <td className="platform-companies-col-narrow">{c.competitionCount ?? "—"}</td>
                     <td className="platform-companies-col-narrow">{c.invitationCount}</td>
-                    <td>
-                      <select
-                        className="admin-input-inline"
-                        style={{ minWidth: 160 }}
-                        value={scopeEdits[c.id] ?? c.competitionScope}
-                        onChange={(e) =>
-                          setScopeEdits((s) => ({
-                            ...s,
-                            [c.id]: e.target.value as CompanyCompetitionScope,
-                          }))
-                        }
-                      >
-                        <option value="all">Todas</option>
-                        <option value="football">Solo Mundial</option>
-                        <option value="f1">Solo F1</option>
-                      </select>{" "}
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm"
-                        onClick={() => saveCompanyScope(c.id)}
-                        disabled={(scopeEdits[c.id] ?? c.competitionScope) === c.competitionScope}
-                      >
-                        Guardar
-                      </button>
+                    <td className="platform-companies-col-edit">
+                      <div className="platform-companies-inline-edit">
+                        <select
+                          className="admin-input-inline platform-companies-scope-select"
+                          value={scopeEdits[c.id] ?? c.competitionScope}
+                          onChange={(e) =>
+                            setScopeEdits((s) => ({
+                              ...s,
+                              [c.id]: e.target.value as CompanyCompetitionScope,
+                            }))
+                          }
+                        >
+                          <option value="all">Todas</option>
+                          <option value="football">Solo Mundial</option>
+                          <option value="f1">Solo F1</option>
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => saveCompanyScope(c.id)}
+                          disabled={(scopeEdits[c.id] ?? c.competitionScope) === c.competitionScope}
+                          title="Guardar competiciones"
+                        >
+                          Guardar
+                        </button>
+                      </div>
                     </td>
-                    <td>
-                      <input
-                        key={`${c.id}-${c.seatLimit}`}
-                        type="number"
-                        min={1}
-                        className="admin-input-inline"
-                        style={{ width: 80 }}
-                        defaultValue={c.seatLimit}
-                        onChange={(e) => setSeatEdits((s) => ({ ...s, [c.id]: e.target.value }))}
-                      />{" "}
-                      <button type="button" className="btn-secondary btn-sm" onClick={() => saveSeat(c.id)}>
-                        Guardar
-                      </button>
+                    <td className="platform-companies-col-edit">
+                      <div className="platform-companies-inline-edit">
+                        <input
+                          key={`${c.id}-${c.seatLimit}`}
+                          type="number"
+                          min={1}
+                          className="admin-input-inline platform-companies-seat-input"
+                          defaultValue={c.seatLimit}
+                          onChange={(e) => setSeatEdits((s) => ({ ...s, [c.id]: e.target.value }))}
+                        />
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => saveSeat(c.id)}
+                          title="Guardar cupos"
+                        >
+                          Guardar
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
