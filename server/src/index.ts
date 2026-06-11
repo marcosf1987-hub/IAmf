@@ -30,6 +30,7 @@ import { encrypt, decrypt } from "./crypto-util";
 import { registerB2BRoutes } from "./b2b-routes";
 import { isPlatformCompanySlug } from "./org-seat";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
+import { filterOpenMatches, isMatchPredictionOpen } from "./match-prediction-window";
 import { backfillAllCompanyUniversalLeagues, ensureUniversalLeagueMembership } from "./universal-league";
 import { parseDisciplineQuery } from "./discipline-query";
 import { buildResultsDashboardPayload } from "./results-dashboard";
@@ -468,6 +469,15 @@ app.post("/predictions", requireAuth, requireFootballDiscipline, async (req, res
     return;
   }
 
+  if (!isMatchPredictionOpen(match.kickoffAt)) {
+    res.status(400).json({
+      error: "prediction_window_closed",
+      message:
+        "La ventana de predicción para este partido ya cerró (1 hora antes del pitazo inicial). No se puede modificar.",
+    });
+    return;
+  }
+
   const prediction = await prisma.prediction.upsert({
     where: {
       userId_matchId: { userId, matchId },
@@ -568,6 +578,28 @@ async function countUserPredictionsInStages(userId: string, stages: MatchStage[]
   return prisma.prediction.count({
     where: { userId, match: { stage: { in: stages } } },
   });
+}
+
+async function listClosedMatchIdsInStages(stages: MatchStage[], now = new Date()): Promise<string[]> {
+  const rows = await prisma.match.findMany({
+    where: { stage: { in: stages } },
+    select: { id: true, kickoffAt: true },
+  });
+  return rows.filter((m) => !isMatchPredictionOpen(m.kickoffAt, now)).map((m) => m.id);
+}
+
+async function countUserPredictionsOnClosedMatches(userId: string, stages: MatchStage[]): Promise<{
+  needClosed: number;
+  haveClosed: number;
+}> {
+  const closedIds = await listClosedMatchIdsInStages(stages);
+  if (closedIds.length === 0) {
+    return { needClosed: 0, haveClosed: 0 };
+  }
+  const haveClosed = await prisma.prediction.count({
+    where: { userId, matchId: { in: closedIds } },
+  });
+  return { needClosed: closedIds.length, haveClosed };
 }
 
 type ProdePromptPhase = "groups" | "roundOf32" | "knockout";
@@ -710,26 +742,26 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
     typeof rawGroupCode === "string" && rawGroupCode.trim().length > 0 ? rawGroupCode.trim() : undefined;
   const stages = PHASE_STAGES[phase] ?? PHASE_STAGES.groups;
 
-  const [needGroup, haveGroup] = await Promise.all([
-    countMatchesInStages(["group"]),
-    countUserPredictionsInStages(userId, ["group"]),
-  ]);
-  const [needR32, haveR32] = await Promise.all([
-    countMatchesInStages(["roundOf32"]),
-    countUserPredictionsInStages(userId, ["roundOf32"]),
+  const [groupClosed, r32Closed] = await Promise.all([
+    countUserPredictionsOnClosedMatches(userId, ["group"]),
+    countUserPredictionsOnClosedMatches(userId, ["roundOf32"]),
   ]);
 
-  if (phase === "roundOf32" && needGroup > 0 && haveGroup < needGroup) {
+  if (
+    phase === "roundOf32" &&
+    groupClosed.needClosed > 0 &&
+    groupClosed.haveClosed < groupClosed.needClosed
+  ) {
     res.status(400).json({
       error: "complete_groups_first",
-      message: `Primero tienes que generar predicciones para todos los partidos de fase de grupos (${haveGroup}/${needGroup}).`,
+      message: `Primero completá predicciones para los partidos de grupos que ya cerraron (${groupClosed.haveClosed}/${groupClosed.needClosed}).`,
     });
     return;
   }
-  if (phase === "knockout" && needR32 > 0 && haveR32 < needR32) {
+  if (phase === "knockout" && r32Closed.needClosed > 0 && r32Closed.haveClosed < r32Closed.needClosed) {
     res.status(400).json({
       error: "complete_roundof32_first",
-      message: `Primero completa predicciones para todos los partidos de la fase anterior (16avos / R32: ${haveR32}/${needR32}).`,
+      message: `Primero completá predicciones para los 16avos que ya cerraron (${r32Closed.haveClosed}/${r32Closed.needClosed}).`,
     });
     return;
   }
@@ -789,6 +821,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
     teamB: string;
     groupCode: string | null;
     stage: MatchStage;
+    kickoffAt: Date;
   };
 
   /** Misma inferencia que GET /matches: si en BD `groupCode` es null, se rellena desde el fixture (p. ej. Grupo A). */
@@ -800,6 +833,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
       teamB: e.teamB,
       groupCode: e.groupCode,
       stage: e.stage,
+      kickoffAt: row.kickoffAt,
     };
   });
 
@@ -818,6 +852,16 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
       });
       return;
     }
+  }
+
+  workMatches = filterOpenMatches(workMatches);
+  if (workMatches.length === 0) {
+    res.status(400).json({
+      error: "no_open_matches",
+      message:
+        "No hay partidos abiertos para predecir en esta solicitud (la ventana cierra 1 hora antes de cada pitazo).",
+    });
+    return;
   }
 
   const predictions: Array<{ id: string; matchId: string; scoreA: number; scoreB: number; createdAt: Date }> = [];

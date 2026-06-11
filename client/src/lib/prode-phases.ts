@@ -1,23 +1,26 @@
 /**
- * Fases de predicción del Prode con deadlines (1h antes del primer partido de cada fase).
+ * Fases de predicción del Prode.
+ * La ventana de carga es por partido (cierra 1 h antes de cada pitazo), no al inicio de la fase.
  */
 import i18n from "../i18n";
+import { getPredictionLockAt, isMatchPredictionOpen } from "./match-prediction-window";
 
 export const PRODE_PHASES = {
   groups: {
     id: "groups" as const,
     stages: ["group"],
-    deadline: new Date("2026-06-11T18:00:00Z"),
+    /** Fin de fase (fallback sin fixture): 1 h antes del último partido de grupos. */
+    fallbackPhaseEnd: new Date("2026-06-28T01:00:00Z"),
   },
   roundOf32: {
     id: "roundOf32" as const,
     stages: ["roundOf32"],
-    deadline: new Date("2026-06-28T02:00:00Z"),
+    fallbackPhaseEnd: new Date("2026-07-04T18:00:00Z"),
   },
   knockout: {
     id: "knockout" as const,
     stages: ["roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"],
-    deadline: new Date("2026-07-04T22:00:00Z"),
+    fallbackPhaseEnd: new Date("2026-07-19T18:00:00Z"),
   },
 } as const;
 
@@ -25,18 +28,47 @@ export type ProdePhaseId = keyof typeof PRODE_PHASES;
 
 const PHASE_ORDER: ProdePhaseId[] = ["groups", "roundOf32", "knockout"];
 
+export type ProdePhaseMatch = { stage: string; kickoffAt: string };
+
 export function getPhaseLabel(id: ProdePhaseId): string {
   return i18n.t(`prode:phases.${id}`);
 }
 
-export function getCurrentPhase(): { phase: ProdePhaseId; deadline: Date; label: string } | null {
+/**
+ * Fase activa: la primera (en orden) que aún tiene partidos con ventana de predicción abierta.
+ * `deadline` = cierre del próximo partido abierto en esa fase (1 h antes de su pitazo).
+ */
+export function getCurrentPhase(
+  matches?: ProdePhaseMatch[]
+): { phase: ProdePhaseId; deadline: Date; label: string } | null {
   const now = new Date();
+  const useFixture = Boolean(matches?.length);
+
   for (const id of PHASE_ORDER) {
     const p = PRODE_PHASES[id];
-    if (now < p.deadline) {
-      return { phase: id, deadline: p.deadline, label: getPhaseLabel(id) };
+
+    if (useFixture) {
+      const phaseMatches = matches!.filter((m) => p.stages.includes(String(m.stage)));
+      const openMatches = phaseMatches.filter((m) => isMatchPredictionOpen(m.kickoffAt, now));
+      if (openMatches.length === 0) continue;
+
+      let nextLockMs = Infinity;
+      for (const m of openMatches) {
+        const lockMs = getPredictionLockAt(m.kickoffAt).getTime();
+        if (lockMs < nextLockMs) nextLockMs = lockMs;
+      }
+      return {
+        phase: id,
+        deadline: new Date(nextLockMs),
+        label: getPhaseLabel(id),
+      };
+    }
+
+    if (now < p.fallbackPhaseEnd) {
+      return { phase: id, deadline: p.fallbackPhaseEnd, label: getPhaseLabel(id) };
     }
   }
+
   return null;
 }
 

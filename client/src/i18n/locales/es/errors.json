@@ -60,6 +60,8 @@
     "complete_groups_first": "Completá primero la fase de grupos.",
     "complete_roundof32_first": "Completá primero los dieciseisavos.",
     "no_matches_for_group": "No hay partidos para ese grupo.",
+    "no_open_matches": "No hay partidos abiertos para predecir (cada uno cierra 1 h antes del pitazo).",
+    "prediction_window_closed": "La ventana de predicción de este partido ya cerró.",
     "migration_required": "Falta una migración en el servidor. Contactá al administrador.",
     "missing_config": "Falta configuración en el servidor.",
     "sync_error": "Error al sincronizar datos.",

@@ -60,6 +60,8 @@
     "complete_groups_first": "Complete the group stage first.",
     "complete_roundof32_first": "Complete the round of 32 first.",
     "no_matches_for_group": "No matches for that group.",
+    "no_open_matches": "No open matches to predict (each closes 1 hour before kickoff).",
+    "prediction_window_closed": "The prediction window for this match is closed.",
     "migration_required": "A server migration is required. Contact your administrator.",
     "missing_config": "Server configuration is missing.",
     "sync_error": "Error syncing data.",

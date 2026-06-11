@@ -15,6 +15,7 @@ import {
   generateProdePredictions,
 } from "../lib/api";
 import { getCurrentPhase, getPhaseLabel, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
+import { isMatchPredictionOpen } from "../lib/match-prediction-window";
 import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 import { formatDateTime } from "../lib/intl-format";
@@ -243,10 +244,13 @@ export default function ProdePage() {
     return computeBestThirds(groups, predictions);
   }, [groupSections, predictions]);
 
-  const currentPhase = getCurrentPhase();
-
   /** Refresca el countdown del subtítulo cada minuto. */
-  const [, setClockTick] = useState(0);
+  const [clockTick, setClockTick] = useState(0);
+
+  const currentPhase = useMemo(
+    () => getCurrentPhase(matches),
+    [matches, clockTick]
+  );
   useEffect(() => {
     const id = window.setInterval(() => setClockTick((t) => t + 1), 60_000);
     return () => clearInterval(id);
@@ -322,6 +326,11 @@ export default function ProdePage() {
           setGroupIaStatus(init);
           let anyPred = false;
           for (const section of groupSections) {
+            const openMatches = section.matches.filter((m) => isMatchPredictionOpen(m.kickoffAt));
+            if (openMatches.length === 0) {
+              setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
+              continue;
+            }
             setGroupIaStatus((prev) => ({ ...prev, [section.id]: "loading" }));
             try {
               const code = apiGroupCodeForSection(section);
@@ -335,18 +344,18 @@ export default function ProdePage() {
                 }
                 return next;
               });
-              const expected = section.matches.length;
+              const expectedOpen = openMatches.length;
               const incomplete =
-                newPreds.length === 0
-                  ? expected > 0
-                  : diagnostics?.status === "partial" || newPreds.length < expected;
-              if (incomplete && expected > 0) {
+                newPreds.length === 0 ||
+                diagnostics?.status === "partial" ||
+                newPreds.length < expectedOpen;
+              if (incomplete) {
                 setGroupIaStatus((prev) => ({
                   ...prev,
                   [section.id]: newPreds.length > 0 ? "done" : "error",
                 }));
                 if (newPreds.length === 0) {
-                  throw new Error(formatProdeAiError(diagnostics, expected));
+                  throw new Error(formatProdeAiError(diagnostics, expectedOpen));
                 }
               } else {
                 setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
@@ -438,7 +447,8 @@ export default function ProdePage() {
             {currentPhase ? (
               <>
                 {" "}
-                Puedes generar predicciones hasta 1 hora antes del primer partido de esta fase. Tiempo restante:{" "}
+                Podés cargar o actualizar predicciones solo en partidos que aún no cerraron (1 hora antes de
+                cada pitazo). Próximo cierre en esta fase:{" "}
                 <strong>{formatTimeLeft(currentPhase.deadline)}</strong>
               </>
             ) : (
@@ -576,7 +586,13 @@ npx prisma db seed`}
                     {section.matches.map((m) => {
                       const pred = predictions[m.id];
                       return (
-                        <MatchCard key={m.id} match={m} prediction={pred} stageLabels={stageLabels} />
+                        <MatchCard
+                          key={m.id}
+                          match={m}
+                          prediction={pred}
+                          stageLabels={stageLabels}
+                          locked={!isMatchPredictionOpen(m.kickoffAt)}
+                        />
                       );
                     })}
                   </div>
@@ -689,7 +705,7 @@ function GroupSimulatorCard({
         <ul className="prode-group-match-list">
           {section.matches.map((m) => (
             <li key={m.id}>
-              <GroupMatchRow match={m} prediction={predictions[m.id]} />
+              <GroupMatchRow match={m} prediction={predictions[m.id]} locked={!isMatchPredictionOpen(m.kickoffAt)} />
             </li>
           ))}
         </ul>
@@ -698,9 +714,17 @@ function GroupSimulatorCard({
   );
 }
 
-function GroupMatchRow({ match, prediction }: { match: Match; prediction?: Prediction }) {
+function GroupMatchRow({
+  match,
+  prediction,
+  locked,
+}: {
+  match: Match;
+  prediction?: Prediction;
+  locked: boolean;
+}) {
   return (
-    <div className="prode-group-match-row">
+    <div className={`prode-group-match-row${locked ? " prode-group-match-row--locked" : ""}`}>
       <span className="prode-group-match-side">
         <ProdeFlag country={match.teamA} />
         <span className="prode-group-match-name">{match.teamA}</span>
@@ -714,6 +738,7 @@ function GroupMatchRow({ match, prediction }: { match: Match; prediction?: Predi
         <span className="prode-group-match-name">{match.teamB}</span>
         <ProdeFlag country={match.teamB} />
       </span>
+      {locked ? <span className="prode-match-locked-badge">Cerrado</span> : null}
     </div>
   );
 }
@@ -761,10 +786,12 @@ function MatchCard({
   match,
   prediction,
   stageLabels,
+  locked,
 }: {
   match: Match;
   prediction?: Prediction;
   stageLabels: Record<string, string>;
+  locked: boolean;
 }) {
   const { t } = useTranslation("prode");
   const date = formatDateTime(match.kickoffAt, {
@@ -776,14 +803,17 @@ function MatchCard({
   });
 
   return (
-    <div className="prode-card">
+    <div className={`prode-card${locked ? " prode-card--locked" : ""}`}>
       <div className="prode-card-header">
         <span className="prode-stage">
           {match.stage === "group" && match.groupCode
             ? t("groupTitle", { code: match.groupCode })
             : stageLabels[match.stage] ?? match.stage}
         </span>
-        <span className="prode-date">{date}</span>
+        <span className="prode-date">
+          {date}
+          {locked ? <span className="prode-match-locked-badge"> · Cerrado</span> : null}
+        </span>
       </div>
       <div className="prode-teams">
         <span>

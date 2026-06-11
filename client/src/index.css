@@ -3681,10 +3681,24 @@ a.btn-oauth--unconfigured {
 
 .prode-group-match-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 0.35rem;
   font-size: 0.78rem;
+}
+
+.prode-group-match-row--locked,
+.prode-card--locked {
+  opacity: 0.72;
+}
+
+.prode-match-locked-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #94a3b8);
+  white-space: nowrap;
 }
 
 .prode-group-match-side {
