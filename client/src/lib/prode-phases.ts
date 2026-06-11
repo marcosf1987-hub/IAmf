@@ -48,7 +48,7 @@ export function getCurrentPhase(
     const p = PRODE_PHASES[id];
 
     if (useFixture) {
-      const phaseMatches = matches!.filter((m) => p.stages.includes(String(m.stage)));
+      const phaseMatches = matches!.filter((m) => p.stages.some((s) => s === m.stage));
       const openMatches = phaseMatches.filter((m) => isMatchPredictionOpen(m.kickoffAt, now));
       if (openMatches.length === 0) continue;
 
