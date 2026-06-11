@@ -665,6 +665,11 @@ ${params.pautas}
 Partidos (las claves del JSON deben ser exactamente estos id, sin modificar):
 ${lines}
 
+Ejemplo de formato EXACTO (reemplazá los ids por los de arriba; no uses nombres de equipos ni números 1,2,3 como claves):
+{
+  "${params.matches[0]?.id ?? "id_ejemplo"}": {"scoreA": 2, "scoreB": 1}
+}
+
 Respondé ÚNICAMENTE con un objeto JSON válido (sin markdown ni texto fuera del JSON). Cada clave es el id del partido. Cada valor es un objeto {"scoreA": número, "scoreB": número} con enteros entre 0 y 20, o un string "2-1" donde el primer número son goles del equipo local (teamA) y el segundo del visitante (teamB).`;
 }
 
@@ -820,14 +825,49 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
   const batchId = randomUUID();
   const promptPhase = phaseKey as ProdePromptPhase;
 
-  async function runMatchBatch(scopeLabel: string, batchMatches: Array<{ id: string; teamA: string; teamB: string }>) {
-    if (batchMatches.length === 0) return;
+  type ProdeAiScopeStatus = "ok" | "partial" | "parse_failed" | "ai_error";
+  type ProdeAiScopeDiagnostic = {
+    scopeLabel: string;
+    requested: number;
+    parsed: number;
+    saved: number;
+    status: ProdeAiScopeStatus;
+    errors: string[];
+  };
+
+  const scopeDiagnostics: ProdeAiScopeDiagnostic[] = [];
+
+  function finalizeScopeStatus(d: ProdeAiScopeDiagnostic): ProdeAiScopeStatus {
+    if (d.errors.some((e) => e.startsWith("ai_error"))) return "ai_error";
+    if (d.saved === 0 && d.requested > 0) return d.parsed > 0 ? "partial" : "parse_failed";
+    if (d.saved < d.requested) return "partial";
+    return "ok";
+  }
+
+  async function runMatchBatch(
+    scopeLabel: string,
+    batchMatches: Array<{ id: string; teamA: string; teamB: string }>
+  ): Promise<ProdeAiScopeDiagnostic> {
+    const diag: ProdeAiScopeDiagnostic = {
+      scopeLabel,
+      requested: batchMatches.length,
+      parsed: 0,
+      saved: 0,
+      status: "ok",
+      errors: [],
+    };
+    if (batchMatches.length === 0) return diag;
+
     const prompt = buildProdeBatchJsonPrompt({
       phaseKey: promptPhase,
       pautas,
       scopeLabel,
       matches: batchMatches,
     });
+
+    let parsedMap = new Map<string, { scoreA: number; scoreB: number }>();
+    const ids = new Set(batchMatches.map((m) => m.id));
+
     try {
       const result = await chat(prompt, chatConfig);
 
@@ -844,15 +884,35 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
         },
       });
 
-      const ids = new Set(batchMatches.map((m) => m.id));
-      let parsedMap = parseAiBatchScoresJson(result.text, ids);
-
-      if (parsedMap.size === 0 && batchMatches.length === 1) {
-        const fallback = parseAiScore(result.text);
-        if (fallback) {
-          parsedMap = new Map([[batchMatches[0].id, fallback]]);
+      if (!result.text.trim()) {
+        diag.errors.push("parse_failed: la IA devolvió una respuesta vacía");
+      } else {
+        parsedMap = parseAiBatchScoresJson(result.text, ids, batchMatches);
+        if (parsedMap.size === 0 && batchMatches.length === 1) {
+          const fallback = parseAiScore(result.text);
+          if (fallback) parsedMap = new Map([[batchMatches[0]!.id, fallback]]);
+        }
+        if (parsedMap.size === 0) {
+          diag.errors.push(
+            "parse_failed: no se pudieron leer marcadores del lote (formato distinto al JSON con ids de partido)"
+          );
+        } else if (parsedMap.size < batchMatches.length) {
+          diag.errors.push(
+            `parse_partial: se leyeron ${parsedMap.size} de ${batchMatches.length} partidos del lote`
+          );
         }
       }
+
+      // eslint-disable-next-line no-console
+      console.info("[prode-ai]", {
+        batchId,
+        scopeLabel,
+        provider: aiConfig?.provider ?? "openai",
+        model: result.model,
+        expected: batchMatches.length,
+        parsed: parsedMap.size,
+        responseLength: result.text.length,
+      });
 
       const missingAfterBatch = batchMatches.filter((m) => !parsedMap.has(m.id));
       for (const m of missingAfterBatch) {
@@ -874,10 +934,14 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
           const one = parseAiScore(singleRes.text);
           if (one) parsedMap.set(m.id, one);
         } catch (singleErr) {
+          const msg = singleErr instanceof Error ? singleErr.message : String(singleErr);
+          diag.errors.push(`fallback_${m.id}: ${msg}`);
           // eslint-disable-next-line no-console
           console.error(`Fallback 1 partido (${scopeLabel}) ${m.id}:`, singleErr);
         }
       }
+
+      diag.parsed = batchMatches.filter((m) => parsedMap.has(m.id)).length;
 
       for (const m of batchMatches) {
         const parsed = parsedMap.get(m.id);
@@ -907,15 +971,24 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
             console.error("PredictionHistory (IA) no se pudo guardar. ¿Migración aplicada?", histErr);
           }
           predictions.push(pred);
+          diag.saved += 1;
         } catch (predErr) {
+          const msg = predErr instanceof Error ? predErr.message : String(predErr);
+          diag.errors.push(`save_${m.id}: ${msg}`);
           // eslint-disable-next-line no-console
           console.error(`Error upsert prediction ${m.id}:`, predErr);
         }
       }
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      diag.errors.push(`ai_error: ${msg}`);
       // eslint-disable-next-line no-console
       console.error(`Error batch IA (${scopeLabel}):`, err);
     }
+
+    diag.status = finalizeScopeStatus(diag);
+    scopeDiagnostics.push(diag);
+    return diag;
   }
 
   if (phase === "groups") {
@@ -984,6 +1057,15 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
     }
   }
 
+  const requestedTotal = scopeDiagnostics.reduce((n, d) => n + d.requested, 0);
+  const parsedTotal = scopeDiagnostics.reduce((n, d) => n + d.parsed, 0);
+  const savedTotal = scopeDiagnostics.reduce((n, d) => n + d.saved, 0);
+  const allErrors = scopeDiagnostics.flatMap((d) => d.errors);
+  let overallStatus: ProdeAiScopeStatus = "ok";
+  if (allErrors.some((e) => e.startsWith("ai_error"))) overallStatus = "ai_error";
+  else if (savedTotal === 0 && requestedTotal > 0) overallStatus = parsedTotal > 0 ? "partial" : "parse_failed";
+  else if (savedTotal < requestedTotal) overallStatus = "partial";
+
   res.status(200).json({
     predictions: predictions.map((p) => ({
       id: p.id,
@@ -993,6 +1075,14 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
       createdAt: p.createdAt.toISOString(),
     })),
     championPrediction,
+    diagnostics: {
+      batchId,
+      requested: requestedTotal,
+      parsed: parsedTotal,
+      saved: savedTotal,
+      status: overallStatus,
+      scopes: scopeDiagnostics,
+    },
   });
 });
 

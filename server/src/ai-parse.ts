@@ -31,7 +31,7 @@ export function parseAiChampionRunnerUp(text: string): { champion: string; runne
  */
 export function parseAiScore(text: string): { scoreA: number; scoreB: number } | null {
   const trimmed = text.trim();
-  const match = trimmed.match(/(\d{1,2})\s*[-–a]\s*(\d{1,2})/);
+  const match = trimmed.match(/(\d{1,2})\s*[-–:a]\s*(\d{1,2})/);
   if (match) {
     const a = Math.min(20, Math.max(0, parseInt(match[1], 10)));
     const b = Math.min(20, Math.max(0, parseInt(match[2], 10)));
@@ -46,24 +46,68 @@ export function parseAiScore(text: string): { scoreA: number; scoreB: number } |
   return null;
 }
 
-function scoreFromUnknownValue(v: unknown): { scoreA: number; scoreB: number } | null {
-  if (typeof v === "string") return parseAiScore(v);
-  if (typeof v === "object" && v !== null && "scoreA" in v && "scoreB" in v) {
-    const o = v as { scoreA: unknown; scoreB: unknown };
-    const scoreA = Math.min(20, Math.max(0, Number(o.scoreA)));
-    const scoreB = Math.min(20, Math.max(0, Number(o.scoreB)));
-    if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) return { scoreA, scoreB };
+export type BatchMatchRef = { id: string; teamA: string; teamB: string };
+
+function normalizeTeamToken(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/\s+/g, " ");
+}
+
+function teamsMatchPair(lineOrKey: string, teamA: string, teamB: string): boolean {
+  const hay = normalizeTeamToken(lineOrKey);
+  const a = normalizeTeamToken(teamA);
+  const b = normalizeTeamToken(teamB);
+  return hay.includes(a) && hay.includes(b);
+}
+
+function findMatchByTeams(matches: BatchMatchRef[], teamA: string, teamB: string): BatchMatchRef | null {
+  const a = normalizeTeamToken(teamA);
+  const b = normalizeTeamToken(teamB);
+  for (const m of matches) {
+    const ma = normalizeTeamToken(m.teamA);
+    const mb = normalizeTeamToken(m.teamB);
+    if ((ma === a && mb === b) || (ma === b && mb === a)) return m;
   }
   return null;
 }
 
+function scoreFromUnknownValue(v: unknown): { scoreA: number; scoreB: number } | null {
+  if (typeof v === "string") return parseAiScore(v);
+  if (typeof v === "object" && v !== null) {
+    const o = v as Record<string, unknown>;
+    if ("scoreA" in o && "scoreB" in o) {
+      const scoreA = Math.min(20, Math.max(0, Number(o.scoreA)));
+      const scoreB = Math.min(20, Math.max(0, Number(o.scoreB)));
+      if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) return { scoreA, scoreB };
+    }
+    const home = o.home ?? o.homeScore ?? o.golesLocal ?? o.golesA;
+    const away = o.away ?? o.awayScore ?? o.golesVisitante ?? o.golesB;
+    if (home != null && away != null) {
+      const scoreA = Math.min(20, Math.max(0, Number(home)));
+      const scoreB = Math.min(20, Math.max(0, Number(away)));
+      if (Number.isFinite(scoreA) && Number.isFinite(scoreB)) return { scoreA, scoreB };
+    }
+    const scoreStr = o.score ?? o.result ?? o.marcador ?? o.resultado;
+    if (typeof scoreStr === "string") return parseAiScore(scoreStr);
+  }
+  return null;
+}
+
+function stripMarkdownFences(raw: string): string {
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fence) return fence[1]!.trim();
+  return raw.trim();
+}
+
 /**
- * Extrae un objeto JSON de la respuesta (acepta bloque ```json opcional).
+ * Extrae un objeto JSON de la respuesta (acepta bloque ```json en cualquier parte del texto).
  */
 function extractJsonObject(raw: string): Record<string, unknown> | null {
-  let s = raw.trim();
-  const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
-  if (fence) s = fence[1]!.trim();
+  const s = stripMarkdownFences(raw);
 
   const tryObj = (str: string): Record<string, unknown> | null => {
     try {
@@ -84,7 +128,7 @@ function extractJsonObject(raw: string): Record<string, unknown> | null {
   return tryObj(s.slice(start, end + 1));
 }
 
-const NEST_KEYS = [
+const NEST_KEYS = new Set([
   "predictions",
   "partidos",
   "matches",
@@ -94,7 +138,7 @@ const NEST_KEYS = [
   "scores",
   "respuesta",
   "results",
-];
+]);
 
 function flattenBatchRecord(obj: Record<string, unknown>): Record<string, unknown> {
   let out: Record<string, unknown> = { ...obj };
@@ -121,15 +165,98 @@ function lookupScoreInFlat(flat: Record<string, unknown>, id: string): { scoreA:
   return scoreFromUnknownValue(v);
 }
 
+function parseArrayRows(
+  parsed: unknown,
+  matches: BatchMatchRef[],
+  out: Map<string, { scoreA: number; scoreB: number }>,
+  resolveExpectedId: (raw: string) => string | null
+): void {
+  if (!Array.isArray(parsed)) return;
+  for (const row of parsed) {
+    if (!row || typeof row !== "object") continue;
+    const r = row as Record<string, unknown>;
+    const midRaw = r.matchId ?? r.match_id ?? r.id;
+    let canonicalId: string | null = null;
+    if (typeof midRaw === "string") canonicalId = resolveExpectedId(midRaw);
+
+    if (!canonicalId) {
+      const teamA = r.teamA ?? r.home ?? r.local ?? r.equipoLocal;
+      const teamB = r.teamB ?? r.away ?? r.visitante ?? r.equipoVisitante;
+      if (typeof teamA === "string" && typeof teamB === "string") {
+        const m = findMatchByTeams(matches, teamA, teamB);
+        if (m) canonicalId = m.id;
+      }
+    }
+
+    if (!canonicalId || out.has(canonicalId)) continue;
+    let p = scoreFromUnknownValue(r);
+    if (!p) p = scoreFromUnknownValue({ scoreA: r.scoreA, scoreB: r.scoreB });
+    if (!p && typeof r.result === "string") p = parseAiScore(r.result);
+    if (p) out.set(canonicalId, p);
+  }
+}
+
+function applyHeuristicFlatKeys(
+  flat: Record<string, unknown>,
+  matches: BatchMatchRef[],
+  out: Map<string, { scoreA: number; scoreB: number }>
+): void {
+  for (let i = 0; i < matches.length; i++) {
+    const m = matches[i]!;
+    if (out.has(m.id)) continue;
+    const idx = String(i + 1);
+    const p =
+      scoreFromUnknownValue(flat[idx]) ??
+      scoreFromUnknownValue(flat[`match${idx}`]) ??
+      scoreFromUnknownValue(flat[`partido${idx}`]);
+    if (p) out.set(m.id, p);
+  }
+
+  for (const [key, value] of Object.entries(flat)) {
+    if (NEST_KEYS.has(key)) continue;
+    if (/^\d+$/.test(key)) continue;
+    for (const m of matches) {
+      if (out.has(m.id)) continue;
+      if (!teamsMatchPair(key, m.teamA, m.teamB)) continue;
+      const p = scoreFromUnknownValue(value);
+      if (p) out.set(m.id, p);
+    }
+  }
+}
+
+function parsePlaintextBatchLines(
+  text: string,
+  matches: BatchMatchRef[],
+  out: Map<string, { scoreA: number; scoreB: number }>
+): void {
+  const lines = text.split(/\n/).map((l) => l.trim()).filter((l) => l.length > 0);
+  for (const line of lines) {
+    const score = parseAiScore(line);
+    if (!score) continue;
+    for (const m of matches) {
+      if (out.has(m.id)) continue;
+      if (teamsMatchPair(line, m.teamA, m.teamB)) {
+        out.set(m.id, score);
+        break;
+      }
+    }
+  }
+}
+
 /**
- * Parsea JSON con predicciones por id de partido: objeto plano, anidado bajo "predictions", o array de filas.
+ * Parsea JSON con predicciones por id de partido: objeto plano, anidado, array, claves por índice/equipos, o texto multilínea.
  */
 export function parseAiBatchScoresJson(
   text: string,
-  expectedIds: Set<string>
+  expectedIds: Set<string>,
+  matches: BatchMatchRef[] = []
 ): Map<string, { scoreA: number; scoreB: number }> {
   const out = new Map<string, { scoreA: number; scoreB: number }>();
   const trimmed = text.trim();
+  const orderedMatches =
+    matches.length > 0
+      ? matches.filter((m) => expectedIds.has(m.id))
+      : [...expectedIds].map((id) => ({ id, teamA: "", teamB: "" }));
 
   function resolveExpectedId(raw: string): string | null {
     if (expectedIds.has(raw)) return raw;
@@ -140,37 +267,43 @@ export function parseAiBatchScoresJson(
     return null;
   }
 
-  // Formato array: [ { "matchId"|"id", scoreA, scoreB } ]
   try {
-    let s = trimmed;
-    const fence = s.match(/^```(?:json)?\s*([\s\S]*?)```$/im);
-    if (fence) s = fence[1]!.trim();
+    const s = stripMarkdownFences(trimmed);
     const parsed = JSON.parse(s) as unknown;
     if (Array.isArray(parsed)) {
-      for (const row of parsed) {
-        if (!row || typeof row !== "object") continue;
-        const r = row as Record<string, unknown>;
-        const midRaw = r.matchId ?? r.match_id ?? r.id;
-        if (typeof midRaw !== "string") continue;
-        const canonicalId = resolveExpectedId(midRaw);
-        if (!canonicalId || out.has(canonicalId)) continue;
-        let p = scoreFromUnknownValue({ scoreA: r.scoreA, scoreB: r.scoreB });
-        if (!p && typeof r.result === "string") p = parseAiScore(r.result);
-        if (p) out.set(canonicalId, p);
-      }
+      parseArrayRows(parsed, orderedMatches, out, resolveExpectedId);
     }
   } catch {
-    /* seguir con objeto */
+    /* seguir con objeto o heurísticas */
   }
 
   const obj = extractJsonObject(text);
-  if (!obj) return out;
+  if (obj) {
+    const flat = flattenBatchRecord(obj);
+    for (const id of expectedIds) {
+      if (out.has(id)) continue;
+      const p = lookupScoreInFlat(flat, id);
+      if (p) out.set(id, p);
+    }
+    if (orderedMatches.some((m) => m.teamA)) {
+      applyHeuristicFlatKeys(flat, orderedMatches, out);
+    }
 
-  const flat = flattenBatchRecord(obj);
-  for (const id of expectedIds) {
-    if (out.has(id)) continue;
-    const p = lookupScoreInFlat(flat, id);
-    if (p) out.set(id, p);
+    for (const nk of NEST_KEYS) {
+      const inner = obj[nk];
+      if (Array.isArray(inner)) {
+        parseArrayRows(inner, orderedMatches, out, resolveExpectedId);
+      }
+    }
+  }
+
+  const looksLikeStructuredJson = /^\s*[\[{]/.test(trimmed);
+  if (
+    orderedMatches.some((m) => m.teamA) &&
+    out.size < expectedIds.size &&
+    !looksLikeStructuredJson
+  ) {
+    parsePlaintextBatchLines(trimmed, orderedMatches, out);
   }
 
   return out;

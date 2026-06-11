@@ -1104,12 +1104,50 @@ export async function fetchChampionPrediction(): Promise<{
 
 export type ProdePhaseId = "groups" | "roundOf32" | "knockout";
 
+export type ProdeAiScopeStatus = "ok" | "partial" | "parse_failed" | "ai_error";
+
+export type ProdeAiScopeDiagnostic = {
+  scopeLabel: string;
+  requested: number;
+  parsed: number;
+  saved: number;
+  status: ProdeAiScopeStatus;
+  errors: string[];
+};
+
+export type ProdeAiDiagnostics = {
+  batchId: string;
+  requested: number;
+  parsed: number;
+  saved: number;
+  status: ProdeAiScopeStatus;
+  scopes: ProdeAiScopeDiagnostic[];
+};
+
+export function formatProdeAiError(diagnostics: ProdeAiDiagnostics | undefined, expectedMatches: number): string {
+  const d = diagnostics;
+  if (!d) {
+    return "La IA no devolvió marcadores. Reintentá; si persiste, revisá la configuración de IA en Admin o el historial en el Laboratorio.";
+  }
+  if (d.status === "ai_error") {
+    return "No pudimos contactar a la IA (revisá la API key y el modelo en Admin > Configuración IA). Si el problema continúa, pedile ayuda a tu administrador.";
+  }
+  if (d.status === "parse_failed") {
+    return "La IA respondió pero en un formato que no pudimos leer. Reintentá; si persiste, probá otro modelo (p. ej. Llama 3.3 70B) o revisá el historial en el Laboratorio.";
+  }
+  if (d.status === "partial") {
+    return `Solo se guardaron ${d.saved} de ${expectedMatches} partidos. Reintentá el grupo o la fase para completar el resto.`;
+  }
+  return "La IA no devolvió marcadores para este grupo. Reintentá; si persiste, revisá la configuración de IA o el historial en el Laboratorio.";
+}
+
 export async function generateProdePredictions(
   phase: ProdePhaseId,
   options?: { groupCode?: string }
 ): Promise<{
   predictions: Prediction[];
   championPrediction: ChampionPrediction | null;
+  diagnostics?: ProdeAiDiagnostics;
 }> {
   return fetchAuth("/ai/generate-prode-predictions", {
     method: "POST",

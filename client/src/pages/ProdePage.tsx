@@ -11,6 +11,7 @@ import {
   fetchChampionPrediction,
   fetchProdeGuidelines,
   formatApiError,
+  formatProdeAiError,
   generateProdePredictions,
 } from "../lib/api";
 import { getCurrentPhase, getPhaseLabel, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
@@ -324,7 +325,9 @@ export default function ProdePage() {
             setGroupIaStatus((prev) => ({ ...prev, [section.id]: "loading" }));
             try {
               const code = apiGroupCodeForSection(section);
-              const { predictions: newPreds } = await generateProdePredictions(phase, { groupCode: code });
+              const { predictions: newPreds, diagnostics } = await generateProdePredictions(phase, {
+                groupCode: code,
+              });
               setPredictions((prev) => {
                 const next = { ...prev };
                 for (const p of newPreds) {
@@ -332,14 +335,23 @@ export default function ProdePage() {
                 }
                 return next;
               });
-              if (newPreds.length === 0 && section.matches.length > 0) {
-                setGroupIaStatus((prev) => ({ ...prev, [section.id]: "error" }));
-                throw new Error(
-                  "La IA no devolvió marcadores para este grupo. Reintentá; si persiste, revisá la configuración de IA o los logs de prompts."
-                );
+              const expected = section.matches.length;
+              const incomplete =
+                newPreds.length === 0
+                  ? expected > 0
+                  : diagnostics?.status === "partial" || newPreds.length < expected;
+              if (incomplete && expected > 0) {
+                setGroupIaStatus((prev) => ({
+                  ...prev,
+                  [section.id]: newPreds.length > 0 ? "done" : "error",
+                }));
+                if (newPreds.length === 0) {
+                  throw new Error(formatProdeAiError(diagnostics, expected));
+                }
+              } else {
+                setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
               }
               if (newPreds.length > 0) anyPred = true;
-              setGroupIaStatus((prev) => ({ ...prev, [section.id]: "done" }));
             } catch (groupErr) {
               setGroupIaStatus((prev) => ({ ...prev, [section.id]: "error" }));
               throw groupErr;
@@ -348,7 +360,8 @@ export default function ProdePage() {
           if (anyPred) showFlash("Predicciones generadas y guardadas correctamente.", "success");
         } else {
           setGroupIaStatus({});
-          const { predictions: newPreds, championPrediction: newChamp } = await generateProdePredictions(phase);
+          const { predictions: newPreds, championPrediction: newChamp, diagnostics } =
+            await generateProdePredictions(phase);
           setPredictions((prev) => {
             const next = { ...prev };
             for (const p of newPreds) {
@@ -357,7 +370,13 @@ export default function ProdePage() {
             return next;
           });
           if (newChamp) setChampionPrediction(newChamp);
-          showFlash("Predicciones generadas y guardadas correctamente.", "success");
+          if (diagnostics?.status === "partial") {
+            showFlash(formatProdeAiError(diagnostics, diagnostics.requested), "info");
+          } else if (diagnostics?.status === "parse_failed" || diagnostics?.status === "ai_error") {
+            throw new Error(formatProdeAiError(diagnostics, diagnostics.requested));
+          } else {
+            showFlash("Predicciones generadas y guardadas correctamente.", "success");
+          }
         }
       } catch (err) {
         setError(formatApiError(err));
