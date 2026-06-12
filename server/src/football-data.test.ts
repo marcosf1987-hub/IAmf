@@ -59,6 +59,22 @@ test("getMatchScore: FINISHED y AWARDED con marcador", () => {
   assert.deepEqual(getMatchScore(awarded), { home: 2, away: 0 });
 });
 
+test("getMatchScore: v4 usa home/away en lugar de homeTeam/awayTeam", () => {
+  const v4 = apiMatch({
+    score: {
+      fullTime: { home: 2, away: 0 },
+      regularTime: { home: 2, away: 0 },
+    },
+    homeTeam: { id: 1, name: "Mexico" },
+    awayTeam: { id: 2, name: "South Africa" },
+  });
+  assert.deepEqual(getMatchScore(v4), { home: 2, away: 0 });
+  assert.deepEqual(mapScoreToOurMatch(v4, { teamA: "Mexico", teamB: "South Africa" }), {
+    scoreA: 2,
+    scoreB: 0,
+  });
+});
+
 test("getMatchScore: SCHEDULED sin marcador", () => {
   const scheduled = apiMatch({
     status: "SCHEDULED",

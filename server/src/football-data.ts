@@ -9,6 +9,14 @@ const API_BASE = "https://api.football-data.org/v4";
 const WC_COMPETITION = "WC";
 const WC_SEASON = "2026";
 
+/** Goles por lado; v4 usa `home`/`away`, versiones anteriores `homeTeam`/`awayTeam`. */
+export type FootballDataScoreSide = {
+  home?: number | null;
+  away?: number | null;
+  homeTeam?: number | null;
+  awayTeam?: number | null;
+};
+
 export type FootballDataMatch = {
   id: number;
   utcDate: string;
@@ -16,10 +24,18 @@ export type FootballDataMatch = {
   homeTeam: { id: number; name: string | null };
   awayTeam: { id: number; name: string | null };
   score?: {
-    fullTime?: { homeTeam: number | null; awayTeam: number | null };
-    regularTime?: { homeTeam: number | null; awayTeam: number | null };
+    fullTime?: FootballDataScoreSide;
+    regularTime?: FootballDataScoreSide;
   };
 };
+
+function readScoreSide(side: FootballDataScoreSide | undefined): { home: number; away: number } | null {
+  if (!side) return null;
+  const home = side.home ?? side.homeTeam;
+  const away = side.away ?? side.awayTeam;
+  if (home == null || away == null) return null;
+  return { home, away };
+}
 
 export type FootballDataMatchesResponse = {
   matches?: FootballDataMatch[];
@@ -289,9 +305,7 @@ export function getMatchScore(apiMatch: FootballDataMatch): { home: number; away
   const score = apiMatch.score;
   if (!score) return null;
 
-  const s = score.regularTime ?? score.fullTime;
-  if (!s || s.homeTeam == null || s.awayTeam == null) return null;
-  return { home: s.homeTeam, away: s.awayTeam };
+  return readScoreSide(score.regularTime) ?? readScoreSide(score.fullTime);
 }
 
 /**
