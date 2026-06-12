@@ -6210,6 +6210,92 @@ a.btn-oauth--unconfigured {
   max-width: min(1400px, 100%);
 }
 
+.platform-system-health-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.platform-system-health-header h2 {
+  margin: 0;
+}
+
+.platform-system-health-summary {
+  margin-top: 0;
+  margin-bottom: 1rem;
+}
+
+.platform-health-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.platform-health-badge--ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.platform-health-badge--warn {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.platform-system-health-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.platform-system-health-item {
+  display: grid;
+  grid-template-columns: 1.5rem 12rem 1fr;
+  gap: 0.5rem 0.75rem;
+  align-items: baseline;
+  padding: 0.5rem 0.65rem;
+  border-radius: 6px;
+  background: var(--color-surface-muted, #f5f5f5);
+  font-size: 0.92rem;
+}
+
+.platform-system-health-item--ok .platform-system-health-status {
+  color: #2e7d32;
+}
+
+.platform-system-health-item--fail {
+  background: #fff8f0;
+}
+
+.platform-system-health-item--fail .platform-system-health-status {
+  color: #c62828;
+  font-weight: 700;
+}
+
+.platform-system-health-label {
+  font-weight: 600;
+}
+
+.platform-system-health-detail {
+  color: var(--color-text-muted, #555);
+  word-break: break-word;
+}
+
+@media (max-width: 640px) {
+  .platform-system-health-item {
+    grid-template-columns: 1.5rem 1fr;
+  }
+
+  .platform-system-health-detail {
+    grid-column: 2;
+  }
+}
+
 .platform-settings-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

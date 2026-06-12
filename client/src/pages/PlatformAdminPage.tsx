@@ -10,6 +10,7 @@ import {
   fetchPlatformCompanies,
   fetchPlatformOverview,
   fetchPlatformSettings,
+  fetchPlatformSystemHealth,
   fetchPlatformUsers,
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
@@ -24,6 +25,7 @@ import {
   type PlatformCompanyRow,
   type PlatformOverview,
   type PlatformUserRow,
+  type SystemHealthPayload,
 } from "../lib/api";
 import { scopeLabel } from "../lib/company-competition-scope";
 
@@ -144,6 +146,8 @@ export default function PlatformAdminPage() {
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncMatchResultsResponse | null>(null);
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealthPayload | null>(null);
+  const [systemHealthLoading, setSystemHealthLoading] = useState(false);
 
   const companyFilterOptions = useMemo<CompanyFilterOption[]>(
     () => [
@@ -185,6 +189,23 @@ export default function PlatformAdminPage() {
       setLoading(false);
     }
   }, [userFilter, companyFilter]);
+
+  const reloadSystemHealth = useCallback(async () => {
+    setSystemHealthLoading(true);
+    try {
+      const health = await fetchPlatformSystemHealth();
+      setSystemHealth(health);
+    } catch (e) {
+      setSystemHealth(null);
+      setError(formatApiError(e));
+    } finally {
+      setSystemHealthLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reloadSystemHealth();
+  }, [reloadSystemHealth]);
 
   useEffect(() => {
     void reload();
@@ -398,6 +419,64 @@ export default function PlatformAdminPage() {
 
       {error && <div className="auth-error">{error}</div>}
       {successMsg && <div className="auth-success">{successMsg}</div>}
+
+      <section className="admin-section platform-system-health">
+        <div className="platform-system-health-header">
+          <h2>Estado del sistema</h2>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => void reloadSystemHealth()}
+            disabled={systemHealthLoading}
+          >
+            {systemHealthLoading ? "Comprobando…" : "Actualizar"}
+          </button>
+        </div>
+        {systemHealthLoading && !systemHealth ? (
+          <p className="placeholder-text">Comprobando base de datos, migraciones y configuración…</p>
+        ) : systemHealth ? (
+          <>
+            <p className="page-subtitle platform-system-health-summary">
+              <span
+                className={`platform-health-badge ${systemHealth.ok ? "platform-health-badge--ok" : "platform-health-badge--warn"}`}
+              >
+                {systemHealth.ok ? "Todo OK" : "Requiere atención"}
+              </span>
+              {" · "}
+              Entorno: <strong>{systemHealth.environment}</strong>
+              {" · "}
+              Uptime: {Math.floor(systemHealth.uptimeSeconds / 3600)}h{" "}
+              {Math.floor((systemHealth.uptimeSeconds % 3600) / 60)}m
+              {" · "}
+              Migraciones: {systemHealth.migrations.applied}
+              {systemHealth.migrations.expected > 0
+                ? `/${systemHealth.migrations.expected}`
+                : ""}
+              {systemHealth.migrations.pending.length > 0
+                ? ` · Pendientes: ${systemHealth.migrations.pending.join(", ")}`
+                : ""}
+            </p>
+            <ul className="platform-system-health-list">
+              {systemHealth.checks.map((check) => (
+                <li
+                  key={check.id}
+                  className={`platform-system-health-item ${check.ok ? "platform-system-health-item--ok" : "platform-system-health-item--fail"}`}
+                >
+                  <span className="platform-system-health-status" aria-hidden="true">
+                    {check.ok ? "✓" : "✗"}
+                  </span>
+                  <span className="platform-system-health-label">{check.label}</span>
+                  {check.detail ? (
+                    <span className="platform-system-health-detail">{check.detail}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="placeholder-text">No se pudo cargar el estado del sistema.</p>
+        )}
+      </section>
 
       <section className="admin-section platform-settings-row">
         <div className="platform-settings-grid">

@@ -405,6 +405,31 @@ export type PlatformUserRow = {
   predictions: number;
 };
 
+export type SystemHealthCheck = {
+  id: string;
+  label: string;
+  ok: boolean;
+  detail?: string;
+};
+
+export type SystemHealthPayload = {
+  ok: boolean;
+  checkedAt: string;
+  uptimeSeconds: number;
+  environment: string;
+  checks: SystemHealthCheck[];
+  migrations: {
+    applied: number;
+    expected: number;
+    pending: string[];
+    migrationFilesReadable: boolean;
+  };
+};
+
+export async function fetchPlatformSystemHealth(): Promise<SystemHealthPayload> {
+  return fetchAuth("/health/system");
+}
+
 export async function fetchPlatformOverview(): Promise<PlatformOverview> {
   return fetchAuth("/platform/overview");
 }

@@ -21,6 +21,7 @@ import {
 import { encrypt } from "./crypto-util";
 import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
+import { buildSystemHealth } from "./system-health";
 import { setSessionCookies } from "./session-cookie";
 import {
   UNIVERSAL_COMPETITION_SLUG,
@@ -482,6 +483,18 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       },
       admin: result.adminUser,
     });
+  });
+
+  /** Diagnóstico operativo (solo super admin). */
+  app.get("/health/system", superAuth, async (_req, res) => {
+    try {
+      const payload = await buildSystemHealth(prisma);
+      res.status(200).json(payload);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("GET /health/system:", err);
+      res.status(500).json({ error: "server_error" });
+    }
   });
 
   /** Resumen pool público + liga universal (super admin). */
