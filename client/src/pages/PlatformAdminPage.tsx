@@ -12,9 +12,11 @@ import {
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
   transferPlatformUserToCompany,
+  syncPlatformMatchResults,
   updatePlatformAiConfig,
   updatePlatformSettings,
   type AiConfig,
+  type SyncMatchResultsResponse,
   type CompanyCompetitionScope,
   type PlatformCompanyRow,
   type PlatformOverview,
@@ -136,6 +138,8 @@ export default function PlatformAdminPage() {
   const [companyFilter, setCompanyFilter] = useState("");
   const [companyFilterDraft, setCompanyFilterDraft] = useState("");
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
+  const [syncBusy, setSyncBusy] = useState(false);
+  const [syncResult, setSyncResult] = useState<SyncMatchResultsResponse | null>(null);
 
   const companyFilterOptions = useMemo<CompanyFilterOption[]>(
     () => [
@@ -322,6 +326,22 @@ export default function PlatformAdminPage() {
     setError("");
   }
 
+  async function runMatchResultsSync() {
+    setSyncBusy(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await syncPlatformMatchResults();
+      setSyncResult(res);
+      setSuccessMsg(res.message);
+    } catch (err) {
+      setSyncResult(null);
+      setError(err instanceof Error ? err.message : "Error al sincronizar resultados");
+    } finally {
+      setSyncBusy(false);
+    }
+  }
+
   if (user?.role !== "super_admin") {
     return <Navigate to="/app" replace />;
   }
@@ -374,6 +394,72 @@ export default function PlatformAdminPage() {
             </form>
           </div>
         </div>
+      </section>
+
+      <section className="admin-section" style={{ marginBottom: "2rem" }}>
+        <h2>Resultados del Mundial (football-data.org)</h2>
+        <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
+          Importa marcadores y nombres de equipos desde football-data.org hacia la base de datos. Requiere{" "}
+          <code className="platform-slug-code">FOOTBALL_DATA_API_KEY</code> en el backend.
+        </p>
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={() => void runMatchResultsSync()}
+          disabled={syncBusy}
+        >
+          {syncBusy ? "Sincronizando…" : "Sincronizar resultados"}
+        </button>
+        {syncResult ? (
+          <div className="platform-sync-diagnostics" style={{ marginTop: "1rem" }}>
+            <p style={{ marginBottom: "0.5rem" }}>
+              <strong>Resumen:</strong> {syncResult.updated} fila(s) actualizada(s) ·{" "}
+              {syncResult.diagnostics.finishedInApi} finalizados en API ·{" "}
+              {syncResult.diagnostics.matched} emparejados · {syncResult.diagnostics.scoresWritten}{" "}
+              marcadores escritos
+            </p>
+            {(syncResult.diagnostics.skippedNoMatch > 0 || syncResult.diagnostics.skippedNoScore > 0) && (
+              <p className="page-subtitle" style={{ marginBottom: "0.5rem" }}>
+                Sin pareja en BD: {syncResult.diagnostics.skippedNoMatch} · Sin marcador usable:{" "}
+                {syncResult.diagnostics.skippedNoScore}
+              </p>
+            )}
+            {syncResult.diagnostics.samples.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Tipo</th>
+                      <th>API (local · visitante)</th>
+                      <th>Estado</th>
+                      <th>BD / resultado</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {syncResult.diagnostics.samples.map((s, i) => (
+                      <tr key={`${s.kind}-${s.apiUtcDate}-${i}`}>
+                        <td>{s.kind === "updated" ? "OK" : s.kind === "no_match" ? "Sin pareja" : "Sin marcador"}</td>
+                        <td>
+                          {s.apiHome} vs {s.apiAway}
+                        </td>
+                        <td>{s.apiStatus}</td>
+                        <td>
+                          {s.kind === "updated"
+                            ? `${s.ourTeamA} ${s.resultScoreA}–${s.resultScoreB} ${s.ourTeamB}`
+                            : s.ourTeamA
+                              ? `${s.ourTeamA} vs ${s.ourTeamB}`
+                              : "—"}
+                        </td>
+                        <td>{s.reason ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>

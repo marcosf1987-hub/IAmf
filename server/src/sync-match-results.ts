@@ -1,9 +1,13 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   GROUP_STAGE_SLOT_CODES,
+  type FootballDataMatch,
   fetchWorldCupMatches,
   filterApiMatchesNearOurMatches,
+  getMatchScore,
+  isTerminalMatchStatus,
   mapScoreToOurMatch,
+  normalizeTeamName,
   resolveOurMatchFromApi,
 } from "./football-data";
 
@@ -27,6 +31,30 @@ function isFullScanSync(): boolean {
   return v === "1" || v === "true" || v === "yes";
 }
 
+export type SyncDiagnosticSample = {
+  kind: "no_match" | "no_score" | "updated";
+  apiHome: string;
+  apiAway: string;
+  apiUtcDate: string;
+  apiStatus: string;
+  ourTeamA?: string;
+  ourTeamB?: string;
+  ourKickoff?: string;
+  resultScoreA?: number;
+  resultScoreB?: number;
+  reason?: string;
+};
+
+export type SyncMatchDiagnostics = {
+  finishedInApi: number;
+  matched: number;
+  scoresWritten: number;
+  teamsFilled: number;
+  skippedNoMatch: number;
+  skippedNoScore: number;
+  samples: SyncDiagnosticSample[];
+};
+
 export type SyncMatchResultsResult = {
   updated: number;
   /** Partidos devueltos por la API (siempre tras `fetch`). */
@@ -37,13 +65,38 @@ export type SyncMatchResultsResult = {
   pendingInDb: number;
   /** No hubo filas pendientes: no se llamó a la API. */
   skippedFetch: boolean;
+  diagnostics: SyncMatchDiagnostics;
 };
+
+const MAX_DIAGNOSTIC_SAMPLES = 12;
+
+function apiSampleBase(apiMatch: FootballDataMatch): Pick<
+  SyncDiagnosticSample,
+  "apiHome" | "apiAway" | "apiUtcDate" | "apiStatus"
+> {
+  return {
+    apiHome: normalizeTeamName(apiMatch.homeTeam.name),
+    apiAway: normalizeTeamName(apiMatch.awayTeam.name),
+    apiUtcDate: apiMatch.utcDate,
+    apiStatus: apiMatch.status,
+  };
+}
 
 /** Una pasada: nombres reales (TBD + slots 1A/R32-1/… del seed) + marcadores finalizados desde football-data.org → BD. */
 export async function syncMatchResultsFromFootballData(
   prisma: PrismaClient,
   apiKey: string
 ): Promise<SyncMatchResultsResult> {
+  const emptyDiagnostics: SyncMatchDiagnostics = {
+    finishedInApi: 0,
+    matched: 0,
+    scoresWritten: 0,
+    teamsFilled: 0,
+    skippedNoMatch: 0,
+    skippedNoScore: 0,
+    samples: [],
+  };
+
   const fullScan = isFullScanSync();
 
   let ourMatches: {
@@ -88,6 +141,7 @@ export async function syncMatchResultsFromFootballData(
       teamsResolved: 0,
       pendingInDb: 0,
       skippedFetch: true,
+      diagnostics: emptyDiagnostics,
     };
   }
 
@@ -104,11 +158,34 @@ export async function syncMatchResultsFromFootballData(
     kickoffAt: m.kickoffAt,
   }));
 
+  const diagnostics: SyncMatchDiagnostics = {
+    ...emptyDiagnostics,
+    finishedInApi: apiMatches.filter((m) => isTerminalMatchStatus(m.status)).length,
+  };
+
+  const pushSample = (sample: SyncDiagnosticSample) => {
+    if (diagnostics.samples.length < MAX_DIAGNOSTIC_SAMPLES) {
+      diagnostics.samples.push(sample);
+    }
+  };
+
   let updated = 0;
   let teamsResolved = 0;
   for (const apiMatch of apiMatches) {
     const resolved = resolveOurMatchFromApi(apiMatch, workingOur);
-    if (!resolved) continue;
+    if (!resolved) {
+      if (isTerminalMatchStatus(apiMatch.status)) {
+        diagnostics.skippedNoMatch++;
+        pushSample({
+          kind: "no_match",
+          ...apiSampleBase(apiMatch),
+          reason: "Sin fila en BD con mismos equipos/fecha",
+        });
+      }
+      continue;
+    }
+
+    diagnostics.matched++;
 
     const teams =
       resolved.kind === "exact"
@@ -122,19 +199,49 @@ export async function syncMatchResultsFromFootballData(
       data.teamA = teams.teamA;
       data.teamB = teams.teamB;
       teamsResolved++;
+      diagnostics.teamsFilled++;
     }
     if (scores) {
       data.resultScoreA = scores.scoreA;
       data.resultScoreB = scores.scoreB;
     }
 
-    if (Object.keys(data).length === 0) continue;
+    if (Object.keys(data).length === 0) {
+      if (isTerminalMatchStatus(apiMatch.status)) {
+        diagnostics.skippedNoScore++;
+        const score = getMatchScore(apiMatch);
+        pushSample({
+          kind: "no_score",
+          ...apiSampleBase(apiMatch),
+          ourTeamA: resolved.ourMatch.teamA,
+          ourTeamB: resolved.ourMatch.teamB,
+          ourKickoff: resolved.ourMatch.kickoffAt.toISOString(),
+          reason: score
+            ? "Marcador API no mapeó al orden teamA/teamB"
+            : `Estado ${apiMatch.status} sin marcador usable en la API`,
+        });
+      }
+      continue;
+    }
 
     await prisma.match.update({
       where: { id: resolved.ourMatch.id },
       data,
     });
     updated++;
+
+    if (scores) {
+      diagnostics.scoresWritten++;
+      pushSample({
+        kind: "updated",
+        ...apiSampleBase(apiMatch),
+        ourTeamA: teams.teamA,
+        ourTeamB: teams.teamB,
+        ourKickoff: resolved.ourMatch.kickoffAt.toISOString(),
+        resultScoreA: scores.scoreA,
+        resultScoreB: scores.scoreB,
+      });
+    }
 
     const row = workingOur.find((m) => m.id === resolved.ourMatch.id);
     if (row) {
@@ -150,6 +257,45 @@ export async function syncMatchResultsFromFootballData(
     teamsResolved,
     pendingInDb: ourMatches.length,
     skippedFetch: false,
+    diagnostics,
+  };
+}
+
+export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
+  ok: true;
+  updated: number;
+  totalApi: number;
+  apiMatchesConsidered: number;
+  teamsResolved: number;
+  pendingInDb: number;
+  skippedFetch: boolean;
+  diagnostics: SyncMatchDiagnostics;
+  message: string;
+} {
+  const {
+    updated,
+    totalApi,
+    apiMatchesConsidered,
+    teamsResolved,
+    pendingInDb,
+    skippedFetch,
+    diagnostics,
+  } = result;
+
+  const detail = skippedFetch
+    ? "Sin filas pendientes; no se llamó a la API."
+    : `${pendingInDb} fila(s) pendiente(s) en BD, ${apiMatchesConsidered}/${totalApi} partido(s) API en ventana. Diagnóstico: ${diagnostics.finishedInApi} FINISHED/AWARDED en API, ${diagnostics.matched} emparejados, ${diagnostics.scoresWritten} marcadores escritos, ${diagnostics.skippedNoMatch} sin pareja, ${diagnostics.skippedNoScore} sin marcador.`;
+
+  return {
+    ok: true,
+    updated,
+    totalApi,
+    apiMatchesConsidered,
+    teamsResolved,
+    pendingInDb,
+    skippedFetch,
+    diagnostics,
+    message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
   };
 }
 

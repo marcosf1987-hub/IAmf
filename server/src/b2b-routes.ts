@@ -31,6 +31,10 @@ import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { replyGenericInviteError } from "./invite-security";
+import {
+  buildSyncMatchResultsHttpBody,
+  syncMatchResultsFromFootballData,
+} from "./sync-match-results";
 
 function frontendBase(): string {
   return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
@@ -919,6 +923,27 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         hasApiKey: Boolean(config.apiKeyEnc),
       },
     });
+  });
+
+  app.post("/platform/sync-match-results", superAuth, async (_req, res) => {
+    const apiKey = process.env.FOOTBALL_DATA_API_KEY?.trim();
+    if (!apiKey) {
+      res.status(400).json({
+        error: "missing_config",
+        message:
+          "Agrega FOOTBALL_DATA_API_KEY en las variables del backend. Obtén una gratis en https://www.football-data.org/",
+      });
+      return;
+    }
+
+    try {
+      const result = await syncMatchResultsFromFootballData(prisma, apiKey);
+      res.status(200).json(buildSyncMatchResultsHttpBody(result));
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("POST /platform/sync-match-results error:", err);
+      res.status(500).json({ error: "sync_error" });
+    }
   });
 
   app.patch("/platform/ai-config", superAuth, async (req, res) => {

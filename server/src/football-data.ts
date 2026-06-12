@@ -37,10 +37,42 @@ const TEAM_NAME_MAP: Record<string, string> = {
   Turkiye: "Turkey",
   "Congo DR": "DR Congo",
   "Democratic Republic of Congo": "DR Congo",
+  "United States": "USA",
+  "United States of America": "USA",
 };
 
-function normalizeTeamName(name: string): string {
+/** Estados en los que football-data.org expone marcador final usable. */
+export const TERMINAL_MATCH_STATUSES = new Set(["FINISHED", "AWARDED"]);
+
+export function isTerminalMatchStatus(status: string): boolean {
+  return TERMINAL_MATCH_STATUSES.has(status);
+}
+
+function stripDiacritics(value: string): string {
+  return value.normalize("NFD").replace(/\p{M}/gu, "");
+}
+
+/** Nombre canónico para comparar equipos (acentos, mayúsculas, alias API). */
+export function canonicalTeamName(name: string): string {
+  const mapped = TEAM_NAME_MAP[name] ?? name;
+  return stripDiacritics(mapped).trim().toLowerCase();
+}
+
+export function normalizeTeamName(name: string): string {
   return TEAM_NAME_MAP[name] ?? name;
+}
+
+export function teamsPairEqual(
+  ourTeamA: string,
+  ourTeamB: string,
+  apiHome: string,
+  apiAway: string
+): boolean {
+  const a = canonicalTeamName(ourTeamA);
+  const b = canonicalTeamName(ourTeamB);
+  const home = canonicalTeamName(apiHome);
+  const away = canonicalTeamName(apiAway);
+  return (a === home && b === away) || (a === away && b === home);
 }
 
 /**
@@ -81,10 +113,7 @@ export function findMatchingOurMatch(
   for (const m of ourMatches) {
     const ourDate = new Date(m.kickoffAt).toISOString().slice(0, 10);
     if (ourDate !== apiDate) continue;
-
-    const aMatch =
-      (m.teamA === home && m.teamB === away) || (m.teamA === away && m.teamB === home);
-    if (aMatch) return m;
+    if (teamsPairEqual(m.teamA, m.teamB, home, away)) return m;
   }
   return null;
 }
@@ -114,6 +143,28 @@ export const GROUP_STAGE_SLOT_CODES: readonly string[] = [1, 2, 3].flatMap((n) =
 
 export function needsNameFromApi(name: string): boolean {
   return name === PLACEHOLDER_TBD || isBracketSlotPlaceholder(name);
+}
+
+/**
+ * Empareja por par de equipos cuando el cruce es único en nuestra lista
+ * (p. ej. kickoff en BD distinto al utcDate de la API).
+ */
+export function findUniqueOurMatchByTeams(
+  apiMatch: FootballDataMatch,
+  ourMatches: OurMatch[]
+): OurMatch | null {
+  const home = normalizeTeamName(apiMatch.homeTeam.name);
+  const away = normalizeTeamName(apiMatch.awayTeam.name);
+  if (home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
+
+  const hits = ourMatches.filter(
+    (m) =>
+      !needsNameFromApi(m.teamA) &&
+      !needsNameFromApi(m.teamB) &&
+      teamsPairEqual(m.teamA, m.teamB, home, away)
+  );
+  if (hits.length === 1) return hits[0];
+  return null;
 }
 
 /** Fila que aún debe intentar alinearse con football-data.org (marcadores o nombres placeholder). */
@@ -173,7 +224,7 @@ export function resolveOurMatchFromApi(
   if (candidates.length === 0) return null;
 
   for (const m of candidates) {
-    if ((m.teamA === home && m.teamB === away) || (m.teamA === away && m.teamB === home)) {
+    if (teamsPairEqual(m.teamA, m.teamB, home, away)) {
       return { kind: "exact", ourMatch: m };
     }
   }
@@ -191,15 +242,28 @@ export function resolveOurMatchFromApi(
       continue;
     }
     if (!na && nb) {
-      if (a === home) fills.push({ kind: "fill_teams", ourMatch: m, teamA: a, teamB: away });
-      else if (a === away) fills.push({ kind: "fill_teams", ourMatch: m, teamA: a, teamB: home });
+      if (canonicalTeamName(a) === canonicalTeamName(home)) {
+        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+      } else if (canonicalTeamName(a) === canonicalTeamName(away)) {
+        fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
+      }
     } else if (na && !nb) {
-      if (b === home) fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: b });
-      else if (b === away) fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: b });
+      if (canonicalTeamName(b) === canonicalTeamName(home)) {
+        fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
+      } else if (canonicalTeamName(b) === canonicalTeamName(away)) {
+        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+      }
     }
   }
 
   if (fills.length === 1) return fills[0];
+
+  const byDate = findMatchingOurMatch(apiMatch, ourMatches);
+  if (byDate) return { kind: "exact", ourMatch: byDate };
+
+  const unique = findUniqueOurMatchByTeams(apiMatch, ourMatches);
+  if (unique) return { kind: "exact", ourMatch: unique };
+
   return null;
 }
 
@@ -207,7 +271,7 @@ export function resolveOurMatchFromApi(
  * Extrae el resultado a 90 min (regularTime si hay prórroga, sino fullTime).
  */
 export function getMatchScore(apiMatch: FootballDataMatch): { home: number; away: number } | null {
-  if (apiMatch.status !== "FINISHED") return null;
+  if (!isTerminalMatchStatus(apiMatch.status)) return null;
   const score = apiMatch.score;
   if (!score) return null;
 
@@ -229,10 +293,10 @@ export function mapScoreToOurMatch(
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
 
-  if (ourMatch.teamA === home && ourMatch.teamB === away) {
-    return { scoreA: s.home, scoreB: s.away };
-  }
-  if (ourMatch.teamA === away && ourMatch.teamB === home) {
+  if (teamsPairEqual(ourMatch.teamA, ourMatch.teamB, home, away)) {
+    if (canonicalTeamName(ourMatch.teamA) === canonicalTeamName(home)) {
+      return { scoreA: s.home, scoreB: s.away };
+    }
     return { scoreA: s.away, scoreB: s.home };
   }
   return null;

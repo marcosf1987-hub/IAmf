@@ -1308,13 +1308,42 @@ export async function updateAdminAiConfig(data: {
   });
 }
 
-export async function syncMatchResults(): Promise<{
+export type SyncMatchDiagnosticSample = {
+  kind: "no_match" | "no_score" | "updated";
+  apiHome: string;
+  apiAway: string;
+  apiUtcDate: string;
+  apiStatus: string;
+  ourTeamA?: string;
+  ourTeamB?: string;
+  ourKickoff?: string;
+  resultScoreA?: number;
+  resultScoreB?: number;
+  reason?: string;
+};
+
+export type SyncMatchResultsResponse = {
   ok: boolean;
   updated: number;
   totalApi: number;
+  apiMatchesConsidered: number;
+  teamsResolved: number;
+  pendingInDb: number;
+  skippedFetch: boolean;
   message: string;
-}> {
-  return fetchAuth("/admin/sync-match-results", {
+  diagnostics: {
+    finishedInApi: number;
+    matched: number;
+    scoresWritten: number;
+    teamsFilled: number;
+    skippedNoMatch: number;
+    skippedNoScore: number;
+    samples: SyncMatchDiagnosticSample[];
+  };
+};
+
+export async function syncPlatformMatchResults(): Promise<SyncMatchResultsResponse> {
+  return fetchAuth("/platform/sync-match-results", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({}),

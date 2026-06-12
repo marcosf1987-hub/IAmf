@@ -1404,48 +1404,6 @@ app.get("/results/dashboard", requireAuth, async (req, res) => {
   }
 });
 
-app.post("/admin/sync-match-results", requireAdmin, async (_req, res) => {
-  const apiKey = process.env.FOOTBALL_DATA_API_KEY?.trim();
-  if (!apiKey) {
-    res.status(400).json({
-      error: "missing_config",
-      message: "Agrega FOOTBALL_DATA_API_KEY en server/.env. Obtén una gratis en https://www.football-data.org/",
-    });
-    return;
-  }
-
-  try {
-    const result = await syncMatchResultsFromFootballData(prisma, apiKey);
-    const {
-      updated,
-      totalApi,
-      apiMatchesConsidered,
-      teamsResolved,
-      pendingInDb,
-      skippedFetch,
-    } = result;
-
-    const detail = skippedFetch
-      ? "Sin filas pendientes; no se llamó a la API."
-      : `${pendingInDb} fila(s) pendiente(s) en BD, ${apiMatchesConsidered}/${totalApi} partido(s) API en ventana.`;
-
-    res.status(200).json({
-      ok: true,
-      updated,
-      totalApi,
-      apiMatchesConsidered,
-      teamsResolved,
-      pendingInDb,
-      skippedFetch,
-      message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
-    });
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error("POST /admin/sync-match-results error:", err);
-    res.status(500).json({ error: "sync_error" });
-  }
-});
-
 app.patch("/admin/matches/:id/result", requireAdmin, async (req, res) => {
   const parsed = matchResultSchema.safeParse(req.body);
   if (!parsed.success) {
