@@ -38,7 +38,7 @@ export function resolveUserErrorMessage(raw: string): string {
   if (trimmed === "Unauthorized" || trimmed === "Unauthorized.") {
     return i18n.t("errors:generic.unauthorized");
   }
-  if (/JWT_SECRET/i.test(trimmed)) {
+  if (/JWT_SECRET|DATABASE_URL|prisma|migrate deploy|db seed|Railway|redeploy|postgresql|FOOTBALL_DATA|BREVO|SMTP_|VITE_API_URL|platform-internal|PredictionHistory/i.test(trimmed)) {
     return i18n.t("errors:generic.serverMisconfigured");
   }
 

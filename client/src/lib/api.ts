@@ -1,6 +1,6 @@
-import { formatApiError } from "./user-friendly-error";
+import { apiErrorFromBody, formatApiError } from "./user-friendly-error";
 
-export { formatApiError };
+export { apiErrorFromBody, formatApiError };
 
 /**
  * URL base del backend (sin barra final).
@@ -88,11 +88,7 @@ export const isProductionApiUrlMissing =
 
 function networkHint(err: unknown): Error {
   if (err instanceof TypeError) {
-    return new Error(
-      import.meta.env.PROD
-        ? "No se pudo conectar con el servidor. Revisá tu conexión o la configuración de la app."
-        : "No se pudo conectar con el servidor. Si estás en la web publicada: en Railway agrega la variable VITE_API_URL con la URL https del backend (sin barra al final) y vuelve a desplegar el frontend."
-    );
+    return new Error(formatApiError(new Error("Failed to fetch")));
   }
   return new Error(formatApiError(err instanceof Error ? err : new Error(String(err))));
 }
@@ -144,9 +140,7 @@ async function fetchAuth<T>(path: string, init?: RequestInit): Promise<T> {
   });
   const data = await parseJson<T & { message?: string }>(res, url);
   if (!res.ok) {
-    const body = data as { message?: string; error?: string };
-    const codeOrMsg = body.error ?? body.message ?? "Request failed";
-    throw new Error(formatApiError(new Error(codeOrMsg)));
+    throw new Error(apiErrorFromBody(data as { message?: string; error?: string }));
   }
   return data;
 }
@@ -237,8 +231,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
       `${API_BASE}/auth/login`
     );
     if (!res.ok) {
-      const d = data as { error?: string; message?: string };
-      throw new Error(d.message ?? d.error ?? `Error ${res.status}`);
+      throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, `Error ${res.status}`));
     }
     return data as LoginResponse;
   } catch (e) {
@@ -259,7 +252,7 @@ export async function signup(
       body: JSON.stringify({ email, password, fullName }),
     });
     const data = await parseJson<SignupResponse & { error?: string }>(res, `${API_BASE}/auth/signup`);
-    if (!res.ok) throw new Error(data.error ?? "Signup failed");
+    if (!res.ok) throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "signup_failed"));
     return data as SignupResponse;
   } catch (e) {
     throw networkHint(e);
@@ -270,7 +263,7 @@ export async function fetchMe(): Promise<MeResponse> {
   const url = `${API_BASE}/me`;
   const res = await fetch(url, { credentials: "include", cache: "no-store" });
   const data = await parseJson<MeResponse & { error?: string }>(res, url);
-  if (!res.ok) throw new Error(data.error ?? "Unauthorized");
+  if (!res.ok) throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "unauthorized"));
   return data;
 }
 
@@ -329,7 +322,7 @@ export async function fetchInvitePreview(token: string): Promise<{
     url
   );
   if (!res.ok) {
-    throw new Error(data.error ?? "Invitación no válida");
+    throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "invalid_invite"));
   }
   return data;
 }
@@ -346,7 +339,7 @@ export async function acceptInvite(
     body: JSON.stringify({ token, password, fullName }),
   });
   const data = await parseJson<MeResponse & { error?: string }>(res, `${API_BASE}/auth/invite/accept`);
-  if (!res.ok) throw new Error(data.error ?? "No se pudo aceptar la invitación");
+  if (!res.ok) throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "inviteAcceptFailed"));
   return data;
 }
 
@@ -579,7 +572,7 @@ export async function fetchPublicUpcomingMatches(limit = 5): Promise<{ matches: 
     const res = await fetch(url);
     const data = await parseJson<{ matches: Match[] } & { error?: string }>(res, url);
     if (!res.ok) {
-      throw new Error(data.error ?? "Request failed");
+      throw new Error(apiErrorFromBody(data as { error?: string; message?: string }));
     }
     return data;
   } catch (e) {
@@ -608,7 +601,7 @@ export async function fetchPublicF1Races(year?: number, limit = 12): Promise<{ r
   try {
     const res = await fetch(url);
     const data = await parseJson<{ races: F1RaceSummary[] } & { error?: string }>(res, url);
-    if (!res.ok) throw new Error(data.error ?? "Request failed");
+    if (!res.ok) throw new Error(apiErrorFromBody(data as { error?: string; message?: string }));
     return data;
   } catch (e) {
     throw networkHint(e);
@@ -903,7 +896,7 @@ export async function joinCompetitionByCode(
     return { alreadyMember: true, competitionId: data.competitionId };
   }
   if (!res.ok) {
-    throw new Error(data.message ?? data.error ?? "No se pudo unir a la liga");
+    throw new Error(apiErrorFromBody(data, "joinLeagueFailed"));
   }
   throw new Error("Respuesta inesperada del servidor");
 }
@@ -986,7 +979,7 @@ export async function fetchCompetitionInvitePreview(token: string): Promise<{
     } & { message?: string }
   >(res, url);
   if (!res.ok) {
-    throw new Error(data.error ?? "Invitación no válida");
+    throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "invalid_invite"));
   }
   return data;
 }
@@ -1007,9 +1000,7 @@ export async function acceptCompetitionInvite(
     `${API_BASE}/auth/competition-invite/accept`
   );
   if (!res.ok) {
-    throw new Error(
-      (data as { message?: string }).message ?? data.error ?? "No se pudo crear la cuenta"
-    );
+    throw new Error(apiErrorFromBody(data as { error?: string; message?: string }, "signup_failed"));
   }
   return data as MeResponse;
 }

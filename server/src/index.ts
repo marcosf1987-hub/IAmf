@@ -312,11 +312,9 @@ app.post("/auth/signup", async (req, res) => {
     where: { slug: "platform-internal" },
   });
   if (!platformCompany) {
-    res.status(503).json({
-      error: "platform_not_configured",
-      message:
-        "Falta la compañía plataforma en la base. Ejecutá prisma db seed (PLATFORM_SUPER_ADMIN_EMAIL opcional).",
-    });
+    // eslint-disable-next-line no-console
+    console.error("POST /auth/signup: falta compañía platform-internal (¿seed aplicado?)");
+    res.status(503).json({ error: "platform_not_configured" });
     return;
   }
 
@@ -383,11 +381,7 @@ app.post("/auth/login", async (req, res) => {
     }
 
     if (!user.passwordHash) {
-      res.status(401).json({
-        error: "no_password",
-        message:
-          "Esta cuenta no tiene contraseña local. Usá «Continuar con Google» o contactá soporte si entraste por invitación.",
-      });
+      res.status(401).json({ error: "no_password" });
       return;
     }
 
@@ -1215,11 +1209,9 @@ app.get("/predictions/me/history", requireAuth, requireFootballDiscipline, async
     // eslint-disable-next-line no-console
     console.error("GET /predictions/me/history error:", err);
     if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2021") {
-      res.status(503).json({
-        error: "migration_required",
-        message:
-          "Falta aplicar migraciones en la base de datos (tabla PredictionHistory). En el servidor debe ejecutarse prisma migrate deploy; en local: cd server && npx prisma migrate dev",
-      });
+      // eslint-disable-next-line no-console
+      console.error("GET /predictions/me/history: falta tabla PredictionHistory (migrate deploy)");
+      res.status(503).json({ error: "migration_required" });
       return;
     }
     res.status(500).json({ error: "server_error" });

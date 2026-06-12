@@ -10,9 +10,9 @@
     "loginFailed": "Could not log in"
   },
   "login": {
-    "invalidCredentials": "Incorrect email or password. If this is your first time on the live site, sign up or seed users (admin@demo.com / Admin1234).",
-    "jwtSecret": "JWT_SECRET is missing on the backend (Railway → Variables).",
-    "database": "Cannot connect to the database. Check DATABASE_URL on Railway."
+    "invalidCredentials": "Incorrect email or password. If you don't have an account, sign up.",
+    "jwtSecret": "The service is not configured correctly. Contact your administrator.",
+    "database": "We couldn't reach the server. Try again later or contact support."
   },
   "client": {
     "invalidInvite": "Invalid invitation",

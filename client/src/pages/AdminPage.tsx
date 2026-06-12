@@ -13,6 +13,7 @@ import {
   fetchAdminStats,
   fetchAdminTimeSeries,
   fetchAdminUsers,
+  formatApiError,
   fetchOrgInvitations,
   postOrgInvitations,
   updateAdminAiConfig,
@@ -93,7 +94,7 @@ function EquipoTab({
       setEmailsText("");
       await onReload();
     } catch (err) {
-      setInviteErr(err instanceof Error ? err.message : "Error al invitar");
+      setInviteErr(formatApiError(err) || "Error al invitar");
     } finally {
       setSubmitting(false);
     }
@@ -171,8 +172,7 @@ function EquipoTab({
         </button>
         {mailConfigured === false && (
           <p className="auth-error" style={{ marginTop: "0.75rem" }}>
-            El servidor no tiene correo configurado: definí BREVO_API_KEY y MAIL_FROM en Railway (backend), o
-            SMTP_HOST, SMTP_USER y SMTP_PASS. Igual puedes copiar el enlace de cada invitación abajo.
+            El envío de correos no está configurado en el servidor. Podés copiar el enlace de cada invitación abajo.
           </p>
         )}
         <p className="admin-date-range-hint" style={{ marginTop: "0.75rem" }}>
@@ -304,7 +304,7 @@ export default function AdminPage() {
       setStats(s);
       setTimeSeries(ts.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar");
+      setError(formatApiError(err) || "Error al cargar");
       setUsers([]);
       setStats(null);
       setTimeSeries([]);
@@ -321,7 +321,7 @@ export default function AdminPage() {
       const { metrics: m } = await fetchAdminMetrics(appliedRange);
       setMetrics(m);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar");
+      setError(formatApiError(err) || "Error al cargar");
       setMetrics([]);
     } finally {
       setLoading(false);
@@ -352,7 +352,7 @@ export default function AdminPage() {
       const inv = await fetchOrgInvitations();
       setInvitations(inv.invitations);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al cargar invitaciones");
+      setError(formatApiError(err) || "Error al cargar invitaciones");
       setInvitations([]);
     } finally {
       setEquipoLoading(false);
@@ -590,7 +590,7 @@ function UsersTab({
       setShowForm(false);
       onRefresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error");
+      setErr(formatApiError(e) || "Error");
     } finally {
       setSubmitting(false);
     }
@@ -608,7 +608,7 @@ function UsersTab({
       setEditing(null);
       onRefresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error");
+      setErr(formatApiError(e) || "Error");
     } finally {
       setSubmitting(false);
     }
@@ -622,7 +622,7 @@ function UsersTab({
       await deleteAdminUser(id);
       onRefresh();
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error");
+      setErr(formatApiError(e) || "Error");
     } finally {
       setSubmitting(false);
     }
@@ -994,7 +994,7 @@ function ConfigTab({
       await onSave({ anonymizationEnabled, competitionScope });
       setOk("Configuración guardada.");
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error al guardar");
+      setErr(formatApiError(e) || "Error al guardar");
     } finally {
       setSubmitting(false);
     }
@@ -1056,7 +1056,7 @@ function ExportsTab({ appliedRange }: { appliedRange: AdminReportRange }) {
     try {
       await downloadExport(type, appliedRange);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error al descargar");
+      setErr(formatApiError(e) || "Error al descargar");
     } finally {
       setLoading(null);
     }

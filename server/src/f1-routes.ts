@@ -304,7 +304,6 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
       if (isF1PredictionWindowClosed(race.raceStartAt)) {
         res.status(400).json({
           error: "race_locked",
-          message: "La ventana de predicción ya cerró (1 h antes de la carrera).",
         });
         return;
       }
@@ -391,8 +390,9 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("POST /f1/predictions/:raceId/generate-ai:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      res.status(500).json({ error: "server_error", message: msg });
+      // eslint-disable-next-line no-console
+      console.error("F1 route error:", err);
+      res.status(500).json({ error: "server_error" });
     }
   });
 
@@ -494,7 +494,9 @@ export function registerF1Routes(app: Express, prisma: PrismaClient): void {
     } catch (err) {
       // eslint-disable-next-line no-console
       console.error("POST /f1/admin/sync-openf1:", err);
-      res.status(500).json({ error: "server_error", message: err instanceof Error ? err.message : String(err) });
+      // eslint-disable-next-line no-console
+      console.error("F1 route error:", err);
+      res.status(500).json({ error: "server_error" });
     }
   });
 }

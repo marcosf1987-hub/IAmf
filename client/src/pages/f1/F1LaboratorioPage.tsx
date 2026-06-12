@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import { IaBatchPromptBlock, extractF1GuidelinesFromPrompt } from "../../components/IaBatchPromptBlock";
 import {
   fetchF1AiPromptLogs,
+  formatApiError,
   fetchF1Guidelines,
   fetchF1Races,
   putF1RaceGuideline,
@@ -63,7 +64,7 @@ export default function F1LaboratorioPage() {
       });
       setSaved(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar");
+      setError(formatApiError(e) || "Error al cargar");
       setRaces([]);
       setSessionKey(null);
     } finally {
@@ -78,7 +79,7 @@ export default function F1LaboratorioPage() {
       const res = await fetchF1AiPromptLogs();
       setPromptLogs(res.prompts ?? []);
     } catch (e) {
-      setPromptLogsError(e instanceof Error ? e.message : "No se pudo cargar el historial de prompts");
+      setPromptLogsError(formatApiError(e) || "No se pudo cargar el historial de prompts");
       setPromptLogs([]);
     } finally {
       setPromptLogsLoading(false);
@@ -123,7 +124,7 @@ export default function F1LaboratorioPage() {
       setMap(res.bySessionKey);
       setSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar");
+      setError(formatApiError(err) || "Error al guardar");
     } finally {
       setSaving(false);
     }

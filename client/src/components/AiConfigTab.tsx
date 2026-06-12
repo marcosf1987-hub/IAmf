@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatApiError } from "../lib/api";
 
 export type AiProvider = "openai" | "custom" | "gemini" | "grok" | "groq" | "ollama";
 
@@ -113,7 +114,7 @@ export default function AiConfigTab({
       setApiKey("");
       setOk(successMessage);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "Error al guardar");
+      setErr(formatApiError(e));
     } finally {
       setSubmitting(false);
     }

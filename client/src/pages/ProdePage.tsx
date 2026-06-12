@@ -419,7 +419,7 @@ export default function ProdePage() {
       return;
     }
     if (matches.length === 0) {
-      setError("No hay partidos cargados en la base. Ejecuta el seed antes de generar.");
+      setError("Los partidos aún no están disponibles. Volvé a intentar más tarde.");
       return;
     }
     void handleGeneratePredictions(currentPhase.phase);
@@ -474,7 +474,7 @@ export default function ProdePage() {
                 aria-describedby={!hasLabGuidelinesForCurrentPhase ? "prode-lab-required-desc" : undefined}
                 title={
                   matches.length === 0
-                    ? "Primero hay que cargar los partidos en la base (ejecutar prisma db seed con DATABASE_URL de producción)."
+                    ? "Los partidos aún no están disponibles."
                     : !hasLabGuidelinesForCurrentPhase
                       ? t("saveGuidelinesBefore", { phase: getPhaseLabel(currentPhase.phase) })
                       : undefined
@@ -495,23 +495,10 @@ export default function ProdePage() {
 
       {matches.length === 0 && !loading && (
         <div className="prode-seed-hint" role="status">
-          <h2 className="prode-seed-hint-title">No hay partidos en la base de datos</h2>
+          <h2 className="prode-seed-hint-title">Partidos no disponibles</h2>
           <p>
-            No podrás generar predicciones hasta que existan partidos cargados. En
-            producción (Railway) eso se hace ejecutando <strong>una vez</strong> el seed de Prisma contra la
-            misma base que usa el backend.
-          </p>
-          <p className="prode-seed-steps">
-            <strong>Desde tu PC</strong> (PowerShell), con la <code>DATABASE_URL</code> que copias del
-            servicio PostgreSQL en Railway:
-          </p>
-          <pre className="prode-seed-code">
-            {`cd server
-$env:DATABASE_URL="postgresql://..."   # pega la URL completa
-npx prisma db seed`}
-          </pre>
-          <p className="prode-seed-note">
-            Cuando termine sin error, <strong>recarga esta página</strong>. Deberías ver el listado de partidos.
+            Todavía no hay partidos cargados para predecir. Estamos preparando el torneo; volvé a
+            intentar más tarde o contactá soporte si el problema persiste.
           </p>
         </div>
       )}
@@ -519,9 +506,7 @@ npx prisma db seed`}
       <div className="prode-page-stack">
         {matches.length > 0 && groupSections.length === 0 && (
           <p className="prode-no-groups-hint" role="status">
-            No hay partidos de <strong>fase de grupos</strong> en la base (o el campo de etapa no coincide). Si ya
-            ejecutaste el seed, verifica que los partidos tengan etapa <code>group</code> y <code>groupCode</code> por
-            partido.
+            No hay partidos de <strong>fase de grupos</strong> disponibles en este momento.
           </p>
         )}
 

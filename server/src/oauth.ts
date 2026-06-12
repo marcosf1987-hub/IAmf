@@ -262,20 +262,11 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
       if (!apiPublicBase()) missing.push("OAUTH_PUBLIC_BASE_URL");
       if (!clientId) missing.push("OAUTH_GOOGLE_CLIENT_ID");
       if (!secret) missing.push("OAUTH_GOOGLE_CLIENT_SECRET");
+      // eslint-disable-next-line no-console
+      console.error("[oauth] Google OAuth no configurado. Variables faltantes:", missing.join(", "));
       res.status(503).json({
         error: "oauth_not_configured",
         provider: "google",
-        missing,
-        hint:
-          "Definí esas variables en el servicio Node del API (no en Postgres ni en el frontend). Guardá y redeploy. También podés usar los nombres alternativos en `aliases`.",
-        aliases: {
-          publicBaseUrl: ["OAUTH_PUBLIC_BASE_URL", "API_PUBLIC_BASE_URL", "PUBLIC_URL"],
-          clientSecret: [
-            "OAUTH_GOOGLE_CLIENT_SECRET",
-            "GOOGLE_CLIENT_SECRET",
-            "GOOGLE_OAUTH_CLIENT_SECRET",
-          ],
-        },
         oauthConfigFormat: 2,
       });
       return;
@@ -315,7 +306,7 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
     const secret = googleClientSecret();
     const redir = redirectUri();
     if (!clientId || !secret || !redir) {
-      redirectFrontendError(res, "Google OAuth no está configurado en el servidor.");
+      redirectFrontendError(res, "oauth_not_configured");
       return;
     }
 

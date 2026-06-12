@@ -4,6 +4,7 @@ import {
   acceptCompetitionInvite,
   claimCompetitionInvite,
   fetchCompetitionInvitePreview,
+  formatApiError,
 } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 
@@ -51,7 +52,7 @@ export default function AcceptLeagueInvitePage() {
         setInviterLabel(p.inviterLabel);
         setAccountExists(p.accountExists);
       } catch (e) {
-        setPreviewErr(e instanceof Error ? e.message : "No se pudo cargar la invitación.");
+        setPreviewErr(formatApiError(e) || "No se pudo cargar la invitación.");
       } finally {
         setLoading(false);
       }
@@ -71,7 +72,7 @@ export default function AcceptLeagueInvitePage() {
       await refreshSession();
       navigate(postInviteLigasPath(), { replace: true });
     } catch (err) {
-      setSubmitErr(err instanceof Error ? err.message : "Error al crear la cuenta.");
+      setSubmitErr(formatApiError(err) || "Error al crear la cuenta.");
     } finally {
       setSubmitting(false);
     }
@@ -84,7 +85,7 @@ export default function AcceptLeagueInvitePage() {
       await claimCompetitionInvite(token);
       navigate(postInviteLigasPath(), { replace: true });
     } catch (err) {
-      setSubmitErr(err instanceof Error ? err.message : "No se pudo unir a la liga.");
+      setSubmitErr(formatApiError(err) || "No se pudo unir a la liga.");
     } finally {
       setSubmitting(false);
     }

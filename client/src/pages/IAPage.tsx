@@ -4,6 +4,7 @@ import { Link, useLocation } from "react-router-dom";
 import type { ProdeGuidelinesByPhase } from "../lib/api";
 import {
   fetchPredictionHistory,
+  formatApiError,
   fetchProdeGuidelines,
   updateProdeGuidelines,
   type BatchPromptLine,
@@ -203,7 +204,7 @@ export default function IAPage() {
       setHistoryEntries(res.entries ?? []);
       setBatchPrompts(res.batchPrompts ?? {});
     } catch (e) {
-      setHistoryError(e instanceof Error ? e.message : "No se pudo cargar el historial");
+      setHistoryError(formatApiError(e));
       setHistoryEntries([]);
       setBatchPrompts({});
     } finally {
@@ -248,7 +249,7 @@ export default function IAPage() {
       await updateProdeGuidelines(guidelines);
       setGuidelinesSaved(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar pautas");
+      setError(formatApiError(err));
     } finally {
       setGuidelinesSaving(false);
     }

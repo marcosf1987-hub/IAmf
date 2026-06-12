@@ -961,7 +961,9 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
   app.get("/platform/ai-config", superAuth, async (_req, res) => {
     const platform = await prisma.company.findUnique({ where: { slug: "platform-internal" } });
     if (!platform) {
-      res.status(404).json({ error: "not_found", message: "Falta empresa platform-internal." });
+      // eslint-disable-next-line no-console
+      console.error("Platform route: falta empresa platform-internal");
+      res.status(404).json({ error: "platform_not_configured" });
       return;
     }
     const config = await prisma.aiConfig.findUnique({
@@ -984,11 +986,9 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
   app.post("/platform/sync-match-results", superAuth, async (_req, res) => {
     const apiKey = process.env.FOOTBALL_DATA_API_KEY?.trim();
     if (!apiKey) {
-      res.status(400).json({
-        error: "missing_config",
-        message:
-          "Agrega FOOTBALL_DATA_API_KEY en las variables del backend. Obtén una gratis en https://www.football-data.org/",
-      });
+      // eslint-disable-next-line no-console
+      console.error("POST /platform/sync-match-results: falta FOOTBALL_DATA_API_KEY");
+      res.status(400).json({ error: "missing_config" });
       return;
     }
 
@@ -1011,7 +1011,9 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
     const platform = await prisma.company.findUnique({ where: { slug: "platform-internal" } });
     if (!platform) {
-      res.status(404).json({ error: "not_found", message: "Falta empresa platform-internal." });
+      // eslint-disable-next-line no-console
+      console.error("Platform route: falta empresa platform-internal");
+      res.status(404).json({ error: "platform_not_configured" });
       return;
     }
     const companyId = platform.id;

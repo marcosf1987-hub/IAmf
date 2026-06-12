@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import MarketingLayout from "../components/MarketingLayout";
 import { useAuth } from "../contexts/AuthContext";
+import { formatApiError } from "../lib/api";
 
 /**
  * Tras Google OAuth el API redirige con <code>?oauth=success</code> (cookies HttpOnly)
@@ -18,7 +19,7 @@ export default function OAuthCallbackPage() {
     const oauthErr = search.get("oauth_error");
     if (oauthErr) {
       setIsError(true);
-      setMessage(oauthErr);
+      setMessage(formatApiError(new Error(oauthErr)));
       window.history.replaceState(null, "", window.location.pathname);
       return;
     }
@@ -31,7 +32,7 @@ export default function OAuthCallbackPage() {
           navigate("/app", { replace: true });
         } catch (e) {
           setIsError(true);
-          setMessage(e instanceof Error ? e.message : "No se pudo validar la sesión.");
+          setMessage(formatApiError(e));
         }
       })();
       return;
@@ -42,7 +43,7 @@ export default function OAuthCallbackPage() {
     const errHash = hp.get("error");
     if (errHash) {
       setIsError(true);
-      setMessage(errHash);
+      setMessage(formatApiError(new Error(errHash)));
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
       return;
     }

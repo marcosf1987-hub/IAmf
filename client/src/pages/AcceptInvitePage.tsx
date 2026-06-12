@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { acceptInvite, fetchInvitePreview } from "../lib/api";
+import { acceptInvite, fetchInvitePreview, formatApiError } from "../lib/api";
 import { useAuth } from "../contexts/AuthContext";
 
 export default function AcceptInvitePage() {
@@ -31,7 +31,7 @@ export default function AcceptInvitePage() {
         setCompanyName(p.companyName);
         setEmail(p.email);
       } catch (e) {
-        setPreviewErr(e instanceof Error ? e.message : "No se pudo cargar la invitación.");
+        setPreviewErr(formatApiError(e) || "No se pudo cargar la invitación.");
       } finally {
         setLoading(false);
       }
@@ -51,7 +51,7 @@ export default function AcceptInvitePage() {
       await refreshSession();
       navigate("/app", { replace: true });
     } catch (err) {
-      setSubmitErr(err instanceof Error ? err.message : "Error al crear la cuenta.");
+      setSubmitErr(formatApiError(err) || "Error al crear la cuenta.");
     } finally {
       setSubmitting(false);
     }

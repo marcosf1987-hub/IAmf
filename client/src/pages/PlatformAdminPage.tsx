@@ -5,6 +5,7 @@ import AiConfigTab from "../components/AiConfigTab";
 import {
   createPlatformCompany,
   deletePlatformUser,
+  formatApiError,
   fetchPlatformAiConfig,
   fetchPlatformCompanies,
   fetchPlatformOverview,
@@ -175,7 +176,7 @@ export default function PlatformAdminPage() {
       for (const c of list) scopes[c.id] = c.competitionScope;
       setScopeEdits(scopes);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar");
+      setError(formatApiError(e) || "Error al cargar");
       setCompanies([]);
       setOverview(null);
       setPlatformUsers([]);
@@ -205,7 +206,7 @@ export default function PlatformAdminPage() {
       setForm({ name: "", slug: "", adminEmail: "", adminPassword: "", seatLimit: 50 });
       await reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al crear empresa");
+      setError(formatApiError(err) || "Error al crear empresa");
     } finally {
       setSubmitting(false);
     }
@@ -225,7 +226,7 @@ export default function PlatformAdminPage() {
       await patchPlatformCompany(id, { seatLimit: n });
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al actualizar cupos");
+      setError(formatApiError(e) || "Error al actualizar cupos");
     }
   }
 
@@ -239,7 +240,7 @@ export default function PlatformAdminPage() {
       setSuccessMsg("Competiciones de la empresa actualizadas.");
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al actualizar competiciones");
+      setError(formatApiError(e) || "Error al actualizar competiciones");
     }
   }
 
@@ -253,7 +254,7 @@ export default function PlatformAdminPage() {
       setDefaultScope(res.defaultCompetitionScope);
       setSuccessMsg("Valor por defecto para nuevas empresas guardado.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al guardar valor por defecto");
+      setError(formatApiError(err) || "Error al guardar valor por defecto");
     } finally {
       setSavingDefaultScope(false);
     }
@@ -274,15 +275,15 @@ export default function PlatformAdminPage() {
       setSuccessMsg(`${emailLabel} movido a ${companyName} como member (fuera del pool y liga universal pública).`);
       await reload();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Error al mover usuario";
-      if (msg.includes("seats_exceeded")) {
+      const raw = err instanceof Error ? err.message : String(err);
+      if (raw.includes("seats_exceeded")) {
         setError("La empresa destino no tiene cupos disponibles.");
-      } else if (msg.includes("not_found")) {
-        setError("Solo se pueden mover usuarios activos del pool público (platform-internal).");
-      } else if (msg.includes("invalid_target")) {
+      } else if (raw.includes("not_found")) {
+        setError("Solo se pueden mover usuarios del pool público que estén activos.");
+      } else if (raw.includes("invalid_target")) {
         setError("Empresa destino no válida.");
       } else {
-        setError(msg);
+        setError(formatApiError(err));
       }
     } finally {
       setTransferBusy(false);
@@ -316,7 +317,7 @@ export default function PlatformAdminPage() {
       setResetPass2("");
       setSuccessMsg(`Contraseña restablecida para ${emailLabel}. El admin puede iniciar sesión con la nueva clave.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al restablecer");
+      setError(formatApiError(err) || "Error al restablecer");
     } finally {
       setResetBusy(false);
     }
@@ -343,7 +344,7 @@ export default function PlatformAdminPage() {
           : `${email} vuelve a aparecer en los rankings.`
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al actualizar visibilidad");
+      setError(formatApiError(err) || "Error al actualizar visibilidad");
     } finally {
       setUserActionBusy(null);
     }
@@ -365,7 +366,7 @@ export default function PlatformAdminPage() {
       setPlatformUsersTotal((n) => Math.max(0, n - 1));
       setSuccessMsg(`Usuario ${email} eliminado.`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al eliminar usuario");
+      setError(formatApiError(err) || "Error al eliminar usuario");
     } finally {
       setUserActionBusy(null);
     }
@@ -381,7 +382,7 @@ export default function PlatformAdminPage() {
       setSuccessMsg(res.message);
     } catch (err) {
       setSyncResult(null);
-      setError(err instanceof Error ? err.message : "Error al sincronizar resultados");
+      setError(formatApiError(err) || "Error al sincronizar resultados");
     } finally {
       setSyncBusy(false);
     }

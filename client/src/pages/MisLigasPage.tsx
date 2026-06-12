@@ -1096,8 +1096,7 @@ function CreateLigaModal({
             }
           }
         } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          failures.push(`${em}: ${msg}`);
+          failures.push(`${em}: ${formatApiError(err)}`);
         }
       }
 
