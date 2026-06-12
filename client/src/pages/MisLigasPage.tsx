@@ -625,6 +625,7 @@ const EMPTY_DATA: ResultsDashboard = {
   rankChange: 0,
   pointsOverTime: [],
   competitionLeaderboards: [],
+  showGlobalRanking: true,
 };
 
 function CompetitionDetailSection({ competitionId }: { competitionId: string }) {

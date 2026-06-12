@@ -1,6 +1,7 @@
 import type { PrismaClient } from "@prisma/client";
 import { anonymizeUserId, computeLeaderboardForUsers } from "./leaderboard";
-import { isPlatformCompanySlug } from "./org-seat";
+import { competitionRankingDisplay } from "./org-seat";
+import { rankingVisibleUserWhere } from "./ranking-users";
 import { aggregateF1PointsByUser } from "./f1-scoring";
 import { loadF1RacesForScoring } from "./f1-competition-leaderboard";
 
@@ -36,16 +37,19 @@ export async function getCompetitionCardSnapshot(
   }
 
   const memberUsers = await prisma.user.findMany({
-    where: { id: { in: memberIds }, status: "active" },
+    where: rankingVisibleUserWhere({ id: { in: memberIds } }),
     select: { id: true, fullName: true, email: true },
   });
+  const visibleMemberIds = memberUsers.map((u) => u.id);
 
   const compConfig = await prisma.companyConfig.findUnique({
     where: { companyId: comp.companyId },
     select: { anonymizationEnabled: true },
   });
-  const anonymizeCompetition =
-    !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
+  const { anonymize: anonymizeCompetition, label: anonymizeLabel } = competitionRankingDisplay(
+    comp.company.slug,
+    compConfig?.anonymizationEnabled
+  );
 
   if (comp.discipline === "f1") {
     const races = await loadF1RacesForScoring(prisma);
@@ -63,7 +67,7 @@ export async function getCompetitionCardSnapshot(
       const u = memberUsers.find((x) => x.id === r.userId);
       const label =
         anonymizeCompetition && u
-          ? anonymizeUserId(u.id, comp.companyId)
+          ? anonymizeUserId(u.id, comp.companyId, anonymizeLabel)
           : (u?.fullName || u?.email || `Usuario #${r.userId.slice(0, 4)}`);
       return { userId: r.userId, displayLabel: label, rank: r.rank };
     });
@@ -93,7 +97,7 @@ export async function getCompetitionCardSnapshot(
 
   const predComp = await prisma.prediction.findMany({
     where: {
-      userId: { in: memberIds },
+      userId: { in: visibleMemberIds },
       matchId: { in: matchIds },
     },
     include: {
@@ -116,7 +120,8 @@ export async function getCompetitionCardSnapshot(
     memberUsers,
     anonymizeCompetition,
     comp.companyId,
-    viewerUserId
+    viewerUserId,
+    anonymizeLabel
   );
 
   const topThree = lb.leaderboard.slice(0, 3).map((r) => ({

@@ -12,6 +12,7 @@ import {
   platformResetOrgAdminPasswordSchema,
   platformSettingsSchema,
   platformTransferUserSchema,
+  platformUserHiddenFromRankingsSchema,
 } from "./validators";
 import {
   getPlatformDefaultCompetitionScope,
@@ -616,6 +617,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
           fullName: true,
           role: true,
           status: true,
+          hiddenFromRankings: true,
           createdAt: true,
           company: { select: { id: true, name: true, slug: true } },
         },
@@ -637,6 +639,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
           fullName: u.fullName,
           role: u.role,
           status: u.status,
+          hiddenFromRankings: u.hiddenFromRankings,
           createdAt: u.createdAt,
           company: u.company,
           logins,
@@ -647,6 +650,59 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     );
 
     res.status(200).json({ users: rows, total });
+  });
+
+  app.patch("/platform/users/:userId/hidden-from-rankings", superAuth, async (req, res) => {
+    const userId = routeParamUserId(req);
+    if (!userId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+    const parsed = platformUserHiddenFromRankingsSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "invalid_body" });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true },
+    });
+    if (!existing || existing.role === "super_admin") {
+      res.status(404).json({ error: "user_not_found" });
+      return;
+    }
+
+    const user = await prisma.user.update({
+      where: { id: userId },
+      data: { hiddenFromRankings: parsed.data.hidden },
+      select: {
+        id: true,
+        email: true,
+        hiddenFromRankings: true,
+      },
+    });
+    res.status(200).json({ ok: true, user });
+  });
+
+  app.delete("/platform/users/:userId", superAuth, async (req, res) => {
+    const userId = routeParamUserId(req);
+    if (!userId) {
+      res.status(400).json({ error: "invalid_id" });
+      return;
+    }
+
+    const existing = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, role: true, email: true },
+    });
+    if (!existing || existing.role === "super_admin") {
+      res.status(404).json({ error: "user_not_found" });
+      return;
+    }
+
+    await prisma.user.delete({ where: { id: userId } });
+    res.status(200).json({ ok: true, deletedUserId: userId, email: existing.email });
   });
 
   /** Mover usuario del pool público (platform-internal) a una empresa B2B como member. */

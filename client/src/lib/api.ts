@@ -404,6 +404,7 @@ export type PlatformUserRow = {
   fullName: string | null;
   role: string;
   status: string;
+  hiddenFromRankings: boolean;
   createdAt: string;
   company: { id: string; name: string; slug: string };
   logins: number;
@@ -433,6 +434,25 @@ export async function fetchPlatformUsers(params?: {
   if (params?.q?.trim()) qs.set("q", params.q.trim());
   if (params?.company?.trim()) qs.set("company", params.company.trim());
   return fetchAuth(`/platform/users?${qs.toString()}`);
+}
+
+export async function setPlatformUserHiddenFromRankings(
+  userId: string,
+  hidden: boolean
+): Promise<{ ok: true; user: { id: string; email: string; hiddenFromRankings: boolean } }> {
+  return fetchAuth(`/platform/users/${encodeURIComponent(userId)}/hidden-from-rankings`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ hidden }),
+  });
+}
+
+export async function deletePlatformUser(
+  userId: string
+): Promise<{ ok: true; deletedUserId: string; email: string }> {
+  return fetchAuth(`/platform/users/${encodeURIComponent(userId)}`, {
+    method: "DELETE",
+  });
 }
 
 export async function transferPlatformUserToCompany(
@@ -767,6 +787,8 @@ export type ResultsDashboard = {
   pointsOverTime: { date: string; points: number }[];
   /** Tablas por liga; mismas predicciones globales, ranking acotado a miembros. */
   competitionLeaderboards: CompetitionLeaderboardBlock[];
+  /** false en pool B2C: sin ranking global de empresa/pool. */
+  showGlobalRanking: boolean;
 };
 
 export type CompetitionDiscipline = "football" | "f1";

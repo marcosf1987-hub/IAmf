@@ -6384,6 +6384,17 @@ a.btn-oauth--unconfigured {
   text-align: left;
 }
 
+.platform-users-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  justify-content: flex-start;
+}
+
+.platform-users-delete-btn {
+  color: var(--color-danger, #c0392b);
+}
+
 /* Plataforma → tabla Empresas (no usar max-width 900px del admin genérico) */
 .platform-companies-wrap {
   max-width: none;

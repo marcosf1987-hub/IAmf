@@ -46,6 +46,7 @@ const EMPTY_DASH: ResultsDashboard = {
   rankChange: 0,
   pointsOverTime: [],
   competitionLeaderboards: [],
+  showGlobalRanking: true,
 };
 
 export default function AppDashboard() {

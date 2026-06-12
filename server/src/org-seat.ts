@@ -1,9 +1,24 @@
 import type { PrismaClient } from "@prisma/client";
+import type { AnonymizeLabel } from "./leaderboard";
 
 const PLATFORM_SLUG = "platform-internal";
 
 export function isPlatformCompanySlug(slug: string): boolean {
   return slug === PLATFORM_SLUG;
+}
+
+/** Política de anonimización en rankings por liga (pool B2C siempre anonimizado como «Jugador»). */
+export function competitionRankingDisplay(
+  companySlug: string,
+  anonymizationEnabled: boolean | null | undefined
+): { anonymize: boolean; label: AnonymizeLabel } {
+  if (isPlatformCompanySlug(companySlug)) {
+    return { anonymize: true, label: "Jugador" };
+  }
+  return {
+    anonymize: anonymizationEnabled ?? true,
+    label: "Empleado",
+  };
 }
 
 /** Usuarios que consumen cupo: admin de org + empleados activos (no super_admin de plataforma). */

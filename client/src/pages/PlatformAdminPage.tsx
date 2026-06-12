@@ -4,6 +4,7 @@ import { useAuth } from "../contexts/AuthContext";
 import AiConfigTab from "../components/AiConfigTab";
 import {
   createPlatformCompany,
+  deletePlatformUser,
   fetchPlatformAiConfig,
   fetchPlatformCompanies,
   fetchPlatformOverview,
@@ -11,6 +12,7 @@ import {
   fetchPlatformUsers,
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
+  setPlatformUserHiddenFromRankings,
   transferPlatformUserToCompany,
   syncPlatformMatchResults,
   updatePlatformAiConfig,
@@ -140,6 +142,7 @@ export default function PlatformAdminPage() {
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncMatchResultsResponse | null>(null);
+  const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
 
   const companyFilterOptions = useMemo<CompanyFilterOption[]>(
     () => [
@@ -324,6 +327,48 @@ export default function PlatformAdminPage() {
     setResetPass("");
     setResetPass2("");
     setError("");
+  }
+
+  async function toggleUserHiddenFromRankings(userId: string, hidden: boolean, email: string) {
+    setUserActionBusy(userId);
+    setError("");
+    try {
+      await setPlatformUserHiddenFromRankings(userId, hidden);
+      setPlatformUsers((list) =>
+        list.map((u) => (u.id === userId ? { ...u, hiddenFromRankings: hidden } : u))
+      );
+      setSuccessMsg(
+        hidden
+          ? `${email} oculto de los rankings.`
+          : `${email} vuelve a aparecer en los rankings.`
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al actualizar visibilidad");
+    } finally {
+      setUserActionBusy(null);
+    }
+  }
+
+  async function removePlatformUser(userId: string, email: string) {
+    if (
+      !window.confirm(
+        `¿Eliminar permanentemente a ${email}? Se borran sus datos y ligas que creó. Esta acción no se puede deshacer.`
+      )
+    ) {
+      return;
+    }
+    setUserActionBusy(userId);
+    setError("");
+    try {
+      await deletePlatformUser(userId);
+      setPlatformUsers((list) => list.filter((u) => u.id !== userId));
+      setPlatformUsersTotal((n) => Math.max(0, n - 1));
+      setSuccessMsg(`Usuario ${email} eliminado.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al eliminar usuario");
+    } finally {
+      setUserActionBusy(null);
+    }
   }
 
   async function runMatchResultsSync() {
@@ -648,22 +693,45 @@ export default function PlatformAdminPage() {
                         {new Date(u.createdAt).toLocaleDateString("es-AR")}
                       </td>
                       <td className="platform-users-col-actions">
-                        {u.company.slug === "platform-internal" ? (
+                        <div className="platform-users-actions">
+                          {u.company.slug === "platform-internal" ? (
+                            <button
+                              type="button"
+                              className="btn-secondary btn-sm"
+                              disabled={userActionBusy === u.id}
+                              onClick={() => {
+                                setSuccessMsg("");
+                                setError("");
+                                setTransferTarget({ userId: u.id, email: u.email });
+                                setTransferCompanyId("");
+                              }}
+                            >
+                              Mover
+                            </button>
+                          ) : null}
                           <button
                             type="button"
                             className="btn-secondary btn-sm"
-                            onClick={() => {
-                              setSuccessMsg("");
-                              setError("");
-                              setTransferTarget({ userId: u.id, email: u.email });
-                              setTransferCompanyId("");
-                            }}
+                            disabled={userActionBusy === u.id}
+                            onClick={() =>
+                              void toggleUserHiddenFromRankings(
+                                u.id,
+                                !u.hiddenFromRankings,
+                                u.email
+                              )
+                            }
                           >
-                            Mover
+                            {u.hiddenFromRankings ? "Mostrar" : "Ocultar"}
                           </button>
-                        ) : (
-                          <span className="placeholder-text">—</span>
-                        )}
+                          <button
+                            type="button"
+                            className="btn-secondary btn-sm platform-users-delete-btn"
+                            disabled={userActionBusy === u.id}
+                            onClick={() => void removePlatformUser(u.id, u.email)}
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

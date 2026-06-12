@@ -1,5 +1,5 @@
 import type { PrismaClient } from "@prisma/client";
-import { anonymizeUserId } from "./leaderboard";
+import { anonymizeUserId, type AnonymizeLabel } from "./leaderboard";
 import { aggregateF1PointsByUser, officialTop10DriverNumbers } from "./f1-scoring";
 
 export type F1LeagueLeaderboardRow = {
@@ -44,7 +44,8 @@ export function buildF1LeagueLeaderboardRows(
   memberUsers: Array<{ id: string; fullName: string | null; email: string }>,
   anonymizeCompetition: boolean,
   companyIdForAnonymization: string,
-  currentUserId: string
+  currentUserId: string,
+  anonymizeLabel: AnonymizeLabel = "Empleado"
 ): {
   leaderboard: F1LeagueLeaderboardRow[];
   myRank: number | null;
@@ -53,7 +54,7 @@ export function buildF1LeagueLeaderboardRows(
   const userById = new Map(memberUsers.map((u) => [u.id, u]));
   const aliasFor = (uid: string): string => {
     const u = userById.get(uid);
-    if (anonymizeCompetition && u) return anonymizeUserId(uid, companyIdForAnonymization);
+    if (anonymizeCompetition && u) return anonymizeUserId(uid, companyIdForAnonymization, anonymizeLabel);
     return u?.fullName?.trim() || u?.email || "Usuario";
   };
   const sorted = [...memberIds]
@@ -67,7 +68,7 @@ export function buildF1LeagueLeaderboardRows(
     const u = userById.get(row.userId);
     const alias =
       anonymizeCompetition && u
-        ? anonymizeUserId(row.userId, companyIdForAnonymization)
+        ? anonymizeUserId(row.userId, companyIdForAnonymization, anonymizeLabel)
         : u?.fullName?.trim() || u?.email || "Usuario";
     return {
       userId: row.userId,

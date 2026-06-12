@@ -240,13 +240,27 @@ export default function FootballHomeOverview({
       ? formatDateTime(deadline, { dateStyle: "full", timeStyle: "short" })
       : t("dashboard.footballHero.noCalendar");
 
-  const hasResultsRanking =
-    resultsDash.myRank != null && resultsDash.totalParticipants > 0;
+  const universalDashBlock = resultsDash.competitionLeaderboards.find((b) =>
+    isProtectedUniversalLeague({ slug: b.slug, name: b.name })
+  );
 
-  const rankText = hasResultsRanking
-    ? t("dashboard.rankOf", { rank: resultsDash.myRank, total: resultsDash.totalParticipants })
-    : universalLeague != null && universalLeague.card.totalParticipants > 0
-      ? t("dashboard.rankOf", { rank: "N/A", total: universalLeague.card.totalParticipants })
+  const hasResultsRanking = resultsDash.showGlobalRanking
+    ? resultsDash.myRank != null && resultsDash.totalParticipants > 0
+    : universalDashBlock != null &&
+      universalDashBlock.myRank != null &&
+      universalDashBlock.totalParticipants > 0;
+
+  const rankText = resultsDash.showGlobalRanking
+    ? hasResultsRanking
+      ? t("dashboard.rankOf", { rank: resultsDash.myRank, total: resultsDash.totalParticipants })
+      : universalLeague != null && universalLeague.card.totalParticipants > 0
+        ? t("dashboard.rankOf", { rank: "N/A", total: universalLeague.card.totalParticipants })
+        : t("dashboard.rankNA")
+    : universalDashBlock != null && universalDashBlock.myRank != null
+      ? t("dashboard.rankOf", {
+          rank: universalDashBlock.myRank,
+          total: universalDashBlock.totalParticipants,
+        })
       : t("dashboard.rankNA");
 
   const pointsLabel =
@@ -373,13 +387,22 @@ export default function FootballHomeOverview({
               <span className="resultados-metric-value">{resultsDash.precision}%</span>
               <span className="resultados-metric-label">{t("dashboard.footballHero.metricPrecision")}</span>
             </div>
-            <div className="resultados-metric resultados-metric-rank">
-              <span className="resultados-metric-value">
-                #{resultsDash.myRank ?? "—"} de {resultsDash.totalParticipants}
-                {resultsDash.myRank != null ? <RankArrow change={resultsDash.rankChange} /> : null}
-              </span>
-              <span className="resultados-metric-label">{rankingLabel}</span>
-            </div>
+            {resultsDash.showGlobalRanking ? (
+              <div className="resultados-metric resultados-metric-rank">
+                <span className="resultados-metric-value">
+                  #{resultsDash.myRank ?? "—"} de {resultsDash.totalParticipants}
+                  {resultsDash.myRank != null ? <RankArrow change={resultsDash.rankChange} /> : null}
+                </span>
+                <span className="resultados-metric-label">{rankingLabel}</span>
+              </div>
+            ) : universalDashBlock != null ? (
+              <div className="resultados-metric resultados-metric-rank">
+                <span className="resultados-metric-value">
+                  #{universalDashBlock.myRank ?? "—"} de {universalDashBlock.totalParticipants}
+                </span>
+                <span className="resultados-metric-label">Liga universal</span>
+              </div>
+            ) : null}
           </div>
 
           <section className="dashboard-league-ranks" aria-labelledby="dashboard-league-ranks-title">

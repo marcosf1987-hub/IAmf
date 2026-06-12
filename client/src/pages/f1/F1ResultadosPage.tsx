@@ -20,6 +20,7 @@ const EMPTY_DASH: ResultsDashboard = {
   rankChange: 0,
   pointsOverTime: [],
   competitionLeaderboards: [],
+  showGlobalRanking: true,
 };
 
 export default function F1ResultadosPage() {
@@ -68,7 +69,7 @@ export default function F1ResultadosPage() {
     );
   }
 
-  const { competitionLeaderboards, myRank, totalParticipants } = dash;
+  const { competitionLeaderboards, myRank, totalParticipants, showGlobalRanking } = dash;
 
   return (
     <div className="f1-page-inner resultados-page">
@@ -85,7 +86,7 @@ export default function F1ResultadosPage() {
             <span className="resultados-f1-metric-value">{summary.totalPoints}</span>
             <span className="resultados-f1-metric-label">Puntos totales F1</span>
           </div>
-          {myRank != null && totalParticipants > 0 ? (
+          {showGlobalRanking && myRank != null && totalParticipants > 0 ? (
             <p className="resultados-f1-global-rank">
               Ranking global F1: <strong>#{myRank}</strong> de {totalParticipants}
             </p>

@@ -5,12 +5,13 @@ import {
   computeLeaderboardForUsers,
   scoreFootballMatchPoints,
 } from "./leaderboard";
-import { isPlatformCompanySlug } from "./org-seat";
 import {
   buildF1LeagueLeaderboardRows,
   f1TotalsForMembers,
   loadF1RacesForScoring,
 } from "./f1-competition-leaderboard";
+import { competitionRankingDisplay, isPlatformCompanySlug } from "./org-seat";
+import { rankingVisibleUserWhere } from "./ranking-users";
 
 export type CompetitionLeaderboardBlock = {
   id: string;
@@ -38,13 +39,11 @@ export type ResultsDashboardPayload = {
   rankChange: number;
   pointsOverTime: { date: string; points: number }[];
   competitionLeaderboards: CompetitionLeaderboardBlock[];
+  /** false en pool B2C (platform-internal): solo rankings por liga. */
+  showGlobalRanking: boolean;
 };
 
-type MembershipRow = Awaited<
-  ReturnType<
-    typeof prismaMembershipQuery
-  >
->[number];
+type MembershipRow = Awaited<ReturnType<typeof prismaMembershipQuery>>[number];
 
 async function prismaMembershipQuery(prisma: PrismaClient, userId: string) {
   return prisma.competitionMember.findMany({
@@ -65,6 +64,24 @@ function filterMembershipsByDiscipline(
 ): MembershipRow[] {
   if (!discipline) return memberships;
   return memberships.filter((m) => m.competition.discipline === discipline);
+}
+
+function emptyDashboard(
+  competitionLeaderboards: CompetitionLeaderboardBlock[],
+  isPublicPool: boolean
+): ResultsDashboardPayload {
+  return {
+    totalHits: 0,
+    totalWithResult: 0,
+    precision: 0,
+    leaderboard: [],
+    myRank: null,
+    totalParticipants: 0,
+    rankChange: 0,
+    pointsOverTime: [],
+    competitionLeaderboards,
+    showGlobalRanking: !isPublicPool,
+  };
 }
 
 async function buildCompetitionLeaderboardsForMemberships(
@@ -92,27 +109,32 @@ async function buildCompetitionLeaderboardsForMemberships(
     if (memberIds.length === 0) continue;
 
     const memberUsers = await prisma.user.findMany({
-      where: { id: { in: memberIds }, status: "active" },
+      where: rankingVisibleUserWhere({ id: { in: memberIds } }),
       select: { id: true, fullName: true, email: true },
     });
+    const visibleMemberIds = memberUsers.map((u) => u.id);
+    if (visibleMemberIds.length === 0) continue;
 
     const compConfig = await prisma.companyConfig.findUnique({
       where: { companyId: comp.companyId },
       select: { anonymizationEnabled: true },
     });
 
-    const anonymizeCompetition =
-      !isPlatformCompanySlug(comp.company.slug) && (compConfig?.anonymizationEnabled ?? true);
+    const { anonymize: anonymizeCompetition, label: anonymizeLabel } = competitionRankingDisplay(
+      comp.company.slug,
+      compConfig?.anonymizationEnabled
+    );
 
     if (comp.discipline === "f1") {
-      const totals = await f1TotalsForMembers(prisma, memberIds, f1RacesOfficial);
+      const totals = await f1TotalsForMembers(prisma, visibleMemberIds, f1RacesOfficial);
       const lb = buildF1LeagueLeaderboardRows(
-        memberIds,
+        visibleMemberIds,
         totals,
         memberUsers,
         anonymizeCompetition,
         comp.companyId,
-        userId
+        userId,
+        anonymizeLabel
       );
       competitionLeaderboards.push({
         id: comp.id,
@@ -131,7 +153,8 @@ async function buildCompetitionLeaderboardsForMemberships(
         memberUsers,
         anonymizeCompetition,
         comp.companyId,
-        userId
+        userId,
+        anonymizeLabel
       );
       competitionLeaderboards.push({
         id: comp.id,
@@ -147,7 +170,7 @@ async function buildCompetitionLeaderboardsForMemberships(
 
     const predComp = await prisma.prediction.findMany({
       where: {
-        userId: { in: memberIds },
+        userId: { in: visibleMemberIds },
         matchId: { in: matchIds },
       },
       include: {
@@ -170,7 +193,8 @@ async function buildCompetitionLeaderboardsForMemberships(
       memberUsers,
       anonymizeCompetition,
       comp.companyId,
-      userId
+      userId,
+      anonymizeLabel
     );
 
     competitionLeaderboards.push({
@@ -191,7 +215,8 @@ async function buildF1ResultsDashboardPayload(
   prisma: PrismaClient,
   userId: string,
   companyId: string,
-  memberships: MembershipRow[]
+  memberships: MembershipRow[],
+  isPublicPool: boolean
 ): Promise<ResultsDashboardPayload> {
   const f1RacesOfficial = await loadF1RacesForScoring(prisma);
   const competitionLeaderboards = await buildCompetitionLeaderboardsForMemberships(
@@ -203,9 +228,29 @@ async function buildF1ResultsDashboardPayload(
     f1RacesOfficial
   );
 
+  if (isPublicPool) {
+    const totals = await f1TotalsForMembers(prisma, [userId], f1RacesOfficial);
+    const totalHits = totals.get(userId) ?? 0;
+    const raceCount = f1RacesOfficial.length;
+    const precision =
+      raceCount > 0 ? Math.min(100, Math.round((totalHits / (raceCount * 10)) * 100)) : 0;
+    return {
+      totalHits,
+      totalWithResult: raceCount,
+      precision,
+      leaderboard: [],
+      myRank: null,
+      totalParticipants: 0,
+      rankChange: 0,
+      pointsOverTime: [],
+      competitionLeaderboards,
+      showGlobalRanking: false,
+    };
+  }
+
   const [companyUsers, companyConfig] = await Promise.all([
     prisma.user.findMany({
-      where: { companyId, status: "active" },
+      where: rankingVisibleUserWhere({ companyId }),
       select: { id: true, fullName: true, email: true },
     }),
     prisma.companyConfig.findUnique({
@@ -215,7 +260,11 @@ async function buildF1ResultsDashboardPayload(
   ]);
 
   const companyUserIds = companyUsers.map((u) => u.id);
-  const anonymizedGlobal = companyConfig?.anonymizationEnabled ?? true;
+  const { anonymize: anonymizedGlobal, label: globalLabel } = competitionRankingDisplay(
+    (await prisma.company.findUnique({ where: { id: companyId }, select: { slug: true } }))
+      ?.slug ?? "",
+    companyConfig?.anonymizationEnabled
+  );
   const totals = await f1TotalsForMembers(prisma, companyUserIds, f1RacesOfficial);
   const globalLb = buildF1LeagueLeaderboardRows(
     companyUserIds,
@@ -223,7 +272,8 @@ async function buildF1ResultsDashboardPayload(
     companyUsers,
     anonymizedGlobal,
     companyId,
-    userId
+    userId,
+    globalLabel
   );
 
   const myEntry = globalLb.leaderboard.find((r) => r.userId === userId);
@@ -242,6 +292,7 @@ async function buildF1ResultsDashboardPayload(
     rankChange: 0,
     pointsOverTime: [],
     competitionLeaderboards,
+    showGlobalRanking: true,
   };
 }
 
@@ -249,7 +300,8 @@ async function buildFootballResultsDashboardPayload(
   prisma: PrismaClient,
   userId: string,
   companyId: string,
-  memberships: MembershipRow[]
+  memberships: MembershipRow[],
+  isPublicPool: boolean
 ): Promise<ResultsDashboardPayload> {
   const matchesWithResult = await prisma.match.findMany({
     where: {
@@ -269,68 +321,21 @@ async function buildFootballResultsDashboardPayload(
       [],
       []
     );
-    return {
-      totalHits: 0,
-      totalWithResult: 0,
-      precision: 0,
-      leaderboard: [],
-      myRank: null,
-      totalParticipants: 0,
-      rankChange: 0,
-      pointsOverTime: [],
-      competitionLeaderboards,
-    };
+    return emptyDashboard(competitionLeaderboards, isPublicPool);
   }
 
   const matchIds = matchesWithResult.map((m) => m.id);
 
-  const [companyUsers, companyConfig] = await Promise.all([
-    prisma.user.findMany({
-      where: { companyId, status: "active" },
-      select: { id: true, fullName: true, email: true },
-    }),
-    prisma.companyConfig.findUnique({
-      where: { companyId },
-      select: { anonymizationEnabled: true },
-    }),
-  ]);
-
-  const companyUserIds = companyUsers.map((u) => u.id);
-  const anonymizedGlobal = companyConfig?.anonymizationEnabled ?? true;
-
-  const predictions = await prisma.prediction.findMany({
-    where: {
-      userId: { in: companyUserIds },
-      matchId: { in: matchIds },
-    },
+  const myPredictions = await prisma.prediction.findMany({
+    where: { userId, matchId: { in: matchIds } },
     include: {
-      match: { select: { resultScoreA: true, resultScoreB: true } },
+      match: { select: { resultScoreA: true, resultScoreB: true, kickoffAt: true } },
     },
   });
 
-  const predForLb = predictions.map((p) => ({
-    userId: p.userId,
-    matchId: p.matchId,
-    scoreA: p.scoreA,
-    scoreB: p.scoreB,
-    match: {
-      resultScoreA: p.match.resultScoreA,
-      resultScoreB: p.match.resultScoreB,
-    },
-  }));
-
-  const globalLb = computeLeaderboardForUsers(
-    matchesWithResult,
-    predForLb,
-    companyUsers,
-    anonymizedGlobal,
-    companyId,
-    userId
-  );
-
   let cum = 0;
   const pointsOverTime = matchesWithResult.map((m) => {
-    const pred = predictions.find((p) => p.userId === userId && p.matchId === m.id);
+    const pred = myPredictions.find((p) => p.matchId === m.id);
     const pts =
       pred != null
         ? scoreFootballMatchPoints(
@@ -347,8 +352,7 @@ async function buildFootballResultsDashboardPayload(
     };
   });
 
-  const myEntry = globalLb.leaderboard.find((r) => r.userId === userId);
-  const totalHits = myEntry?.hits ?? 0;
+  const totalHits = cum;
   const totalWithResult = matchesWithResult.length;
   const maxPossiblePoints = totalWithResult * 3;
   const precision =
@@ -363,6 +367,69 @@ async function buildFootballResultsDashboardPayload(
     []
   );
 
+  if (isPublicPool) {
+    return {
+      totalHits,
+      totalWithResult,
+      precision,
+      leaderboard: [],
+      myRank: null,
+      totalParticipants: 0,
+      rankChange: 0,
+      pointsOverTime,
+      competitionLeaderboards,
+      showGlobalRanking: false,
+    };
+  }
+
+  const [companyUsers, companyConfig] = await Promise.all([
+    prisma.user.findMany({
+      where: rankingVisibleUserWhere({ companyId }),
+      select: { id: true, fullName: true, email: true },
+    }),
+    prisma.companyConfig.findUnique({
+      where: { companyId },
+      select: { anonymizationEnabled: true },
+    }),
+  ]);
+
+  const companySlug =
+    (await prisma.company.findUnique({ where: { id: companyId }, select: { slug: true } }))?.slug ??
+    "";
+  const { anonymize: anonymizedGlobal, label: globalLabel } = competitionRankingDisplay(
+    companySlug,
+    companyConfig?.anonymizationEnabled
+  );
+
+  const predictions = await prisma.prediction.findMany({
+    where: {
+      userId: { in: companyUsers.map((u) => u.id) },
+      matchId: { in: matchIds },
+    },
+    include: {
+      match: { select: { resultScoreA: true, resultScoreB: true } },
+    },
+  });
+
+  const globalLb = computeLeaderboardForUsers(
+    matchesWithResult,
+    predictions.map((p) => ({
+      userId: p.userId,
+      matchId: p.matchId,
+      scoreA: p.scoreA,
+      scoreB: p.scoreB,
+      match: {
+        resultScoreA: p.match.resultScoreA,
+        resultScoreB: p.match.resultScoreB,
+      },
+    })),
+    companyUsers,
+    anonymizedGlobal,
+    companyId,
+    userId,
+    globalLabel
+  );
+
   return {
     totalHits,
     totalWithResult,
@@ -373,6 +440,7 @@ async function buildFootballResultsDashboardPayload(
     rankChange: globalLb.rankChange,
     pointsOverTime,
     competitionLeaderboards,
+    showGlobalRanking: true,
   };
 }
 
@@ -382,12 +450,24 @@ export async function buildResultsDashboardPayload(
   companyId: string,
   discipline?: CompetitionDiscipline
 ): Promise<ResultsDashboardPayload> {
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { slug: true },
+  });
+  const isPublicPool = isPlatformCompanySlug(company?.slug ?? "");
+
   const allMemberships = await prismaMembershipQuery(prisma, userId);
   const memberships = filterMembershipsByDiscipline(allMemberships, discipline);
 
   if (discipline === "f1") {
-    return buildF1ResultsDashboardPayload(prisma, userId, companyId, memberships);
+    return buildF1ResultsDashboardPayload(prisma, userId, companyId, memberships, isPublicPool);
   }
 
-  return buildFootballResultsDashboardPayload(prisma, userId, companyId, memberships);
+  return buildFootballResultsDashboardPayload(
+    prisma,
+    userId,
+    companyId,
+    memberships,
+    isPublicPool
+  );
 }

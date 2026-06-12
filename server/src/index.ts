@@ -28,7 +28,8 @@ import {
 } from "./company-competition-scope";
 import { encrypt, decrypt } from "./crypto-util";
 import { registerB2BRoutes } from "./b2b-routes";
-import { isPlatformCompanySlug } from "./org-seat";
+import { competitionRankingDisplay, isPlatformCompanySlug } from "./org-seat";
+import { rankingVisibleUserWhere } from "./ranking-users";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 import { filterOpenMatches, isMatchPredictionOpen } from "./match-prediction-window";
 import { backfillAllCompanyUniversalLeagues, ensureUniversalLeagueMembership } from "./universal-league";
@@ -1314,6 +1315,15 @@ app.patch("/admin/company-config", requireAdmin, async (req, res) => {
 app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res) => {
   const { userId, companyId } = (req as AuthedRequest).auth;
 
+  const company = await prisma.company.findUnique({
+    where: { id: companyId },
+    select: { slug: true },
+  });
+  if (isPlatformCompanySlug(company?.slug ?? "")) {
+    res.status(200).json({ leaderboard: [], myRank: null });
+    return;
+  }
+
   const [matchesWithResult, companyUsers, companyConfig] = await Promise.all([
     prisma.match.findMany({
       where: {
@@ -1323,7 +1333,7 @@ app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res)
       select: { id: true },
     }),
     prisma.user.findMany({
-      where: { companyId, status: "active" },
+      where: rankingVisibleUserWhere({ companyId }),
       select: { id: true, fullName: true, email: true },
     }),
     prisma.companyConfig.findUnique({
@@ -1340,7 +1350,10 @@ app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res)
 
   const companyUserIds = companyUsers.map((u) => u.id);
   const userById = new Map(companyUsers.map((u) => [u.id, u]));
-  const anonymized = companyConfig?.anonymizationEnabled ?? true;
+  const { anonymize: anonymized, label: anonymizeLabel } = competitionRankingDisplay(
+    company?.slug ?? "",
+    companyConfig?.anonymizationEnabled
+  );
 
   const predictions = await prisma.prediction.findMany({
     where: {
@@ -1367,7 +1380,7 @@ app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res)
     .map((uid) => {
       const u = userById.get(uid);
       const displayName = anonymized
-        ? anonymizeUserId(uid, companyId)
+        ? anonymizeUserId(uid, companyId, anonymizeLabel)
         : (u?.fullName?.trim() || u?.email || "Usuario");
       return {
         userId: uid,

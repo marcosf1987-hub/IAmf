@@ -1,9 +1,15 @@
 import crypto from "crypto";
 
-export function anonymizeUserId(userId: string, companyId: string): string {
+export type AnonymizeLabel = "Empleado" | "Jugador";
+
+export function anonymizeUserId(
+  userId: string,
+  companyId: string,
+  label: AnonymizeLabel = "Empleado"
+): string {
   const hash = crypto.createHash("sha256").update(`${userId}-${companyId}`).digest("hex");
   const num = parseInt(hash.slice(0, 8), 16) % 10000;
-  return `Empleado #${num.toString().padStart(4, "0")}`;
+  return `${label} #${num.toString().padStart(4, "0")}`;
 }
 
 /** -1 = visitante, 0 = empate, 1 = local */
@@ -75,7 +81,8 @@ export function computeLeaderboardForUsers(
   companyUsers: DashboardUserRow[],
   anonymize: boolean,
   companyIdForAnonymization: string,
-  currentUserId: string
+  currentUserId: string,
+  anonymizeLabel: AnonymizeLabel = "Empleado"
 ): {
   leaderboard: LeaderboardRowOut[];
   myRank: number | null;
@@ -114,7 +121,7 @@ export function computeLeaderboardForUsers(
     .map((uid) => {
       const u = userById.get(uid);
       const displayName = anonymize
-        ? anonymizeUserId(uid, companyIdForAnonymization)
+        ? anonymizeUserId(uid, companyIdForAnonymization, anonymizeLabel)
         : u?.fullName?.trim() || u?.email || "Usuario";
       return {
         userId: uid,
@@ -163,7 +170,8 @@ export function buildAlphabeticalMemberLeaderboard(
   companyUsers: DashboardUserRow[],
   anonymize: boolean,
   companyIdForAnonymization: string,
-  currentUserId: string
+  currentUserId: string,
+  anonymizeLabel: AnonymizeLabel = "Empleado"
 ): {
   leaderboard: LeaderboardRowOut[];
   myRank: number | null;
@@ -173,7 +181,7 @@ export function buildAlphabeticalMemberLeaderboard(
   const rows = companyUsers
     .map((u) => {
       const alias = anonymize
-        ? anonymizeUserId(u.id, companyIdForAnonymization)
+        ? anonymizeUserId(u.id, companyIdForAnonymization, anonymizeLabel)
         : u.fullName?.trim() || u.email || "Usuario";
       return { userId: u.id, alias, hits: 0 };
     })

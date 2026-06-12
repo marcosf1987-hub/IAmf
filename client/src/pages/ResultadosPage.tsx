@@ -35,6 +35,7 @@ const EMPTY_DATA: ResultsDashboard = {
   rankChange: 0,
   pointsOverTime: [],
   competitionLeaderboards: [],
+  showGlobalRanking: true,
 };
 
 export default function ResultadosPage() {
@@ -77,6 +78,7 @@ export default function ResultadosPage() {
     totalParticipants,
     rankChange,
     pointsOverTime,
+    showGlobalRanking,
   } = data ?? EMPTY_DATA;
   const competitionLeaderboards = data?.competitionLeaderboards ?? [];
 
@@ -112,13 +114,15 @@ export default function ResultadosPage() {
           <span className="resultados-metric-value">{precision}%</span>
           <span className="resultados-metric-label">% del máximo posible</span>
         </div>
-        <div className="resultados-metric resultados-metric-rank">
-          <span className="resultados-metric-value">
-            #{myRank ?? "—"} de {totalParticipants}
-            {myRank != null && <RankArrow change={rankChange} />}
-          </span>
-          <span className="resultados-metric-label">Ranking Global</span>
-        </div>
+        {showGlobalRanking ? (
+          <div className="resultados-metric resultados-metric-rank">
+            <span className="resultados-metric-value">
+              #{myRank ?? "—"} de {totalParticipants}
+              {myRank != null && <RankArrow change={rankChange} />}
+            </span>
+            <span className="resultados-metric-label">Ranking Global</span>
+          </div>
+        ) : null}
       </div>
 
       <section className="resultados-chart-section">
@@ -160,6 +164,7 @@ export default function ResultadosPage() {
         </div>
       </section>
 
+      {showGlobalRanking ? (
       <section className="resultados-table-section">
         <h2>Ranking</h2>
         {tableRows.length > 0 ? (
@@ -193,12 +198,15 @@ export default function ResultadosPage() {
           />
         )}
       </section>
+      ) : null}
 
       {competitionLeaderboards.length > 0 && (
         <section className="resultados-table-section resultados-competitions">
           <h2 className="resultados-competitions-title">Rankings por liga</h2>
           <p className="resultados-competitions-lead">
-            Mismas predicciones que en el ranking global; aquí comparás solo con quienes están en cada competencia.
+            {showGlobalRanking
+              ? "Mismas predicciones que en el ranking global; aquí comparás solo con quienes están en cada competencia."
+              : "Comparás tus puntos solo con quienes participan en cada liga."}
           </p>
           {competitionLeaderboards.map((block) => {
             const nBlock = block.totalParticipants;

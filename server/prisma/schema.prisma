@@ -92,6 +92,8 @@ model User {
   fullName     String?
   role         UserRole   @default(member)
   status       UserStatus @default(active)
+  /// Si true, no aparece en rankings globales ni de liga (super admin).
+  hiddenFromRankings Boolean @default(false)
   tokenVersion Int        @default(0)
   createdAt    DateTime   @default(now())
 
