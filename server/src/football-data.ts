@@ -13,8 +13,8 @@ export type FootballDataMatch = {
   id: number;
   utcDate: string;
   status: string;
-  homeTeam: { id: number; name: string };
-  awayTeam: { id: number; name: string };
+  homeTeam: { id: number; name: string | null };
+  awayTeam: { id: number; name: string | null };
   score?: {
     fullTime?: { homeTeam: number | null; awayTeam: number | null };
     regularTime?: { homeTeam: number | null; awayTeam: number | null };
@@ -41,6 +41,8 @@ const TEAM_NAME_MAP: Record<string, string> = {
   "United States of America": "USA",
 };
 
+const PLACEHOLDER_TBD = "TBD";
+
 /** Estados en los que football-data.org expone marcador final usable. */
 export const TERMINAL_MATCH_STATUSES = new Set(["FINISHED", "AWARDED"]);
 
@@ -53,26 +55,39 @@ function stripDiacritics(value: string): string {
 }
 
 /** Nombre canónico para comparar equipos (acentos, mayúsculas, alias API). */
-export function canonicalTeamName(name: string): string {
-  const mapped = TEAM_NAME_MAP[name] ?? name;
-  return stripDiacritics(mapped).trim().toLowerCase();
+export function canonicalTeamName(name: string | null | undefined): string {
+  const normalized = normalizeTeamName(name);
+  if (!normalized) return "";
+  return stripDiacritics(normalized).trim().toLowerCase();
 }
 
-export function normalizeTeamName(name: string): string {
-  return TEAM_NAME_MAP[name] ?? name;
+export function normalizeTeamName(name: string | null | undefined): string | null {
+  if (name == null) return null;
+  const trimmed = String(name).trim();
+  if (!trimmed) return null;
+  return TEAM_NAME_MAP[trimmed] ?? trimmed;
+}
+
+export function hasUsableApiTeamNames(apiMatch: FootballDataMatch): boolean {
+  const home = normalizeTeamName(apiMatch.homeTeam.name);
+  const away = normalizeTeamName(apiMatch.awayTeam.name);
+  return Boolean(home && away && home !== PLACEHOLDER_TBD && away !== PLACEHOLDER_TBD);
 }
 
 export function teamsPairEqual(
   ourTeamA: string,
   ourTeamB: string,
-  apiHome: string,
-  apiAway: string
+  apiHome: string | null | undefined,
+  apiAway: string | null | undefined
 ): boolean {
+  const home = normalizeTeamName(apiHome);
+  const away = normalizeTeamName(apiAway);
+  if (!home || !away) return false;
   const a = canonicalTeamName(ourTeamA);
   const b = canonicalTeamName(ourTeamB);
-  const home = canonicalTeamName(apiHome);
-  const away = canonicalTeamName(apiAway);
-  return (a === home && b === away) || (a === away && b === home);
+  const homeKey = canonicalTeamName(home);
+  const awayKey = canonicalTeamName(away);
+  return (a === homeKey && b === awayKey) || (a === awayKey && b === homeKey);
 }
 
 /**
@@ -108,6 +123,7 @@ export function findMatchingOurMatch(
 ): OurMatch | null {
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
+  if (!home || !away) return null;
   const apiDate = new Date(apiMatch.utcDate).toISOString().slice(0, 10);
 
   for (const m of ourMatches) {
@@ -117,8 +133,6 @@ export function findMatchingOurMatch(
   }
   return null;
 }
-
-const PLACEHOLDER_TBD = "TBD";
 
 /** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
 export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
@@ -155,7 +169,7 @@ export function findUniqueOurMatchByTeams(
 ): OurMatch | null {
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
-  if (home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
+  if (!home || !away || home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
 
   const hits = ourMatches.filter(
     (m) =>
@@ -214,7 +228,7 @@ export function resolveOurMatchFromApi(
 ): ResolvedOurMatch | null {
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
-  if (home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
+  if (!home || !away || home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
 
   const apiTime = new Date(apiMatch.utcDate).getTime();
   const inTol = (m: OurMatch) =>
@@ -292,6 +306,7 @@ export function mapScoreToOurMatch(
 
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
+  if (!home || !away) return null;
 
   if (teamsPairEqual(ourMatch.teamA, ourMatch.teamB, home, away)) {
     if (canonicalTeamName(ourMatch.teamA) === canonicalTeamName(home)) {

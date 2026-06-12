@@ -5,6 +5,7 @@ import {
   fetchWorldCupMatches,
   filterApiMatchesNearOurMatches,
   getMatchScore,
+  hasUsableApiTeamNames,
   isTerminalMatchStatus,
   mapScoreToOurMatch,
   normalizeTeamName,
@@ -75,8 +76,8 @@ function apiSampleBase(apiMatch: FootballDataMatch): Pick<
   "apiHome" | "apiAway" | "apiUtcDate" | "apiStatus"
 > {
   return {
-    apiHome: normalizeTeamName(apiMatch.homeTeam.name),
-    apiAway: normalizeTeamName(apiMatch.awayTeam.name),
+    apiHome: normalizeTeamName(apiMatch.homeTeam.name) ?? "(sin nombre)",
+    apiAway: normalizeTeamName(apiMatch.awayTeam.name) ?? "(sin nombre)",
     apiUtcDate: apiMatch.utcDate,
     apiStatus: apiMatch.status,
   };
@@ -172,7 +173,16 @@ export async function syncMatchResultsFromFootballData(
   let updated = 0;
   let teamsResolved = 0;
   for (const apiMatch of apiMatches) {
-    const resolved = resolveOurMatchFromApi(apiMatch, workingOur);
+    if (!hasUsableApiTeamNames(apiMatch)) continue;
+
+    let resolved: ReturnType<typeof resolveOurMatchFromApi>;
+    try {
+      resolved = resolveOurMatchFromApi(apiMatch, workingOur);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[football-data] sync skip match", apiMatch.id, err);
+      continue;
+    }
     if (!resolved) {
       if (isTerminalMatchStatus(apiMatch.status)) {
         diagnostics.skippedNoMatch++;

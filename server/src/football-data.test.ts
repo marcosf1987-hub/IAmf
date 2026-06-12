@@ -109,6 +109,20 @@ test("resolveOurMatchFromApi: fallback por par único si kickoff difiere", () =>
   assert.equal(resolved?.ourMatch.id, "m1");
 });
 
+test("resolveOurMatchFromApi: ignora partidos API con nombre null sin lanzar error", () => {
+  const match = apiMatch({
+    homeTeam: { id: 1, name: null },
+    awayTeam: { id: 2, name: "South Africa" },
+  });
+  assert.equal(resolveOurMatchFromApi(match, [mexicoSouthAfricaOur]), null);
+  assert.doesNotThrow(() => resolveOurMatchFromApi(match, [mexicoSouthAfricaOur]));
+});
+
+test("canonicalTeamName: null o vacío devuelve cadena vacía", () => {
+  assert.equal(canonicalTeamName(null), "");
+  assert.equal(canonicalTeamName(""), "");
+});
+
 test("findUniqueOurMatchByTeams: solo cuando el cruce es único", () => {
   const match = apiMatch({
     homeTeam: { id: 1, name: "Mexico" },
