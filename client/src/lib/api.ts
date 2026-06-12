@@ -714,7 +714,14 @@ export async function fetchPredictionHistory(limit = 400): Promise<{
   return fetchAuth(`/predictions/me/history?limit=${limit}`);
 }
 
-export type ResultPrediction = Prediction & { hasResult: boolean; isHit: boolean };
+export type ResultPrediction = Prediction & {
+  hasResult: boolean;
+  /** Al menos 1 punto en ese partido */
+  isHit: boolean;
+  /** Marcador exacto (3 pts) */
+  isExact?: boolean;
+  points: number;
+};
 
 export async function fetchMyResults(): Promise<{
   predictions: ResultPrediction[];

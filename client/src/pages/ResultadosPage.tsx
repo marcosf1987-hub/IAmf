@@ -97,6 +97,9 @@ export default function ResultadosPage() {
   return (
     <div className="page-content resultados-page">
       <h1>{t("title")}</h1>
+      <p className="page-subtitle" style={{ marginTop: "-0.5rem" }}>
+        Puntos por partido: 3 marcador exacto · 2 ganador/empate y misma diferencia de goles · 1 solo ganador/empate.
+      </p>
 
       {error && <div className="auth-error">{error}</div>}
 
@@ -107,7 +110,7 @@ export default function ResultadosPage() {
         </div>
         <div className="resultados-metric">
           <span className="resultados-metric-value">{precision}%</span>
-          <span className="resultados-metric-label">Precisión del Prompt</span>
+          <span className="resultados-metric-label">% del máximo posible</span>
         </div>
         <div className="resultados-metric resultados-metric-rank">
           <span className="resultados-metric-value">

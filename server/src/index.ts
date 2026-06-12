@@ -19,7 +19,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
 import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } from "./sync-match-results";
-import { anonymizeUserId, isExactHit } from "./leaderboard";
+import { anonymizeUserId, isExactHit, scoreFootballMatchPoints } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, adminCompanyConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import {
   assertCompanyDisciplineAllowed,
@@ -1249,15 +1249,21 @@ app.get("/results/me", requireAuth, requireFootballDiscipline, async (req, res) 
 
   const withHits = predictions.map((p) => {
     const hasResult = p.match.resultScoreA != null && p.match.resultScoreB != null;
-    const isHit = hasResult && isExactHit(p.scoreA, p.scoreB, p.match.resultScoreA, p.match.resultScoreB);
+    const points = hasResult
+      ? scoreFootballMatchPoints(p.scoreA, p.scoreB, p.match.resultScoreA, p.match.resultScoreB)
+      : 0;
+    const isHit = points > 0;
+    const isExact = hasResult && isExactHit(p.scoreA, p.scoreB, p.match.resultScoreA, p.match.resultScoreB);
     return {
       ...p,
       hasResult,
       isHit,
+      isExact,
+      points,
     };
   });
 
-  const totalHits = withHits.filter((p) => p.isHit).length;
+  const totalHits = withHits.reduce((sum, p) => sum + p.points, 0);
   const totalWithResult = withHits.filter((p) => p.hasResult).length;
 
   res.status(200).json({
@@ -1348,15 +1354,13 @@ app.get("/leaderboard", requireAuth, requireFootballDiscipline, async (req, res)
 
   const hitsByUser = new Map<string, number>();
   for (const p of predictions) {
-    const isHit = isExactHit(
+    const pts = scoreFootballMatchPoints(
       p.scoreA,
       p.scoreB,
       p.match.resultScoreA,
       p.match.resultScoreB
     );
-    if (isHit) {
-      hitsByUser.set(p.userId, (hitsByUser.get(p.userId) ?? 0) + 1);
-    }
+    hitsByUser.set(p.userId, (hitsByUser.get(p.userId) ?? 0) + pts);
   }
 
   const leaderboard = companyUserIds

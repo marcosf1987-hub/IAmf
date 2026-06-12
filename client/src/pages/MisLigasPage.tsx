@@ -764,7 +764,7 @@ function CompetitionDetailSection({ competitionId }: { competitionId: string }) 
           <p className="ligas-tab-lead">
             {isF1Liga
               ? "Puntos F1 según el top 10 oficial (OpenF1) y tus predicciones por carrera; el ranking es sólo entre miembros de esta liga."
-              : "Mismas predicciones que en el global; acá el puntaje es solo entre miembros de esta liga."}
+              : "Mismas predicciones que en el global; ranking solo entre miembros de esta liga. Puntos: 3 exacto · 2 ganador + diferencia · 1 solo ganador."}
           </p>
           {rankingParticipants > 0 ? (
             <div className="ligas-your-rank-strip" role="region" aria-label="Tu posición en esta liga">

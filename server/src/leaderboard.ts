@@ -6,14 +6,42 @@ export function anonymizeUserId(userId: string, companyId: string): string {
   return `Empleado #${num.toString().padStart(4, "0")}`;
 }
 
+/** -1 = visitante, 0 = empate, 1 = local */
+export function matchOutcome(scoreA: number, scoreB: number): -1 | 0 | 1 {
+  if (scoreA > scoreB) return 1;
+  if (scoreA < scoreB) return -1;
+  return 0;
+}
+
+/**
+ * Puntos por partido de fútbol:
+ * 3 = marcador exacto · 2 = ganador/empate + misma diferencia de goles · 1 = solo ganador/empate · 0 = fallo
+ */
+export function scoreFootballMatchPoints(
+  scoreA: number,
+  scoreB: number,
+  resultA: number | null,
+  resultB: number | null
+): 0 | 1 | 2 | 3 {
+  if (resultA == null || resultB == null) return 0;
+  if (scoreA === resultA && scoreB === resultB) return 3;
+
+  if (matchOutcome(scoreA, scoreB) !== matchOutcome(resultA, resultB)) return 0;
+
+  const predDiff = Math.abs(scoreA - scoreB);
+  const resultDiff = Math.abs(resultA - resultB);
+  if (predDiff === resultDiff) return 2;
+
+  return 1;
+}
+
 export function isExactHit(
   scoreA: number,
   scoreB: number,
   resultA: number | null,
   resultB: number | null
 ): boolean {
-  if (resultA == null || resultB == null) return false;
-  return scoreA === resultA && scoreB === resultB;
+  return scoreFootballMatchPoints(scoreA, scoreB, resultA, resultB) === 3;
 }
 
 export type DashboardUserRow = { id: string; fullName: string | null; email: string };
@@ -21,13 +49,14 @@ export type DashboardUserRow = { id: string; fullName: string | null; email: str
 export type LeaderboardRowOut = {
   userId: string;
   alias: string;
+  /** Puntos acumulados (campo histórico `hits` en la API). */
   hits: number;
   rank: number;
   rankChange: number;
 };
 
 /**
- * Ranking por conjunto de usuarios (empresa o liga) con la misma lógica de aciertos que el dashboard global.
+ * Ranking por conjunto de usuarios (empresa o liga) sumando puntos por partido.
  */
 export function computeLeaderboardForUsers(
   matchesWithResult: Array<{
@@ -56,28 +85,29 @@ export function computeLeaderboardForUsers(
   const companyUserIds = companyUsers.map((u) => u.id);
   const userById = new Map(companyUsers.map((u) => [u.id, u]));
 
-  const hitsByUserByMatchIdx = new Map<string, number[]>();
+  const pointsByUserByMatchIdx = new Map<string, number[]>();
   for (const uid of companyUserIds) {
-    hitsByUserByMatchIdx.set(uid, []);
+    pointsByUserByMatchIdx.set(uid, []);
   }
 
   for (let i = 0; i < matchesWithResult.length; i++) {
     const m = matchesWithResult[i];
     for (const uid of companyUserIds) {
       const pred = predictions.find((p) => p.userId === uid && p.matchId === m.id);
-      const prevHits = i === 0 ? 0 : (hitsByUserByMatchIdx.get(uid) ?? [])[i - 1] ?? 0;
-      const isHit =
-        pred &&
-        isExactHit(pred.scoreA, pred.scoreB, m.resultScoreA, m.resultScoreB);
-      const cum = prevHits + (isHit ? 1 : 0);
-      hitsByUserByMatchIdx.get(uid)!.push(cum);
+      const prevPoints = i === 0 ? 0 : (pointsByUserByMatchIdx.get(uid) ?? [])[i - 1] ?? 0;
+      const pts =
+        pred != null
+          ? scoreFootballMatchPoints(pred.scoreA, pred.scoreB, m.resultScoreA, m.resultScoreB)
+          : 0;
+      const cum = prevPoints + pts;
+      pointsByUserByMatchIdx.get(uid)!.push(cum);
     }
   }
 
-  const hitsByUser = new Map<string, number>();
+  const pointsByUser = new Map<string, number>();
   for (const uid of companyUserIds) {
-    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
-    hitsByUser.set(uid, arr[arr.length - 1] ?? 0);
+    const arr = pointsByUserByMatchIdx.get(uid) ?? [];
+    pointsByUser.set(uid, arr[arr.length - 1] ?? 0);
   }
 
   const leaderboard = companyUserIds
@@ -89,7 +119,7 @@ export function computeLeaderboardForUsers(
       return {
         userId: uid,
         alias: displayName,
-        hits: hitsByUser.get(uid) ?? 0,
+        hits: pointsByUser.get(uid) ?? 0,
       };
     })
     .sort(
@@ -99,13 +129,13 @@ export function computeLeaderboardForUsers(
     )
     .map((r, i) => ({ ...r, rank: i + 1 }));
 
-  const prevHitsByUser = new Map<string, number>();
+  const prevPointsByUser = new Map<string, number>();
   for (const uid of companyUserIds) {
-    const arr = hitsByUserByMatchIdx.get(uid) ?? [];
-    prevHitsByUser.set(uid, arr.length > 1 ? arr[arr.length - 2]! : 0);
+    const arr = pointsByUserByMatchIdx.get(uid) ?? [];
+    prevPointsByUser.set(uid, arr.length > 1 ? arr[arr.length - 2]! : 0);
   }
   const prevLeaderboard = companyUserIds
-    .map((uid) => ({ userId: uid, hits: prevHitsByUser.get(uid) ?? 0 }))
+    .map((uid) => ({ userId: uid, hits: prevPointsByUser.get(uid) ?? 0 }))
     .sort((a, b) => b.hits - a.hits)
     .map((r, i) => ({ ...r, prevRank: i + 1 }));
 

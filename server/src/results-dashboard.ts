@@ -3,7 +3,7 @@ import type { CompetitionDiscipline } from "./discipline-query";
 import {
   buildAlphabeticalMemberLeaderboard,
   computeLeaderboardForUsers,
-  isExactHit,
+  scoreFootballMatchPoints,
 } from "./leaderboard";
 import { isPlatformCompanySlug } from "./org-seat";
 import {
@@ -331,12 +331,16 @@ async function buildFootballResultsDashboardPayload(
   let cum = 0;
   const pointsOverTime = matchesWithResult.map((m) => {
     const pred = predictions.find((p) => p.userId === userId && p.matchId === m.id);
-    const hit =
-      pred &&
-      pred.match.resultScoreA != null &&
-      pred.match.resultScoreB != null &&
-      isExactHit(pred.scoreA, pred.scoreB, pred.match.resultScoreA, pred.match.resultScoreB);
-    cum += hit ? 1 : 0;
+    const pts =
+      pred != null
+        ? scoreFootballMatchPoints(
+            pred.scoreA,
+            pred.scoreB,
+            pred.match.resultScoreA,
+            pred.match.resultScoreB
+          )
+        : 0;
+    cum += pts;
     return {
       date: m.kickoffAt.toISOString().slice(0, 10),
       points: cum,
@@ -346,8 +350,9 @@ async function buildFootballResultsDashboardPayload(
   const myEntry = globalLb.leaderboard.find((r) => r.userId === userId);
   const totalHits = myEntry?.hits ?? 0;
   const totalWithResult = matchesWithResult.length;
+  const maxPossiblePoints = totalWithResult * 3;
   const precision =
-    totalWithResult > 0 ? Math.round((totalHits / totalWithResult) * 100) : 0;
+    maxPossiblePoints > 0 ? Math.round((totalHits / maxPossiblePoints) * 100) : 0;
 
   const competitionLeaderboards = await buildCompetitionLeaderboardsForMemberships(
     prisma,
