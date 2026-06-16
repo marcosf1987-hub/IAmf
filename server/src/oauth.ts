@@ -6,6 +6,7 @@ import { setSessionCookies } from "./session-cookie";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { ensureUniversalLeagueMembership } from "./universal-league";
+import { recordUserSession } from "./login-event";
 
 const PROVIDER_GOOGLE = "google";
 
@@ -358,12 +359,9 @@ export function mountOAuthRoutes(app: Express, prisma: PrismaClient): void {
         console.error("ensureUniversalLeagueMembership (oauth):", leagueErr);
       }
 
-      await prisma.loginEvent.create({
-        data: {
-          userId: userRow.id,
-          ip: req.ip,
-          userAgent: req.header("user-agent") ?? null,
-        },
+      await recordUserSession(prisma, userRow.id, {
+        ip: req.ip,
+        userAgent: req.header("user-agent") ?? null,
       });
 
       const token = signAccessToken({

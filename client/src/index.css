@@ -6376,7 +6376,20 @@ a.btn-oauth--unconfigured {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1rem;
   max-width: 100%;
-  margin: 0 auto;
+  margin: 0 auto 0.5rem;
+}
+
+.platform-metrics-group-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  margin: 1.25rem 0 0.5rem;
+}
+
+.platform-metrics-group-title:first-of-type {
+  margin-top: 0;
 }
 
 @media (max-width: 900px) {
@@ -6537,6 +6550,25 @@ a.btn-oauth--unconfigured {
 
 .platform-users-delete-btn {
   color: var(--color-danger, #c0392b);
+}
+
+.platform-user-status {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.platform-user-status--active {
+  color: #4ade80;
+}
+
+.platform-user-status--inactive {
+  color: var(--text-muted);
+}
+
+.platform-users-row-inactive {
+  opacity: 0.65;
 }
 
 /* Plataforma → tabla Empresas (no usar max-width 900px del admin genérico) */

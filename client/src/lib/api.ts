@@ -369,18 +369,32 @@ export type PlatformSettings = {
 
 export type PlatformOverview = {
   platformCompany: { id: string; name: string } | null;
-  /** Usuarios activos en org platform-internal (registro público y Google), sin super_admin */
-  publicPoolUserCount: number;
-  universalLeague: {
-    id: string;
-    name: string;
-    slug: string;
-    memberCount: number;
-  } | null;
-  /** Invitaciones por email a ligas pendientes (no vencidas) */
-  pendingCompetitionInvites: number;
-  /** Invitaciones a ligas ya aceptadas (histórico) */
-  acceptedCompetitionInvites: number;
+  publicPool: {
+    /** Usuarios activos en org platform-internal (registro público y Google), sin super_admin */
+    activeUsers: number;
+    /** Miembros activos de la liga universal del pool */
+    universalLeagueActiveMembers: number;
+    /** Miembros totales en la liga (incluye usuarios deshabilitados) */
+    universalLeagueTotalMembers: number;
+  };
+  platformWide: {
+    activeUsers: number;
+    b2bActiveUsers: number;
+    disabledUsers: number;
+    /** Invitaciones a ligas pendientes en toda la plataforma */
+    competitionInvitesPending: number;
+    competitionInvitesAccepted: number;
+    /** Invitaciones a ligas del pool público solamente */
+    publicPoolCompetitionInvitesPending: number;
+    publicPoolCompetitionInvitesAccepted: number;
+  };
+  engagement: {
+    usersWithFootballPredictions: number;
+    usersWithF1Predictions: number;
+    usersWithGuidelines: number;
+    matchesWithResult: number;
+    matchesTotal: number;
+  };
 };
 
 export type PlatformPublicPoolUser = {
@@ -400,9 +414,18 @@ export type PlatformUserRow = {
   hiddenFromRankings: boolean;
   createdAt: string;
   company: { id: string; name: string; slug: string };
-  logins: number;
-  prompts: number;
-  predictions: number;
+  /** Inicios de sesión registrados (login, Google, registro, invitación B2B) */
+  sessionCount: number;
+  /** Prompts de generación Prode/F1 (con batchId) */
+  prodePrompts: number;
+  /** Todos los prompts IA (incluye chat del laboratorio) */
+  totalPrompts: number;
+  /** Partidos de fútbol con predicción guardada */
+  footballPredictions: number;
+  /** Carreras F1 con predicción guardada */
+  f1Predictions: number;
+  hasGuidelines: boolean;
+  lastActivityAt: string | null;
 };
 
 export type SystemHealthCheck = {

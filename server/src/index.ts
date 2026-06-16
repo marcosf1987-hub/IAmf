@@ -32,6 +32,7 @@ import { competitionRankingDisplay, isPlatformCompanySlug } from "./org-seat";
 import { rankingVisibleUserWhere } from "./ranking-users";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 import { filterOpenMatches, isMatchPredictionOpen } from "./match-prediction-window";
+import { recordUserSession } from "./login-event";
 import { backfillAllCompanyUniversalLeagues, ensureUniversalLeagueMembership } from "./universal-league";
 import { parseDisciplineQuery } from "./discipline-query";
 import { buildResultsDashboardPayload } from "./results-dashboard";
@@ -384,6 +385,11 @@ app.post("/auth/signup", async (req, res) => {
     console.error("ensureUniversalLeagueMembership (signup):", leagueErr);
   }
 
+  await recordUserSession(prisma, user.id, {
+    ip: req.ip,
+    userAgent: req.header("user-agent") ?? null,
+  });
+
   const token = signAccessToken({
     userId: user.id,
     role: user.role,
@@ -437,12 +443,9 @@ app.post("/auth/login", async (req, res) => {
       return;
     }
 
-    await prisma.loginEvent.create({
-      data: {
-        userId: user.id,
-        ip: req.ip,
-        userAgent: req.header("user-agent") ?? null,
-      },
+    await recordUserSession(prisma, user.id, {
+      ip: req.ip,
+      userAgent: req.header("user-agent") ?? null,
     });
 
     const token = signAccessToken({

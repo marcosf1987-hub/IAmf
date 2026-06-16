@@ -23,17 +23,18 @@ import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { buildSystemHealth } from "./system-health";
 import { setSessionCookies } from "./session-cookie";
-import {
-  UNIVERSAL_COMPETITION_SLUG,
-  ensureCompanyUniversalLeagueMembership,
-  ensureCompanyUniversalLeagues,
-  removePlatformUniversalLeagueMembership,
-} from "./universal-league";
+import { buildPlatformOverview, loadPlatformUserMetrics } from "./platform-metrics";
+import { recordUserSession } from "./login-event";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { replyGenericInviteError } from "./invite-security";
 import { getFootballDataSyncStatus, runFootballDataMatchSync } from "./sync-match-results";
+import {
+  ensureCompanyUniversalLeagueMembership,
+  ensureCompanyUniversalLeagues,
+  removePlatformUniversalLeagueMembership,
+} from "./universal-league";
 
 function frontendBase(): string {
   return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
@@ -268,6 +269,11 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       }
     }
 
+    await recordUserSession(prisma, user.id, {
+      ip: req.ip,
+      userAgent: req.header("user-agent") ?? null,
+    });
+
     const access = signAccessToken({
       userId: user.id,
       role: user.role,
@@ -496,54 +502,8 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
 
   /** Resumen pool público + liga universal (super admin). */
   app.get("/platform/overview", superAuth, async (_req, res) => {
-    const platform = await prisma.company.findUnique({
-      where: { slug: "platform-internal" },
-      select: { id: true, name: true },
-    });
-    if (!platform) {
-      res.status(200).json({
-        platformCompany: null,
-        publicPoolUserCount: 0,
-        universalLeague: null,
-        pendingCompetitionInvites: 0,
-        acceptedCompetitionInvites: 0,
-      });
-      return;
-    }
-    const now = new Date();
-    const publicPoolUserCount = await prisma.user.count({
-      where: {
-        companyId: platform.id,
-        status: "active",
-        role: { not: "super_admin" },
-      },
-    });
-    const universal = await prisma.competition.findFirst({
-      where: { companyId: platform.id, slug: UNIVERSAL_COMPETITION_SLUG },
-      include: { _count: { select: { members: true } } },
-    });
-    const [pendingCompetitionInvites, acceptedCompetitionInvites] = await Promise.all([
-      prisma.competitionInvitation.count({
-        where: { acceptedAt: null, expiresAt: { gt: now } },
-      }),
-      prisma.competitionInvitation.count({
-        where: { acceptedAt: { not: null } },
-      }),
-    ]);
-    res.status(200).json({
-      platformCompany: { id: platform.id, name: platform.name },
-      publicPoolUserCount,
-      universalLeague: universal
-        ? {
-            id: universal.id,
-            name: universal.name,
-            slug: universal.slug,
-            memberCount: universal._count.members,
-          }
-        : null,
-      pendingCompetitionInvites,
-      acceptedCompetitionInvites,
-    });
+    const overview = await buildPlatformOverview(prisma);
+    res.status(200).json(overview);
   });
 
   /** Listado reciente de usuarios del pool público (sin invitación B2B). */
@@ -636,28 +596,31 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       }),
     ]);
 
-    const rows = await Promise.all(
-      users.map(async (u) => {
-        const [logins, prompts, predictions] = await Promise.all([
-          prisma.loginEvent.count({ where: { userId: u.id } }),
-          prisma.promptLog.count({ where: { userId: u.id } }),
-          prisma.prediction.count({ where: { userId: u.id } }),
-        ]);
-        return {
-          id: u.id,
-          email: u.email,
-          fullName: u.fullName,
-          role: u.role,
-          status: u.status,
-          hiddenFromRankings: u.hiddenFromRankings,
-          createdAt: u.createdAt,
-          company: u.company,
-          logins,
-          prompts,
-          predictions,
-        };
-      })
-    );
+    const userIds = users.map((u) => u.id);
+    const metricsByUser = await loadPlatformUserMetrics(prisma, userIds);
+
+    const rows = users.map((u) => {
+      const metrics = metricsByUser.get(u.id) ?? {
+        sessionCount: 0,
+        prodePrompts: 0,
+        totalPrompts: 0,
+        footballPredictions: 0,
+        f1Predictions: 0,
+        hasGuidelines: false,
+        lastActivityAt: null,
+      };
+      return {
+        id: u.id,
+        email: u.email,
+        fullName: u.fullName,
+        role: u.role,
+        status: u.status,
+        hiddenFromRankings: u.hiddenFromRankings,
+        createdAt: u.createdAt,
+        company: u.company,
+        ...metrics,
+      };
+    });
 
     res.status(200).json({ users: rows, total });
   });

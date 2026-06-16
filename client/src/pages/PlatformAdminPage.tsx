@@ -627,44 +627,110 @@ export default function PlatformAdminPage() {
       </section>
 
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
-        <h2>Pool público y liga universal</h2>
+        <h2>Indicadores de plataforma</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
-          Quienes se registran sin invitación de empresa o entran con Google quedan en la org{" "}
-          <code className="platform-slug-code">platform-internal</code>, entran en la{" "}
-          <strong>Liga universal</strong> (ranking entre ese pool). Quienes aceptan invitación B2B solo pertenecen a
-          su empresa.
+          Métricas del pool público (<code className="platform-slug-code">platform-internal</code>), del resto de
+          empresas B2B y del engagement con el Prode. Los números de invitaciones a ligas distinguen pool público vs
+          toda la plataforma.
         </p>
         {loading ? (
           <p className="placeholder-text">Cargando resumen…</p>
         ) : overview ? (
-          <div className="platform-overview-cards">
-            <div className="platform-overview-card">
-              <div className="platform-overview-card-label">Usuarios pool público</div>
-              <div className="platform-overview-card-value">{overview.publicPoolUserCount}</div>
-            </div>
-            <div className="platform-overview-card">
-              <div className="platform-overview-card-label">Liga universal (miembros)</div>
-              <div className="platform-overview-card-value">
-                {overview.universalLeague?.memberCount ?? "—"}
+          <>
+            <h3 className="platform-metrics-group-title">Pool público</h3>
+            <div className="platform-overview-cards">
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Usuarios activos</div>
+                <div className="platform-overview-card-value">{overview.publicPool.activeUsers}</div>
+                <div className="platform-overview-card-sub">Registro público y Google</div>
               </div>
-              {overview.universalLeague && (
-                <div className="platform-overview-card-sub">{overview.universalLeague.name}</div>
-              )}
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Liga universal (activos)</div>
+                <div className="platform-overview-card-value">
+                  {overview.publicPool.universalLeagueActiveMembers}
+                </div>
+                <div className="platform-overview-card-sub">
+                  {overview.publicPool.universalLeagueTotalMembers !==
+                  overview.publicPool.universalLeagueActiveMembers
+                    ? `${overview.publicPool.universalLeagueTotalMembers} miembros totales (incl. inactivos)`
+                    : "Miembros con cuenta activa"}
+                </div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Invit. ligas pool</div>
+                <div className="platform-overview-card-value">
+                  {overview.platformWide.publicPoolCompetitionInvitesPending}
+                </div>
+                <div className="platform-overview-card-sub">Pendientes (no vencidas)</div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Invit. ligas pool</div>
+                <div className="platform-overview-card-value">
+                  {overview.platformWide.publicPoolCompetitionInvitesAccepted}
+                </div>
+                <div className="platform-overview-card-sub">Aceptadas (histórico)</div>
+              </div>
             </div>
-            <div className="platform-overview-card">
-              <div className="platform-overview-card-label">Invit. ligas pendientes</div>
-              <div className="platform-overview-card-value">{overview.pendingCompetitionInvites ?? 0}</div>
+
+            <h3 className="platform-metrics-group-title">Toda la plataforma</h3>
+            <div className="platform-overview-cards">
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Usuarios activos</div>
+                <div className="platform-overview-card-value">{overview.platformWide.activeUsers}</div>
+                <div className="platform-overview-card-sub">
+                  B2B: {overview.platformWide.b2bActiveUsers} · Deshabilitados:{" "}
+                  {overview.platformWide.disabledUsers}
+                </div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Invit. ligas (global)</div>
+                <div className="platform-overview-card-value">
+                  {overview.platformWide.competitionInvitesPending}
+                </div>
+                <div className="platform-overview-card-sub">Pendientes en todas las empresas</div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Invit. ligas (global)</div>
+                <div className="platform-overview-card-value">
+                  {overview.platformWide.competitionInvitesAccepted}
+                </div>
+                <div className="platform-overview-card-sub">Aceptadas en todas las empresas</div>
+              </div>
             </div>
-            <div className="platform-overview-card">
-              <div className="platform-overview-card-label">Invit. ligas aceptadas</div>
-              <div className="platform-overview-card-value">{overview.acceptedCompetitionInvites ?? 0}</div>
+
+            <h3 className="platform-metrics-group-title">Engagement Prode</h3>
+            <div className="platform-overview-cards">
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Con predicciones fútbol</div>
+                <div className="platform-overview-card-value">
+                  {overview.engagement.usersWithFootballPredictions}
+                </div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Con predicciones F1</div>
+                <div className="platform-overview-card-value">{overview.engagement.usersWithF1Predictions}</div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Con pautas guardadas</div>
+                <div className="platform-overview-card-value">{overview.engagement.usersWithGuidelines}</div>
+              </div>
+              <div className="platform-overview-card">
+                <div className="platform-overview-card-label">Partidos con resultado</div>
+                <div className="platform-overview-card-value">
+                  {overview.engagement.matchesWithResult}/{overview.engagement.matchesTotal}
+                </div>
+              </div>
             </div>
-          </div>
+          </>
         ) : null}
 
         {!loading && (
           <div style={{ marginTop: "1.25rem" }}>
-            <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Usuarios de la plataforma</h3>
+            <h3 style={{ fontSize: "1rem", marginBottom: "0.35rem" }}>Usuarios de la plataforma</h3>
+            <p className="page-subtitle" style={{ marginTop: 0, marginBottom: "0.75rem", fontSize: "0.9rem" }}>
+              Todos los usuarios (pool + empresas B2B). Las columnas de actividad son acumuladas desde el alta;{" "}
+              <strong>Sesiones</strong> cuenta logins explícitos, registro, Google e invitación B2B.
+            </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
               <input
                 type="search"
@@ -777,6 +843,10 @@ export default function PlatformAdminPage() {
                   <col className="platform-users-col-narrow" />
                   <col className="platform-users-col-narrow" />
                   <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-narrow" />
+                  <col className="platform-users-col-date" />
                   <col className="platform-users-col-date" />
                   <col className="platform-users-col-actions" />
                 </colgroup>
@@ -785,17 +855,22 @@ export default function PlatformAdminPage() {
                     <th>Email</th>
                     <th>Nombre</th>
                     <th>Empresa</th>
+                    <th>Estado</th>
                     <th>Rol</th>
-                    <th>Logins</th>
-                    <th>Prompts</th>
-                    <th>Predicc.</th>
+                    <th title="Logins, registro, Google o invitación B2B">Sesiones</th>
+                    <th title="Prompts de generación Prode/F1">IA Prode</th>
+                    <th title="Todos los prompts (incluye chat)">Prompts</th>
+                    <th title="Partidos de fútbol predichos">Fútbol</th>
+                    <th title="Carreras F1 predichas">F1</th>
+                    <th title="Pautas guardadas en el Laboratorio">Pautas</th>
                     <th>Alta</th>
+                    <th>Última act.</th>
                     <th>Acciones</th>
                   </tr>
                 </thead>
                 <tbody>
                   {platformUsers.map((u) => (
-                    <tr key={u.id}>
+                    <tr key={u.id} className={u.status !== "active" ? "platform-users-row-inactive" : undefined}>
                       <td className="platform-users-col-email" title={u.email}>
                         {u.email}
                       </td>
@@ -804,12 +879,31 @@ export default function PlatformAdminPage() {
                         {u.company.name}{" "}
                         <span className="platform-users-company-slug">({u.company.slug})</span>
                       </td>
+                      <td className="platform-users-col-narrow">
+                        <span
+                          className={`platform-user-status platform-user-status--${u.status === "active" ? "active" : "inactive"}`}
+                        >
+                          {u.status === "active" ? "Activo" : "Inactivo"}
+                        </span>
+                      </td>
                       <td className="platform-users-col-narrow">{u.role}</td>
-                      <td className="platform-users-col-narrow">{u.logins}</td>
-                      <td className="platform-users-col-narrow">{u.prompts}</td>
-                      <td className="platform-users-col-narrow">{u.predictions}</td>
+                      <td className="platform-users-col-narrow">{u.sessionCount}</td>
+                      <td className="platform-users-col-narrow">{u.prodePrompts}</td>
+                      <td className="platform-users-col-narrow">{u.totalPrompts}</td>
+                      <td className="platform-users-col-narrow">{u.footballPredictions}</td>
+                      <td className="platform-users-col-narrow">{u.f1Predictions}</td>
+                      <td className="platform-users-col-narrow">{u.hasGuidelines ? "Sí" : "—"}</td>
                       <td className="platform-users-col-date">
                         {new Date(u.createdAt).toLocaleDateString("es-AR")}
+                      </td>
+                      <td className="platform-users-col-date">
+                        {u.lastActivityAt
+                          ? new Date(u.lastActivityAt).toLocaleDateString("es-AR", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "2-digit",
+                            })
+                          : "—"}
                       </td>
                       <td className="platform-users-col-actions">
                         <div className="platform-users-actions">
