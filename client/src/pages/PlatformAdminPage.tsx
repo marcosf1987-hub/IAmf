@@ -8,6 +8,7 @@ import {
   formatApiError,
   fetchPlatformAiConfig,
   fetchPlatformCompanies,
+  fetchPlatformMatchResultsSyncStatus,
   fetchPlatformOverview,
   fetchPlatformSettings,
   fetchPlatformSystemHealth,
@@ -15,11 +16,12 @@ import {
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
   setPlatformUserHiddenFromRankings,
-  transferPlatformUserToCompany,
   syncPlatformMatchResults,
+  transferPlatformUserToCompany,
   updatePlatformAiConfig,
   updatePlatformSettings,
   type AiConfig,
+  type FootballDataSyncStatus,
   type SyncMatchResultsResponse,
   type CompanyCompetitionScope,
   type PlatformCompanyRow,
@@ -145,6 +147,8 @@ export default function PlatformAdminPage() {
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncMatchResultsResponse | null>(null);
+  const [matchSyncFullScan, setMatchSyncFullScan] = useState(true);
+  const [matchSyncStatus, setMatchSyncStatus] = useState<FootballDataSyncStatus | null>(null);
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealthPayload | null>(null);
   const [systemHealthLoading, setSystemHealthLoading] = useState(false);
@@ -162,18 +166,20 @@ export default function PlatformAdminPage() {
     setLoading(true);
     setError("");
     try {
-      const [{ companies: list }, ov, usersRes, aiRes, settings] = await Promise.all([
+      const [{ companies: list }, ov, usersRes, aiRes, settings, syncStatus] = await Promise.all([
         fetchPlatformCompanies(),
         fetchPlatformOverview(),
         fetchPlatformUsers({ limit: 100, q: userFilter, company: companyFilter }),
         fetchPlatformAiConfig(),
         fetchPlatformSettings(),
+        fetchPlatformMatchResultsSyncStatus(),
       ]);
       setCompanies(list);
       setOverview(ov);
       setPlatformUsers(usersRes.users);
       setPlatformUsersTotal(usersRes.total);
       setPlatformAiConfig(aiRes.config);
+      setMatchSyncStatus(syncStatus);
       setDefaultScope(settings.defaultCompetitionScope);
       setDefaultScopeDraft(settings.defaultCompetitionScope);
       const scopes: Record<string, CompanyCompetitionScope> = {};
@@ -185,6 +191,7 @@ export default function PlatformAdminPage() {
       setOverview(null);
       setPlatformUsers([]);
       setPlatformUsersTotal(0);
+      setMatchSyncStatus(null);
     } finally {
       setLoading(false);
     }
@@ -398,9 +405,11 @@ export default function PlatformAdminPage() {
     setError("");
     setSuccessMsg("");
     try {
-      const res = await syncPlatformMatchResults();
+      const res = await syncPlatformMatchResults({ fullScan: matchSyncFullScan });
       setSyncResult(res);
       setSuccessMsg(res.message);
+      const status = await fetchPlatformMatchResultsSyncStatus();
+      setMatchSyncStatus(status);
     } catch (err) {
       setSyncResult(null);
       setError(formatApiError(err) || "Error al sincronizar resultados");
@@ -525,16 +534,46 @@ export default function PlatformAdminPage() {
         <h2>Resultados del Mundial (football-data.org)</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
           Importa marcadores y nombres de equipos desde football-data.org hacia la base de datos. Requiere{" "}
-          <code className="platform-slug-code">FOOTBALL_DATA_API_KEY</code> en el backend.
+          <code className="platform-slug-code">FOOTBALL_DATA_API_KEY</code> en el backend. El auto-sync corre cada 5
+          minutos si la key está configurada.
         </p>
-        <button
-          type="button"
-          className="btn-primary"
-          onClick={() => void runMatchResultsSync()}
-          disabled={syncBusy}
-        >
-          {syncBusy ? "Sincronizando…" : "Sincronizar resultados"}
-        </button>
+        {matchSyncStatus ? (
+          <div className="platform-overview-cards platform-match-sync-cards" style={{ marginBottom: "1rem" }}>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">API key</div>
+              <div className="platform-overview-card-value">{matchSyncStatus.apiKeyConfigured ? "Sí" : "No"}</div>
+            </div>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Con resultado</div>
+              <div className="platform-overview-card-value">
+                {matchSyncStatus.matchesWithResult}/{matchSyncStatus.totalMatches}
+              </div>
+            </div>
+            <div className="platform-overview-card">
+              <div className="platform-overview-card-label">Pendientes</div>
+              <div className="platform-overview-card-value">{matchSyncStatus.pendingRows}</div>
+            </div>
+          </div>
+        ) : null}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.75rem", alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void runMatchResultsSync()}
+            disabled={syncBusy || matchSyncStatus?.apiKeyConfigured === false}
+          >
+            {syncBusy ? "Sincronizando…" : "Sincronizar resultados"}
+          </button>
+          <label className="admin-date-range-alltime" style={{ margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={matchSyncFullScan}
+              onChange={(e) => setMatchSyncFullScan(e.target.checked)}
+              disabled={syncBusy}
+            />
+            Escaneo completo
+          </label>
+        </div>
         {syncResult ? (
           <div className="platform-sync-diagnostics" style={{ marginTop: "1rem" }}>
             <p style={{ marginBottom: "0.5rem" }}>

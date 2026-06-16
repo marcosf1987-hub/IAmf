@@ -1346,6 +1346,16 @@ export async function updateAdminAiConfig(data: {
   });
 }
 
+export type FootballDataSyncStatus = {
+  apiKeyConfigured: boolean;
+  autoSyncEnabled: boolean;
+  autoSyncIntervalMs: number;
+  fullScanEnv: boolean;
+  totalMatches: number;
+  matchesWithResult: number;
+  pendingRows: number;
+};
+
 export type SyncMatchDiagnosticSample = {
   kind: "no_match" | "no_score" | "updated";
   apiHome: string;
@@ -1380,11 +1390,27 @@ export type SyncMatchResultsResponse = {
   };
 };
 
-export async function syncPlatformMatchResults(): Promise<SyncMatchResultsResponse> {
+export async function fetchMatchResultsSyncStatus(): Promise<FootballDataSyncStatus> {
+  return fetchAuth("/admin/match-results-sync-status");
+}
+
+export async function fetchPlatformMatchResultsSyncStatus(): Promise<FootballDataSyncStatus> {
+  return fetchAuth("/platform/match-results-sync-status");
+}
+
+export async function syncMatchResults(options?: { fullScan?: boolean }): Promise<SyncMatchResultsResponse> {
+  return fetchAuth("/admin/sync-match-results", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fullScan: options?.fullScan ?? true }),
+  });
+}
+
+export async function syncPlatformMatchResults(options?: { fullScan?: boolean }): Promise<SyncMatchResultsResponse> {
   return fetchAuth("/platform/sync-match-results", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({}),
+    body: JSON.stringify({ fullScan: options?.fullScan ?? true }),
   });
 }
 

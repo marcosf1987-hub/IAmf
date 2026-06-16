@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import MatchResultsSyncPanel from "../components/MatchResultsSyncPanel";
 import type { AdminMetric, AdminReportRange, AdminUser, TimeSeriesPoint } from "../lib/api";
 import type { AdminStats } from "../lib/api";
 import {
@@ -13,9 +14,11 @@ import {
   fetchAdminStats,
   fetchAdminTimeSeries,
   fetchAdminUsers,
+  fetchMatchResultsSyncStatus,
   formatApiError,
   fetchOrgInvitations,
   postOrgInvitations,
+  syncMatchResults,
   updateAdminAiConfig,
   updateAdminCompanyConfig,
   updateAdminUser,
@@ -397,6 +400,18 @@ export default function AdminPage() {
     <div className="page-content">
       <h1>Panel Admin</h1>
       <p className="page-subtitle">Gestión de usuarios, métricas y exportación</p>
+
+      <section className="admin-section platform-match-sync-section" style={{ marginBottom: "1.5rem" }}>
+        <h2>Resultados del Mundial</h2>
+        <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
+          Sincroniza marcadores desde football-data.org (misma fuente que el auto-sync del servidor).
+        </p>
+        <MatchResultsSyncPanel
+          fetchStatus={fetchMatchResultsSyncStatus}
+          runSync={syncMatchResults}
+          onError={setError}
+        />
+      </section>
 
       <div className="admin-tabs">
         <button

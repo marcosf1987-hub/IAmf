@@ -18,7 +18,7 @@ import { clearSessionCookies, setSessionCookies } from "./session-cookie";
 import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
-import { syncMatchResultsFromFootballData, startFootballDataResultAutoSync } from "./sync-match-results";
+import { startFootballDataResultAutoSync, getFootballDataSyncStatus, runFootballDataMatchSync } from "./sync-match-results";
 import { anonymizeUserId, isExactHit, scoreFootballMatchPoints } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, adminCompanyConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import {
@@ -120,6 +120,52 @@ const inviteAcceptLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 12, k
 const orgInviteLimiter = createLimiter({ windowMs: 10 * 60 * 1000, max: 20, key: "org_invite_batch" });
 
 /** Admin de empresa (`org_admin`): el rol debe coincidir con la **base de datos**, no solo con el JWT. */
+async function requireOrgOrSuperAdmin(
+  req: express.Request,
+  res: express.Response,
+  next: express.NextFunction
+): Promise<void> {
+  try {
+    const token = getAccessTokenFromRequest(req);
+    if (!token) {
+      res.status(401).json({ error: "missing_token" });
+      return;
+    }
+    const payload = verifyAccessToken(token);
+    if (!payload) {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { id: true, role: true, companyId: true, status: true, tokenVersion: true },
+    });
+    if (!user || user.status !== "active") {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    if (user.tokenVersion !== payload.tokenVersion) {
+      res.status(401).json({ error: "invalid_token" });
+      return;
+    }
+    if (user.role !== "org_admin" && user.role !== "super_admin") {
+      res.status(403).json({ error: "forbidden" });
+      return;
+    }
+    (req as AuthedRequest).auth = {
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId,
+      tokenVersion: user.tokenVersion,
+    };
+    next();
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("requireOrgOrSuperAdmin:", err);
+    res.status(500).json({ error: "server_error" });
+  }
+}
+
 async function requireAdmin(req: express.Request, res: express.Response, next: express.NextFunction): Promise<void> {
   try {
     const token = getAccessTokenFromRequest(req);
@@ -1409,7 +1455,41 @@ app.get("/results/dashboard", requireAuth, async (req, res) => {
   }
 });
 
-app.patch("/admin/matches/:id/result", requireAdmin, async (req, res) => {
+app.get("/admin/match-results-sync-status", requireOrgOrSuperAdmin, async (_req, res) => {
+  try {
+    const status = await getFootballDataSyncStatus(prisma);
+    res.status(200).json(status);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("GET /admin/match-results-sync-status error:", err);
+    res.status(500).json({ error: "server_error" });
+  }
+});
+
+app.post("/admin/sync-match-results", requireOrgOrSuperAdmin, async (req, res) => {
+  const fullScanRaw = req.body?.fullScan;
+  const fullScan = fullScanRaw === undefined ? true : Boolean(fullScanRaw);
+
+  try {
+    const result = await runFootballDataMatchSync(prisma, { fullScan });
+    res.status(200).json(result);
+  } catch (err) {
+    if (err instanceof Error && (err as Error & { code?: string }).code === "missing_config") {
+      res.status(400).json({
+        error: "missing_config",
+        message:
+          "Agrega FOOTBALL_DATA_API_KEY en las variables del servidor. Obtén una gratis en https://www.football-data.org/",
+      });
+      return;
+    }
+    // eslint-disable-next-line no-console
+    console.error("POST /admin/sync-match-results error:", err);
+    const message = err instanceof Error ? err.message : "sync_error";
+    res.status(500).json({ error: "sync_error", message });
+  }
+});
+
+app.patch("/admin/matches/:id/result", requireOrgOrSuperAdmin, async (req, res) => {
   const parsed = matchResultSchema.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "invalid_body" });

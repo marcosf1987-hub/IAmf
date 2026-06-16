@@ -33,10 +33,7 @@ import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
 import { EK } from "./env-key-names";
 import { replyGenericInviteError } from "./invite-security";
-import {
-  buildSyncMatchResultsHttpBody,
-  syncMatchResultsFromFootballData,
-} from "./sync-match-results";
+import { getFootballDataSyncStatus, runFootballDataMatchSync } from "./sync-match-results";
 
 function frontendBase(): string {
   return (envString(EK.frontend)?.trim() || "http://localhost:5173").replace(/\/+$/, "");
@@ -996,25 +993,6 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     });
   });
 
-  app.post("/platform/sync-match-results", superAuth, async (_req, res) => {
-    const apiKey = process.env.FOOTBALL_DATA_API_KEY?.trim();
-    if (!apiKey) {
-      // eslint-disable-next-line no-console
-      console.error("POST /platform/sync-match-results: falta FOOTBALL_DATA_API_KEY");
-      res.status(400).json({ error: "missing_config" });
-      return;
-    }
-
-    try {
-      const result = await syncMatchResultsFromFootballData(prisma, apiKey);
-      res.status(200).json(buildSyncMatchResultsHttpBody(result));
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.error("POST /platform/sync-match-results error:", err);
-      res.status(500).json({ error: "sync_error" });
-    }
-  });
-
   app.patch("/platform/ai-config", superAuth, async (req, res) => {
     const parsed = adminAiConfigSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -1065,5 +1043,37 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         hasApiKey: Boolean(config.apiKeyEnc),
       },
     });
+  });
+
+  app.get("/platform/match-results-sync-status", superAuth, async (_req, res) => {
+    try {
+      const status = await getFootballDataSyncStatus(prisma);
+      res.status(200).json(status);
+    } catch (err) {
+      console.error("GET /platform/match-results-sync-status error:", err);
+      res.status(500).json({ error: "server_error" });
+    }
+  });
+
+  app.post("/platform/sync-match-results", superAuth, async (req, res) => {
+    const fullScanRaw = req.body?.fullScan;
+    const fullScan = fullScanRaw === undefined ? true : Boolean(fullScanRaw);
+
+    try {
+      const result = await runFootballDataMatchSync(prisma, { fullScan });
+      res.status(200).json(result);
+    } catch (err) {
+      if (err instanceof Error && (err as Error & { code?: string }).code === "missing_config") {
+        res.status(400).json({
+          error: "missing_config",
+          message:
+            "Agrega FOOTBALL_DATA_API_KEY en Railway (servicio backend). Obtén una gratis en https://www.football-data.org/",
+        });
+        return;
+      }
+      console.error("POST /platform/sync-match-results error:", err);
+      const message = err instanceof Error ? err.message : "sync_error";
+      res.status(500).json({ error: "sync_error", message });
+    }
   });
 }

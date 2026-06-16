@@ -12,7 +12,14 @@ import {
   resolveOurMatchFromApi,
 } from "./football-data";
 
-function pendingMatchWhere(): Prisma.MatchWhereInput {
+const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
+
+function isFullScanSyncEnv(): boolean {
+  const v = process.env.FOOTBALL_DATA_SYNC_FULL_SCAN?.trim().toLowerCase();
+  return v === "1" || v === "true" || v === "yes";
+}
+
+export function pendingMatchWhere(): Prisma.MatchWhereInput {
   const bracketPrefixes = ["R32-", "R16-", "QF-", "SF-"] as const;
   return {
     OR: [
@@ -27,9 +34,37 @@ function pendingMatchWhere(): Prisma.MatchWhereInput {
   };
 }
 
-function isFullScanSync(): boolean {
-  const v = process.env.FOOTBALL_DATA_SYNC_FULL_SCAN?.trim().toLowerCase();
-  return v === "1" || v === "true" || v === "yes";
+export type FootballDataSyncStatus = {
+  apiKeyConfigured: boolean;
+  autoSyncEnabled: boolean;
+  autoSyncIntervalMs: number;
+  fullScanEnv: boolean;
+  totalMatches: number;
+  matchesWithResult: number;
+  pendingRows: number;
+};
+
+export async function getFootballDataSyncStatus(prisma: PrismaClient): Promise<FootballDataSyncStatus> {
+  const apiKeyConfigured = Boolean(process.env.FOOTBALL_DATA_API_KEY?.trim());
+  const raw = process.env.FOOTBALL_DATA_AUTO_SYNC_INTERVAL_MS?.trim();
+  const autoSyncIntervalMs =
+    raw === "0" || raw === "false" ? 0 : Math.max(60_000, Number(raw) || DEFAULT_INTERVAL_MS);
+  const [totalMatches, matchesWithResult, pendingRows] = await Promise.all([
+    prisma.match.count(),
+    prisma.match.count({
+      where: { resultScoreA: { not: null }, resultScoreB: { not: null } },
+    }),
+    prisma.match.count({ where: pendingMatchWhere() }),
+  ]);
+  return {
+    apiKeyConfigured,
+    autoSyncEnabled: apiKeyConfigured && autoSyncIntervalMs > 0,
+    autoSyncIntervalMs,
+    fullScanEnv: isFullScanSyncEnv(),
+    totalMatches,
+    matchesWithResult,
+    pendingRows,
+  };
 }
 
 export type SyncDiagnosticSample = {
@@ -83,10 +118,26 @@ function apiSampleBase(apiMatch: FootballDataMatch): Pick<
   };
 }
 
+export async function runFootballDataMatchSync(
+  prisma: PrismaClient,
+  options?: { fullScan?: boolean }
+): Promise<ReturnType<typeof buildSyncMatchResultsHttpBody>> {
+  const apiKey = process.env.FOOTBALL_DATA_API_KEY?.trim();
+  if (!apiKey) {
+    const err = new Error("missing_football_data_api_key") as Error & { code?: string };
+    err.code = "missing_config";
+    throw err;
+  }
+  const fullScan = options?.fullScan ?? true;
+  const result = await syncMatchResultsFromFootballData(prisma, apiKey, { fullScan });
+  return buildSyncMatchResultsHttpBody(result);
+}
+
 /** Una pasada: nombres reales (TBD + slots 1A/R32-1/… del seed) + marcadores finalizados desde football-data.org → BD. */
 export async function syncMatchResultsFromFootballData(
   prisma: PrismaClient,
-  apiKey: string
+  apiKey: string,
+  options?: { fullScan?: boolean }
 ): Promise<SyncMatchResultsResult> {
   const emptyDiagnostics: SyncMatchDiagnostics = {
     finishedInApi: 0,
@@ -98,7 +149,7 @@ export async function syncMatchResultsFromFootballData(
     samples: [],
   };
 
-  const fullScan = isFullScanSync();
+  const fullScan = options?.fullScan ?? isFullScanSyncEnv();
 
   let ourMatches: {
     id: string;
@@ -308,8 +359,6 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
     message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
   };
 }
-
-const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
 /**
  * Cada N ms (default 5 min) una llamada a la API: ~0,2 req/min, muy por debajo del límite gratuito (10/min).
