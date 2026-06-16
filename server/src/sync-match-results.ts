@@ -216,7 +216,15 @@ export async function syncMatchResultsFromFootballData(
   };
 
   const pushSample = (sample: SyncDiagnosticSample) => {
-    if (diagnostics.samples.length < MAX_DIAGNOSTIC_SAMPLES) {
+    if (sample.kind === "no_match" || sample.kind === "no_score") {
+      const failureCount = diagnostics.samples.filter((s) => s.kind !== "updated").length;
+      if (failureCount < 8) {
+        diagnostics.samples.unshift(sample);
+      }
+      return;
+    }
+    const updatedCount = diagnostics.samples.filter((s) => s.kind === "updated").length;
+    if (updatedCount < MAX_DIAGNOSTIC_SAMPLES) {
       diagnostics.samples.push(sample);
     }
   };

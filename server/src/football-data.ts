@@ -44,10 +44,13 @@ export type FootballDataMatchesResponse = {
 /** Mapeo de nombres API -> nuestros nombres en BD (para diferencias) */
 const TEAM_NAME_MAP: Record<string, string> = {
   "Bosnia and Herzegovina": "Bosnia",
+  "Bosnia-Herzegovina": "Bosnia",
   "Korea Republic": "South Korea",
+  "Korea DPR": "North Korea",
   "Côte d'Ivoire": "Ivory Coast",
   "IR Iran": "Iran",
   "Cabo Verde": "Cape Verde",
+  "Cape Verde Islands": "Cape Verde",
   Czechia: "Czech Republic",
   Türkiye: "Turkey",
   Turkiye: "Turkey",
@@ -251,42 +254,43 @@ export function resolveOurMatchFromApi(
     Math.abs(new Date(m.kickoffAt).getTime() - apiTime) <= kickoffToleranceMs;
 
   const candidates = ourMatches.filter(inTol);
-  if (candidates.length === 0) return null;
 
-  for (const m of candidates) {
-    if (teamsPairEqual(m.teamA, m.teamB, home, away)) {
-      return { kind: "exact", ourMatch: m };
-    }
-  }
-
-  const fills: ResolvedOurMatch[] = [];
-  for (const m of candidates) {
-    const a = m.teamA;
-    const b = m.teamB;
-    const na = needsNameFromApi(a);
-    const nb = needsNameFromApi(b);
-    if (!na && !nb) continue;
-
-    if (na && nb) {
-      fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
-      continue;
-    }
-    if (!na && nb) {
-      if (canonicalTeamName(a) === canonicalTeamName(home)) {
-        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
-      } else if (canonicalTeamName(a) === canonicalTeamName(away)) {
-        fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
-      }
-    } else if (na && !nb) {
-      if (canonicalTeamName(b) === canonicalTeamName(home)) {
-        fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
-      } else if (canonicalTeamName(b) === canonicalTeamName(away)) {
-        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+  if (candidates.length > 0) {
+    for (const m of candidates) {
+      if (teamsPairEqual(m.teamA, m.teamB, home, away)) {
+        return { kind: "exact", ourMatch: m };
       }
     }
-  }
 
-  if (fills.length === 1) return fills[0];
+    const fills: ResolvedOurMatch[] = [];
+    for (const m of candidates) {
+      const a = m.teamA;
+      const b = m.teamB;
+      const na = needsNameFromApi(a);
+      const nb = needsNameFromApi(b);
+      if (!na && !nb) continue;
+
+      if (na && nb) {
+        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+        continue;
+      }
+      if (!na && nb) {
+        if (canonicalTeamName(a) === canonicalTeamName(home)) {
+          fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+        } else if (canonicalTeamName(a) === canonicalTeamName(away)) {
+          fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
+        }
+      } else if (na && !nb) {
+        if (canonicalTeamName(b) === canonicalTeamName(home)) {
+          fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
+        } else if (canonicalTeamName(b) === canonicalTeamName(away)) {
+          fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
+        }
+      }
+    }
+
+    if (fills.length === 1) return fills[0];
+  }
 
   const byDate = findMatchingOurMatch(apiMatch, ourMatches);
   if (byDate) return { kind: "exact", ourMatch: byDate };
