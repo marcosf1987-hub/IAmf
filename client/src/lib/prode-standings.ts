@@ -1,4 +1,5 @@
 import type { Match, Prediction } from "./api";
+import { hasOfficialMatchResult } from "./match-result";
 
 export type GroupStandingRow = {
   team: string;
@@ -13,8 +14,9 @@ export type GroupStandingRow = {
 };
 
 /**
- * Tabla tipo Mundial a partir de los partidos del grupo y las predicciones guardadas.
- * Solo cuenta partidos con predicción. 3 pts victoria, 1 empate, 0 derrota.
+ * Tabla tipo Mundial a partir de los partidos del grupo.
+ * Usa resultado oficial si está cargado; si no, la predicción guardada.
+ * 3 pts victoria, 1 empate, 0 derrota.
  */
 export function computeGroupStandings(
   matches: Match[],
@@ -37,23 +39,27 @@ export function computeGroupStandings(
   }
 
   for (const m of matches) {
+    const official = hasOfficialMatchResult(m);
     const pred = predictions[m.id];
-    if (!pred) continue;
+    if (!official && !pred) continue;
+
+    const scoreA = official ? m.resultScoreA! : pred!.scoreA;
+    const scoreB = official ? m.resultScoreB! : pred!.scoreB;
 
     const a = row(m.teamA);
     const b = row(m.teamB);
     a.pj += 1;
     b.pj += 1;
-    a.gf += pred.scoreA;
-    a.gc += pred.scoreB;
-    b.gf += pred.scoreB;
-    b.gc += pred.scoreA;
+    a.gf += scoreA;
+    a.gc += scoreB;
+    b.gf += scoreB;
+    b.gc += scoreA;
 
-    if (pred.scoreA > pred.scoreB) {
+    if (scoreA > scoreB) {
       a.g += 1;
       b.p += 1;
       a.pts += 3;
-    } else if (pred.scoreA < pred.scoreB) {
+    } else if (scoreA < scoreB) {
       b.g += 1;
       a.p += 1;
       b.pts += 3;

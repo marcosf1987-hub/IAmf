@@ -16,6 +16,7 @@ import {
 } from "../lib/api";
 import { getCurrentPhase, getPhaseLabel, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 import { isMatchPredictionOpen } from "../lib/match-prediction-window";
+import { formatMatchScore, hasOfficialMatchResult } from "../lib/match-result";
 import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 import { formatDateTime } from "../lib/intl-format";
@@ -708,22 +709,41 @@ function GroupMatchRow({
   prediction?: Prediction;
   locked: boolean;
 }) {
+  const official = hasOfficialMatchResult(match);
   return (
-    <div className={`prode-group-match-row${locked ? " prode-group-match-row--locked" : ""}`}>
+    <div
+      className={`prode-group-match-row${locked ? " prode-group-match-row--locked" : ""}${official ? " prode-group-match-row--has-result" : ""}`}
+    >
       <span className="prode-group-match-side">
         <ProdeFlag country={match.teamA} />
         <span className="prode-group-match-name">{match.teamA}</span>
       </span>
       <span className="prode-group-match-scores">
-        <span className="prode-group-score">{prediction ? prediction.scoreA : "—"}</span>
-        <span className="prode-group-score-sep">-</span>
-        <span className="prode-group-score">{prediction ? prediction.scoreB : "—"}</span>
+        {official ? (
+          <>
+            <span className="prode-group-score prode-group-score--official">{match.resultScoreA}</span>
+            <span className="prode-group-score-sep">-</span>
+            <span className="prode-group-score prode-group-score--official">{match.resultScoreB}</span>
+          </>
+        ) : (
+          <>
+            <span className="prode-group-score">{prediction ? prediction.scoreA : "—"}</span>
+            <span className="prode-group-score-sep">-</span>
+            <span className="prode-group-score">{prediction ? prediction.scoreB : "—"}</span>
+          </>
+        )}
       </span>
       <span className="prode-group-match-side prode-group-match-side--right">
         <span className="prode-group-match-name">{match.teamB}</span>
         <ProdeFlag country={match.teamB} />
       </span>
-      {locked ? <span className="prode-match-locked-badge">Cerrado</span> : null}
+      {official && prediction ? (
+        <span className="prode-match-prediction-hint" title="Tu predicción">
+          Pred: {prediction.scoreA}-{prediction.scoreB}
+        </span>
+      ) : null}
+      {locked && !official ? <span className="prode-match-locked-badge">Cerrado</span> : null}
+      {official ? <span className="prode-match-result-badge">Final</span> : null}
     </div>
   );
 }
@@ -779,6 +799,7 @@ function MatchCard({
   locked: boolean;
 }) {
   const { t } = useTranslation("prode");
+  const official = hasOfficialMatchResult(match);
   const date = formatDateTime(match.kickoffAt, {
     day: "numeric",
     month: "short",
@@ -788,7 +809,9 @@ function MatchCard({
   });
 
   return (
-    <div className={`prode-card${locked ? " prode-card--locked" : ""}`}>
+    <div
+      className={`prode-card${locked ? " prode-card--locked" : ""}${official ? " prode-card--has-result" : ""}`}
+    >
       <div className="prode-card-header">
         <span className="prode-stage">
           {match.stage === "group" && match.groupCode
@@ -797,7 +820,8 @@ function MatchCard({
         </span>
         <span className="prode-date">
           {date}
-          {locked ? <span className="prode-match-locked-badge"> · Cerrado</span> : null}
+          {official ? <span className="prode-match-result-badge"> · Final</span> : null}
+          {locked && !official ? <span className="prode-match-locked-badge"> · Cerrado</span> : null}
         </span>
       </div>
       <div className="prode-teams">
@@ -810,9 +834,24 @@ function MatchCard({
         </span>
       </div>
       <div className="prode-form prode-form-readonly">
-        <span className="prode-score">
-          {prediction ? `${prediction.scoreA} - ${prediction.scoreB}` : "—"}
-        </span>
+        {official ? (
+          <div className="prode-score-block">
+            <span className="prode-score-label">Resultado oficial</span>
+            <span className="prode-score prode-score--official">
+              {formatMatchScore(match.resultScoreA!, match.resultScoreB!)}
+            </span>
+          </div>
+        ) : null}
+        {prediction ? (
+          <div className="prode-score-block">
+            {official ? <span className="prode-score-label">Tu predicción</span> : null}
+            <span className={`prode-score${official ? " prode-score--prediction" : ""}`}>
+              {formatMatchScore(prediction.scoreA, prediction.scoreB)}
+            </span>
+          </div>
+        ) : !official ? (
+          <span className="prode-score">—</span>
+        ) : null}
       </div>
     </div>
   );
