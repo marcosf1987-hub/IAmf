@@ -23,3 +23,25 @@ export function allowedDisciplines(scope: CompanyCompetitionScope | undefined): 
   if (!scope || scope === "all") return ["football", "f1"];
   return [scope];
 }
+
+export const COMPANY_SCOPE_OPTIONS: {
+  value: CompanyCompetitionScope;
+  title: string;
+  description: string;
+}[] = [
+  {
+    value: "all",
+    title: "Todas",
+    description: "Mundial y F1 disponibles para la empresa.",
+  },
+  {
+    value: "football",
+    title: "Solo Mundial",
+    description: "Fútbol / Prode FIFA únicamente.",
+  },
+  {
+    value: "f1",
+    title: "Solo F1",
+    description: "Predicciones de Fórmula 1 únicamente.",
+  },
+];

@@ -1,6 +1,6 @@
 import AiConfigTab from "./AiConfigTab";
 import type { AiConfig, CompanyCompetitionScope, FootballDataSyncStatus } from "../lib/api";
-import { scopeLabel } from "../lib/company-competition-scope";
+import { scopeLabel, COMPANY_SCOPE_OPTIONS } from "../lib/company-competition-scope";
 
 type AiSavePayload = {
   provider?: "openai" | "custom" | "gemini" | "grok" | "groq" | "ollama";
@@ -8,28 +8,6 @@ type AiSavePayload = {
   baseUrl?: string | null;
   apiKey?: string;
 };
-
-const SCOPE_OPTIONS: {
-  value: CompanyCompetitionScope;
-  title: string;
-  description: string;
-}[] = [
-  {
-    value: "all",
-    title: "Todas",
-    description: "Mundial y F1 disponibles para la empresa.",
-  },
-  {
-    value: "football",
-    title: "Solo Mundial",
-    description: "Fútbol / Prode FIFA únicamente.",
-  },
-  {
-    value: "f1",
-    title: "Solo F1",
-    description: "Predicciones de Fórmula 1 únicamente.",
-  },
-];
 
 type Props = {
   loading: boolean;
@@ -96,7 +74,7 @@ export default function PlatformConfigSection({
           </header>
           <form onSubmit={onSaveDefaultScope} className="platform-scope-form">
             <div className="platform-scope-options" role="radiogroup" aria-label="Competiciones por defecto">
-              {SCOPE_OPTIONS.map((opt) => (
+              {COMPANY_SCOPE_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
                   className={`platform-scope-option${defaultScopeDraft === opt.value ? " platform-scope-option--selected" : ""}`}

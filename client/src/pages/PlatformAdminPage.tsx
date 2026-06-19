@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import PlatformConfigSection from "../components/PlatformConfigSection";
+import PlatformCompanyDrawer from "../components/PlatformCompanyDrawer";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -29,6 +30,7 @@ import {
   type PlatformUserRow,
   type SystemHealthPayload,
 } from "../lib/api";
+import { scopeLabel } from "../lib/company-competition-scope";
 
 type CompanyFilterOption = { value: string; label: string };
 
@@ -127,16 +129,10 @@ export default function PlatformAdminPage() {
     seatLimit: 50,
   });
   const [submitting, setSubmitting] = useState(false);
-  const [seatEdits, setSeatEdits] = useState<Record<string, string>>({});
-  const [scopeEdits, setScopeEdits] = useState<Record<string, CompanyCompetitionScope>>({});
   const [defaultScope, setDefaultScope] = useState<CompanyCompetitionScope>("all");
   const [defaultScopeDraft, setDefaultScopeDraft] = useState<CompanyCompetitionScope>("all");
   const [savingDefaultScope, setSavingDefaultScope] = useState(false);
-
-  const [resetTarget, setResetTarget] = useState<{ userId: string; email: string } | null>(null);
-  const [resetPass, setResetPass] = useState("");
-  const [resetPass2, setResetPass2] = useState("");
-  const [resetBusy, setResetBusy] = useState(false);
+  const [companyDrawer, setCompanyDrawer] = useState<PlatformCompanyRow | null>(null);
 
   const [transferTarget, setTransferTarget] = useState<{ userId: string; email: string } | null>(null);
   const [transferCompanyId, setTransferCompanyId] = useState("");
@@ -184,9 +180,6 @@ export default function PlatformAdminPage() {
       setMatchSyncStatus(syncStatus);
       setDefaultScope(settings.defaultCompetitionScope);
       setDefaultScopeDraft(settings.defaultCompetitionScope);
-      const scopes: Record<string, CompanyCompetitionScope> = {};
-      for (const c of list) scopes[c.id] = c.competitionScope;
-      setScopeEdits(scopes);
     } catch (e) {
       setError(formatApiError(e) || "Error al cargar");
       setCompanies([]);
@@ -242,36 +235,15 @@ export default function PlatformAdminPage() {
     }
   }
 
-  async function saveSeat(id: string) {
-    const raw = seatEdits[id];
-    if (!raw) return;
-    const n = parseInt(raw, 10);
-    if (!Number.isFinite(n) || n < 1) {
-      setError("Cupos inválidos");
-      return;
-    }
+  async function saveCompanySettings(
+    companyId: string,
+    data: { competitionScope?: CompanyCompetitionScope; seatLimit?: number }
+  ) {
     setError("");
     setSuccessMsg("");
-    try {
-      await patchPlatformCompany(id, { seatLimit: n });
-      await reload();
-    } catch (e) {
-      setError(formatApiError(e) || "Error al actualizar cupos");
-    }
-  }
-
-  async function saveCompanyScope(id: string) {
-    const scope = scopeEdits[id];
-    if (!scope) return;
-    setError("");
-    setSuccessMsg("");
-    try {
-      await patchPlatformCompany(id, { competitionScope: scope });
-      setSuccessMsg("Competiciones de la empresa actualizadas.");
-      await reload();
-    } catch (e) {
-      setError(formatApiError(e) || "Error al actualizar competiciones");
-    }
+    await patchPlatformCompany(companyId, data);
+    setSuccessMsg("Configuración de empresa guardada.");
+    await reload();
   }
 
   async function saveDefaultScope(e: React.FormEvent) {
@@ -325,39 +297,10 @@ export default function PlatformAdminPage() {
     setTransferCompanyId("");
   }
 
-  async function submitPasswordReset(e: React.FormEvent) {
-    e.preventDefault();
-    if (!resetTarget) return;
-    setError("");
-    setSuccessMsg("");
-    if (resetPass.length < 6) {
-      setError("La contraseña debe tener al menos 6 caracteres.");
-      return;
-    }
-    if (resetPass !== resetPass2) {
-      setError("Las contraseñas no coinciden.");
-      return;
-    }
-    const emailLabel = resetTarget.email;
-    setResetBusy(true);
-    try {
-      await resetPlatformOrgAdminPassword(resetTarget.userId, resetPass);
-      setResetTarget(null);
-      setResetPass("");
-      setResetPass2("");
-      setSuccessMsg(`Contraseña restablecida para ${emailLabel}. El admin puede iniciar sesión con la nueva clave.`);
-    } catch (err) {
-      setError(formatApiError(err) || "Error al restablecer");
-    } finally {
-      setResetBusy(false);
-    }
-  }
-
-  function cancelReset() {
-    setResetTarget(null);
-    setResetPass("");
-    setResetPass2("");
-    setError("");
+  async function handleAdminPasswordReset(userId: string, password: string) {
+    const admin = companyDrawer?.orgAdmins.find((a) => a.id === userId);
+    await resetPlatformOrgAdminPassword(userId, password);
+    setSuccessMsg(`Contraseña restablecida para ${admin?.email ?? "el administrador"}.`);
   }
 
   async function toggleUserHiddenFromRankings(userId: string, hidden: boolean, email: string) {
@@ -1064,54 +1007,10 @@ export default function PlatformAdminPage() {
       </section>
 
       <section className="admin-section">
-        <h2>Empresas</h2>
-        {resetTarget && (
-          <div
-            className="platform-reset-panel"
-            style={{
-              marginBottom: "1.25rem",
-              padding: "1rem",
-              border: "1px solid var(--border)",
-              maxWidth: 420,
-            }}
-          >
-            <p style={{ marginTop: 0, marginBottom: "0.75rem" }}>
-              <strong>Nueva contraseña para:</strong> {resetTarget.email}
-            </p>
-            <form onSubmit={submitPasswordReset} className="admin-form" style={{ gap: "0.75rem" }}>
-              <label>
-                <span>Contraseña nueva</span>
-                <input
-                  type="password"
-                  value={resetPass}
-                  onChange={(e) => setResetPass(e.target.value)}
-                  minLength={6}
-                  required
-                  autoComplete="new-password"
-                />
-              </label>
-              <label>
-                <span>Repetir contraseña</span>
-                <input
-                  type="password"
-                  value={resetPass2}
-                  onChange={(e) => setResetPass2(e.target.value)}
-                  minLength={6}
-                  required
-                  autoComplete="new-password"
-                />
-              </label>
-              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-                <button type="submit" className="btn-primary" disabled={resetBusy}>
-                  {resetBusy ? "Guardando…" : "Guardar contraseña"}
-                </button>
-                <button type="button" className="btn-secondary" onClick={cancelReset} disabled={resetBusy}>
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
+        <h2>Empresas B2B</h2>
+        <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
+          Cupos, competiciones y administradores se editan desde <strong>Configurar</strong> en cada fila.
+        </p>
         {loading ? (
           <p className="placeholder-text">Cargando…</p>
         ) : (
@@ -1121,96 +1020,43 @@ export default function PlatformAdminPage() {
                 <tr>
                   <th>Nombre</th>
                   <th>Slug</th>
-                  <th>Admins</th>
                   <th className="platform-companies-col-narrow">Usuarios</th>
                   <th className="platform-companies-col-narrow">Ligas</th>
-                  <th className="platform-companies-col-narrow">Invitaciones</th>
+                  <th className="platform-companies-col-narrow">Invit.</th>
                   <th>Competiciones</th>
-                  <th>Cupos</th>
+                  <th className="platform-companies-col-narrow">Cupos</th>
+                  <th className="platform-companies-col-actions">Acciones</th>
                 </tr>
               </thead>
               <tbody>
                 {companies.map((c) => (
-                  <tr key={c.id}>
+                  <tr
+                    key={c.id}
+                    className={companyDrawer?.id === c.id ? "platform-companies-row--open" : undefined}
+                  >
                     <td className="platform-companies-col-name">{c.name}</td>
                     <td className="platform-companies-col-slug">
                       <code className="platform-slug-code">{c.slug}</code>
                     </td>
-                    <td className="platform-companies-col-admins">
-                      {c.orgAdmins?.length ? (
-                        <div className="platform-org-admin-list">
-                          {c.orgAdmins.map((a) => (
-                            <div className="platform-org-admin-item" key={a.id}>
-                              <span className="platform-org-admin-email">{a.email}</span>
-                              <button
-                                type="button"
-                                className="btn-secondary btn-sm platform-org-admin-btn"
-                                onClick={() => {
-                                  setSuccessMsg("");
-                                  setError("");
-                                  setResetTarget({ userId: a.id, email: a.email });
-                                  setResetPass("");
-                                  setResetPass2("");
-                                }}
-                              >
-                                Restablecer
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <span className="placeholder-text">—</span>
-                      )}
+                    <td className="platform-companies-col-narrow">
+                      {c.userCount}/{c.seatLimit}
                     </td>
-                    <td className="platform-companies-col-narrow">{c.userCount}</td>
                     <td className="platform-companies-col-narrow">{c.competitionCount ?? "—"}</td>
                     <td className="platform-companies-col-narrow">{c.invitationCount}</td>
-                    <td className="platform-companies-col-edit">
-                      <div className="platform-companies-inline-edit">
-                        <select
-                          className="admin-input-inline platform-companies-scope-select"
-                          value={scopeEdits[c.id] ?? c.competitionScope}
-                          onChange={(e) =>
-                            setScopeEdits((s) => ({
-                              ...s,
-                              [c.id]: e.target.value as CompanyCompetitionScope,
-                            }))
-                          }
-                        >
-                          <option value="all">Todas</option>
-                          <option value="football">Solo Mundial</option>
-                          <option value="f1">Solo F1</option>
-                        </select>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
-                          onClick={() => saveCompanyScope(c.id)}
-                          disabled={(scopeEdits[c.id] ?? c.competitionScope) === c.competitionScope}
-                          title="Guardar competiciones"
-                        >
-                          Guardar
-                        </button>
-                      </div>
-                    </td>
-                    <td className="platform-companies-col-edit">
-                      <div className="platform-companies-inline-edit">
-                        <input
-                          key={`${c.id}-${c.seatLimit}`}
-                          type="number"
-                          min={1}
-                          className="admin-input-inline platform-companies-seat-input"
-                          defaultValue={c.seatLimit}
-                          onChange={(e) => setSeatEdits((s) => ({ ...s, [c.id]: e.target.value }))}
-                        />
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
-                          onClick={() => saveSeat(c.id)}
-                          title="Guardar cupos"
-                        >
-                          Guardar
-                        </button>
-                      </div>
+                    <td>{scopeLabel(c.competitionScope)}</td>
+                    <td className="platform-companies-col-narrow">{c.seatLimit}</td>
+                    <td className="platform-companies-col-actions">
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={() => {
+                          setError("");
+                          setSuccessMsg("");
+                          setCompanyDrawer(c);
+                        }}
+                      >
+                        Configurar
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -1219,6 +1065,13 @@ export default function PlatformAdminPage() {
           </div>
         )}
       </section>
+
+      <PlatformCompanyDrawer
+        company={companyDrawer}
+        onClose={() => setCompanyDrawer(null)}
+        onSave={saveCompanySettings}
+        onResetPassword={handleAdminPasswordReset}
+      />
       </>
       )}
     </div>
