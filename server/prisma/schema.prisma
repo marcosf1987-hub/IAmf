@@ -112,8 +112,28 @@ model User {
   competitionInvitesSent    CompetitionInvitation[] @relation("CompetitionInviteInviter")
   competitionsCreated     Competition[] @relation("CompetitionCreator")
   competitionMemberships  CompetitionMember[]
+  aiGenerationBatches     AiGenerationBatch[]
 
   @@index([companyId])
+}
+
+/// Diagnóstico persistido de un lote de generación Prode con IA (super admin).
+model AiGenerationBatch {
+  batchId    String   @id
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+  phaseLabel String?
+  requested  Int
+  parsed     Int
+  saved      Int
+  status     String
+  provider   String?
+  model      String?
+  diagnostics Json
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 /// Cuenta vinculada a Google (sub del proveedor).

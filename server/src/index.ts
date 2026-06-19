@@ -48,6 +48,12 @@ import {
 } from "./openf1-sync";
 import { logSecurityEvent, readSecurityCounters, securityError } from "./security-utils";
 import { parseAdminDateRangeQuery } from "./admin-date-range";
+import {
+  finalizeProdeScopeStatus,
+  persistProdeAiGenerationBatch,
+  type ProdeAiScopeDiagnostic,
+  type ProdeAiScopeStatus,
+} from "./ai-generation-batch";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -914,24 +920,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
   const batchId = randomUUID();
   const promptPhase = phaseKey as ProdePromptPhase;
 
-  type ProdeAiScopeStatus = "ok" | "partial" | "parse_failed" | "ai_error";
-  type ProdeAiScopeDiagnostic = {
-    scopeLabel: string;
-    requested: number;
-    parsed: number;
-    saved: number;
-    status: ProdeAiScopeStatus;
-    errors: string[];
-  };
-
   const scopeDiagnostics: ProdeAiScopeDiagnostic[] = [];
-
-  function finalizeScopeStatus(d: ProdeAiScopeDiagnostic): ProdeAiScopeStatus {
-    if (d.errors.some((e) => e.startsWith("ai_error"))) return "ai_error";
-    if (d.saved === 0 && d.requested > 0) return d.parsed > 0 ? "partial" : "parse_failed";
-    if (d.saved < d.requested) return "partial";
-    return "ok";
-  }
 
   async function runMatchBatch(
     scopeLabel: string,
@@ -1075,7 +1064,7 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
       console.error(`Error batch IA (${scopeLabel}):`, err);
     }
 
-    diag.status = finalizeScopeStatus(diag);
+    diag.status = finalizeProdeScopeStatus(diag);
     scopeDiagnostics.push(diag);
     return diag;
   }
@@ -1154,6 +1143,18 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
   if (allErrors.some((e) => e.startsWith("ai_error"))) overallStatus = "ai_error";
   else if (savedTotal === 0 && requestedTotal > 0) overallStatus = parsedTotal > 0 ? "partial" : "parse_failed";
   else if (savedTotal < requestedTotal) overallStatus = "partial";
+
+  try {
+    await persistProdeAiGenerationBatch(prisma, {
+      batchId,
+      userId,
+      phaseLabel: phase,
+      scopes: scopeDiagnostics,
+    });
+  } catch (persistErr) {
+    // eslint-disable-next-line no-console
+    console.error("No se pudo persistir diagnóstico IA del lote:", persistErr);
+  }
 
   res.status(200).json({
     predictions: predictions.map((p) => ({

@@ -460,8 +460,23 @@ export type PlatformAiHealth = {
     createdAt: string;
     promptCount: number;
     savedCount: number;
+    requested: number;
+    parsed: number;
     status: "ok" | "partial" | "failed";
+    detailStatus: "ok" | "partial" | "parse_failed" | "ai_error" | null;
     phaseLabel: string | null;
+    provider: string | null;
+    model: string | null;
+    errorSummary: string | null;
+    scopes: Array<{
+      scopeLabel: string;
+      requested: number;
+      parsed: number;
+      saved: number;
+      status: "ok" | "partial" | "parse_failed" | "ai_error";
+      errors: string[];
+    }> | null;
+    hasPersistedDiagnostics: boolean;
   }>;
 };
 

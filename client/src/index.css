@@ -5995,6 +5995,36 @@ a.btn-oauth--unconfigured {
   color: #dc2626;
 }
 
+.platform-ai-batch-row--open {
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.platform-ai-batch-expand {
+  width: 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+.platform-ai-batch-detail-row td {
+  background: var(--bg-elevated, rgba(0, 0, 0, 0.03));
+  padding-top: 0.5rem;
+  padding-bottom: 0.75rem;
+}
+
+.platform-ai-batch-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.platform-ai-batch-detail-errors {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #dc2626;
+}
+
 .platform-activity-chart-header {
   display: flex;
   flex-wrap: wrap;

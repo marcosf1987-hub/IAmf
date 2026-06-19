@@ -1,5 +1,11 @@
 import type { PrismaClient } from "@prisma/client";
 import type { AdminDateRange } from "./admin-date-range";
+import {
+  parseStoredProdeBatchDiagnostics,
+  summarizeProdeBatchErrors,
+  type ProdeAiScopeDiagnostic,
+  type ProdeAiScopeStatus,
+} from "./ai-generation-batch";
 
 export type AiBatchStatus = "ok" | "partial" | "failed";
 
@@ -10,8 +16,16 @@ export type PlatformAiHealthBatchRow = {
   createdAt: string;
   promptCount: number;
   savedCount: number;
+  requested: number;
+  parsed: number;
   status: AiBatchStatus;
+  detailStatus: ProdeAiScopeStatus | null;
   phaseLabel: string | null;
+  provider: string | null;
+  model: string | null;
+  errorSummary: string | null;
+  scopes: ProdeAiScopeDiagnostic[] | null;
+  hasPersistedDiagnostics: boolean;
 };
 
 export type PlatformAiHealthPayload = {
@@ -35,6 +49,17 @@ export function classifyAiBatch(promptCount: number, savedCount: number): AiBatc
   if (savedCount === 0) return "failed";
   if (promptCount > 1) return "partial";
   return "ok";
+}
+
+export function mapPersistedBatchStatus(
+  detail: ProdeAiScopeStatus | null,
+  promptCount: number,
+  savedCount: number
+): AiBatchStatus {
+  if (detail === "ok") return "ok";
+  if (detail === "partial") return "partial";
+  if (detail === "parse_failed" || detail === "ai_error") return "failed";
+  return classifyAiBatch(promptCount, savedCount);
 }
 
 export async function buildPlatformAiHealth(
@@ -81,10 +106,10 @@ export async function buildPlatformAiHealth(
   }
 
   const batchIds = Array.from(batchMeta.keys());
-  const savedGroups =
+  const [savedGroups, phaseRows, persistedBatches] = await Promise.all([
     batchIds.length === 0
-      ? []
-      : await prisma.predictionHistory.groupBy({
+      ? Promise.resolve([])
+      : prisma.predictionHistory.groupBy({
           by: ["batchId"],
           where: {
             source: "ai",
@@ -92,12 +117,10 @@ export async function buildPlatformAiHealth(
             kind: "match",
           },
           _count: { _all: true },
-        });
-
-  const phaseRows =
+        }),
     batchIds.length === 0
-      ? []
-      : await prisma.predictionHistory.findMany({
+      ? Promise.resolve([])
+      : prisma.predictionHistory.findMany({
           where: {
             batchId: { in: batchIds },
             source: "ai",
@@ -105,13 +128,22 @@ export async function buildPlatformAiHealth(
           },
           select: { batchId: true, phaseLabel: true },
           distinct: ["batchId"],
-        });
+        }),
+    batchIds.length === 0
+      ? Promise.resolve([])
+      : prisma.aiGenerationBatch.findMany({
+          where: { batchId: { in: batchIds } },
+        }),
+  ]);
 
   const savedByBatch = new Map(
     savedGroups.map((g) => [g.batchId!, g._count._all])
   );
   const phaseByBatch = new Map(
     phaseRows.map((r) => [r.batchId!, r.phaseLabel])
+  );
+  const persistedByBatch = new Map(
+    persistedBatches.map((b) => [b.batchId, b])
   );
 
   let ok = 0;
@@ -120,8 +152,14 @@ export async function buildPlatformAiHealth(
   const allRows: PlatformAiHealthBatchRow[] = [];
 
   for (const [batchId, meta] of batchMeta) {
-    const savedCount = savedByBatch.get(batchId) ?? 0;
-    const status = classifyAiBatch(meta.promptCount, savedCount);
+    const persisted = persistedByBatch.get(batchId);
+    const stored = persisted ? parseStoredProdeBatchDiagnostics(persisted.diagnostics) : null;
+    const scopes = stored?.scopes ?? null;
+    const savedCount = persisted?.saved ?? savedByBatch.get(batchId) ?? 0;
+    const requested = persisted?.requested ?? 0;
+    const parsed = persisted?.parsed ?? 0;
+    const detailStatus = (persisted?.status as ProdeAiScopeStatus | undefined) ?? null;
+    const status = mapPersistedBatchStatus(detailStatus, meta.promptCount, savedCount);
     if (status === "ok") ok += 1;
     else if (status === "partial") partial += 1;
     else failed += 1;
@@ -133,8 +171,16 @@ export async function buildPlatformAiHealth(
       createdAt: meta.createdAt.toISOString(),
       promptCount: meta.promptCount,
       savedCount,
+      requested,
+      parsed,
       status,
-      phaseLabel: phaseByBatch.get(batchId) ?? null,
+      detailStatus,
+      phaseLabel: persisted?.phaseLabel ?? phaseByBatch.get(batchId) ?? null,
+      provider: persisted?.provider ?? null,
+      model: persisted?.model ?? null,
+      errorSummary: scopes ? summarizeProdeBatchErrors(scopes) : null,
+      scopes,
+      hasPersistedDiagnostics: Boolean(persisted),
     });
   }
 
