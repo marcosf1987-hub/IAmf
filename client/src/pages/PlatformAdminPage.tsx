@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-import AiConfigTab from "../components/AiConfigTab";
+import PlatformConfigSection from "../components/PlatformConfigSection";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -29,7 +29,6 @@ import {
   type PlatformUserRow,
   type SystemHealthPayload,
 } from "../lib/api";
-import { scopeLabel } from "../lib/company-competition-scope";
 
 type CompanyFilterOption = { value: string; label: string };
 
@@ -108,8 +107,11 @@ function CompanyFilterCombobox({
   );
 }
 
+type PlatformAdminTab = "resumen" | "usuarios" | "empresas" | "config" | "operaciones";
+
 export default function PlatformAdminPage() {
   const { user } = useAuth();
+  const [tab, setTab] = useState<PlatformAdminTab>("resumen");
   const [companies, setCompanies] = useState<PlatformCompanyRow[]>([]);
   const [overview, setOverview] = useState<PlatformOverview | null>(null);
   const [platformUsers, setPlatformUsers] = useState<PlatformUserRow[]>([]);
@@ -425,11 +427,36 @@ export default function PlatformAdminPage() {
   return (
     <div className="page-content page-content--platform-admin">
       <h1>Administración de plataforma</h1>
+      <p className="page-subtitle">Super admin · pool público, empresas B2B y operación del Mundial</p>
 
       {error && <div className="auth-error">{error}</div>}
       {successMsg && <div className="auth-success">{successMsg}</div>}
 
-      <section className="admin-section platform-system-health">
+      <div className="admin-tabs platform-admin-tabs">
+        <button type="button" className={tab === "resumen" ? "tab-active" : ""} onClick={() => setTab("resumen")}>
+          Resumen
+        </button>
+        <button type="button" className={tab === "usuarios" ? "tab-active" : ""} onClick={() => setTab("usuarios")}>
+          Usuarios
+        </button>
+        <button type="button" className={tab === "empresas" ? "tab-active" : ""} onClick={() => setTab("empresas")}>
+          Empresas
+        </button>
+        <button type="button" className={tab === "config" ? "tab-active" : ""} onClick={() => setTab("config")}>
+          Configuración
+        </button>
+        <button
+          type="button"
+          className={tab === "operaciones" ? "tab-active" : ""}
+          onClick={() => setTab("operaciones")}
+        >
+          Operaciones
+        </button>
+      </div>
+
+      {tab === "resumen" && (
+        <>
+          <section className="admin-section platform-system-health">
         <div className="platform-system-health-header">
           <h2>Estado del sistema</h2>
           <button
@@ -487,49 +514,63 @@ export default function PlatformAdminPage() {
         )}
       </section>
 
-      <section className="admin-section platform-settings-row">
-        <div className="platform-settings-grid">
-          <div className="platform-settings-col" id="ia-pool-publico">
-            {loading ? (
-              <p className="placeholder-text">Cargando configuración de IA…</p>
-            ) : (
-              <AiConfigTab
-                config={platformAiConfig}
-                title="IA del pool público"
-                lead=""
-                successMessage="Configuración de IA del pool guardada."
-                onSave={async (data) => {
-                  const { config } = await updatePlatformAiConfig(data);
-                  setPlatformAiConfig(config);
-                }}
-              />
-            )}
-          </div>
-          <div className="platform-settings-col">
-            <h2>Competiciones por defecto (nuevas empresas)</h2>
-            <p className="page-subtitle" style={{ marginTop: "0.25rem" }}>
-              Las empresas B2B nuevas heredan esta opción. Actual: <strong>{scopeLabel(defaultScope)}</strong>.
-            </p>
-            <form onSubmit={saveDefaultScope} className="admin-form" style={{ marginTop: "0.75rem" }}>
-              <label>
-                <span>Al crear empresa</span>
-                <select
-                  value={defaultScopeDraft}
-                  onChange={(e) => setDefaultScopeDraft(e.target.value as CompanyCompetitionScope)}
-                >
-                  <option value="all">Todas las competiciones</option>
-                  <option value="football">Solo Mundial</option>
-                  <option value="f1">Solo F1</option>
-                </select>
-              </label>
-              <button type="submit" className="btn-primary" disabled={savingDefaultScope}>
-                {savingDefaultScope ? "Guardando…" : "Guardar valor por defecto"}
-              </button>
-            </form>
-          </div>
-        </div>
-      </section>
+          {overview ? (
+            <section className="admin-section platform-resumen-kpis">
+              <h2>Vista rápida</h2>
+              <div className="platform-overview-cards">
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">Pool activos</div>
+                  <div className="platform-overview-card-value">{overview.publicPool.activeUsers}</div>
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">Plataforma activos</div>
+                  <div className="platform-overview-card-value">{overview.platformWide.activeUsers}</div>
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">Con predicciones</div>
+                  <div className="platform-overview-card-value">
+                    {overview.engagement.usersWithFootballPredictions}
+                  </div>
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">Partidos con resultado</div>
+                  <div className="platform-overview-card-value">
+                    {overview.engagement.matchesWithResult}/{overview.engagement.matchesTotal}
+                  </div>
+                </div>
+              </div>
+              <p className="page-subtitle platform-resumen-hint">
+                Métricas detalladas en la pestaña <button type="button" className="platform-inline-link" onClick={() => setTab("usuarios")}>Usuarios</button>.
+              </p>
+            </section>
+          ) : loading ? (
+            <p className="placeholder-text">Cargando indicadores…</p>
+          ) : null}
+        </>
+      )}
 
+      {tab === "config" && (
+        <section className="admin-section">
+          <h2>Configuración de plataforma</h2>
+          <PlatformConfigSection
+            loading={loading}
+            aiConfig={platformAiConfig}
+            onSaveAi={async (data) => {
+              const { config } = await updatePlatformAiConfig(data);
+              setPlatformAiConfig(config);
+            }}
+            defaultScope={defaultScope}
+            defaultScopeDraft={defaultScopeDraft}
+            onDefaultScopeChange={setDefaultScopeDraft}
+            onSaveDefaultScope={saveDefaultScope}
+            savingDefaultScope={savingDefaultScope}
+            matchSyncStatus={matchSyncStatus}
+            onGoToOperations={() => setTab("operaciones")}
+          />
+        </section>
+      )}
+
+      {tab === "operaciones" && (
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Resultados del Mundial (football-data.org)</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
@@ -625,7 +666,9 @@ export default function PlatformAdminPage() {
           </div>
         ) : null}
       </section>
+      )}
 
+      {tab === "usuarios" && (
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Indicadores de plataforma</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
@@ -961,7 +1004,10 @@ export default function PlatformAdminPage() {
           </p>
         )}
       </section>
+      )}
 
+      {tab === "empresas" && (
+      <>
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Nueva empresa + admin</h2>
         <form onSubmit={handleCreate} className="admin-form" style={{ maxWidth: 520 }}>
@@ -1173,6 +1219,8 @@ export default function PlatformAdminPage() {
           </div>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }

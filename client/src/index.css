@@ -6371,6 +6371,159 @@ a.btn-oauth--unconfigured {
   max-width: none;
 }
 
+/* Configuración de plataforma (super admin) */
+.platform-config-lead {
+  margin-top: 0;
+  margin-bottom: 1.25rem;
+  max-width: 52rem;
+}
+
+.platform-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.platform-config-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.35rem;
+  background: rgba(18, 30, 60, 0.25);
+}
+
+.platform-config-card--wide {
+  grid-column: 1 / -1;
+}
+
+.platform-config-card-head h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.platform-config-card-head p {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.platform-config-form {
+  max-width: none;
+}
+
+.platform-config-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+
+.platform-config-chip {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  text-transform: lowercase;
+}
+
+.platform-config-chip--ok {
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+}
+
+.platform-config-chip--warn {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+}
+
+.platform-scope-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.platform-scope-options {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.platform-scope-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto;
+  gap: 0.15rem 0.65rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.platform-scope-option input {
+  grid-row: 1 / span 2;
+  align-self: center;
+  margin: 0;
+}
+
+.platform-scope-option-title {
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.platform-scope-option-desc {
+  grid-column: 2;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.platform-scope-option--selected {
+  border-color: rgba(178, 197, 255, 0.45);
+  background: rgba(178, 197, 255, 0.06);
+}
+
+.platform-config-integration-cards {
+  margin-bottom: 0.75rem;
+}
+
+.platform-config-go-ops {
+  margin-top: 0.25rem;
+}
+
+.platform-inline-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+}
+
+.platform-admin-tabs {
+  margin-bottom: 1.25rem;
+}
+
+.platform-resumen-kpis h2 {
+  margin-bottom: 0.75rem;
+}
+
+.platform-resumen-hint {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+@media (max-width: 960px) {
+  .platform-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .platform-config-card--wide {
+    grid-column: auto;
+  }
+}
+
 .platform-overview-cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

@@ -54,6 +54,8 @@ export type AiConfigTabProps = {
   title?: string;
   /** Mensaje de éxito al guardar */
   successMessage?: string;
+  /** Sin wrapper admin-section ni h2 (para cards embebidas) */
+  embedded?: boolean;
 };
 
 export default function AiConfigTab({
@@ -62,6 +64,7 @@ export default function AiConfigTab({
   lead = "Elige el proveedor y configura la API key para que el chat funcione con esta IA.",
   title = "Configuración de IA",
   successMessage = "Configuración guardada. El chat usará esta IA.",
+  embedded = false,
 }: AiConfigTabProps) {
   const [provider, setProvider] = useState<AiProvider>("openai");
   const [model, setModel] = useState("");
@@ -120,13 +123,20 @@ export default function AiConfigTab({
     }
   }
 
-  return (
-    <div className="admin-section">
-      <h2>{title}</h2>
-      {lead ? <p className="page-subtitle">{lead}</p> : null}
+  const formBody = (
+    <>
       {err && <div className="auth-error">{err}</div>}
       {ok && <div className="auth-success">{ok}</div>}
-      <form onSubmit={(e) => void handleSubmit(e)} className="admin-form" style={{ maxWidth: 480 }}>
+      {config ? (
+        <div className="platform-config-status-chips" aria-label="Configuración activa">
+          <span className="platform-config-chip">{config.provider}</span>
+          <span className="platform-config-chip">{config.model}</span>
+          <span className={`platform-config-chip ${config.hasApiKey ? "platform-config-chip--ok" : "platform-config-chip--warn"}`}>
+            API key {config.hasApiKey ? "✓" : "pendiente"}
+          </span>
+        </div>
+      ) : null}
+      <form onSubmit={(e) => void handleSubmit(e)} className="admin-form platform-config-form">
         <label>
           <span>Proveedor</span>
           <select value={provider} onChange={(e) => setProvider(e.target.value as AiProvider)}>
@@ -215,11 +225,23 @@ export default function AiConfigTab({
           {submitting ? "Guardando…" : "Guardar"}
         </button>
       </form>
-      {config?.hasApiKey && (
+      {config?.hasApiKey && !embedded ? (
         <p className="page-subtitle" style={{ marginTop: "1rem" }}>
           Configuración activa. El chat usa el modelo {config.model}.
         </p>
-      )}
+      ) : null}
+    </>
+  );
+
+  if (embedded) {
+    return <div className="platform-config-embedded">{formBody}</div>;
+  }
+
+  return (
+    <div className="admin-section">
+      <h2>{title}</h2>
+      {lead ? <p className="page-subtitle">{lead}</p> : null}
+      {formBody}
     </div>
   );
 }
