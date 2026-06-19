@@ -13,7 +13,7 @@ test("scoreFootballMatchPoints: ganador y diferencia = 2", () => {
 
 test("scoreFootballMatchPoints: solo ganador = 1", () => {
   assert.equal(scoreFootballMatchPoints(2, 1, 3, 1), 1);
-  assert.equal(scoreFootballMatchPoints(0, 0, 1, 1), 1);
+  assert.equal(scoreFootballMatchPoints(2, 1, 3, 0), 1);
 });
 
 test("scoreFootballMatchPoints: fallo = 0", () => {

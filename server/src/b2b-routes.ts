@@ -25,6 +25,7 @@ import { buildSystemHealth } from "./system-health";
 import { setSessionCookies } from "./session-cookie";
 import { buildPlatformOverview, loadPlatformUserMetrics } from "./platform-metrics";
 import { buildPlatformAiHealth } from "./platform-ai-health";
+import { buildPlatformTimeSeries, type PlatformTimeSeriesScope } from "./platform-time-series";
 import { parseAdminDateRangeQuery } from "./admin-date-range";
 import { recordUserSession } from "./login-event";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
@@ -511,6 +512,38 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
     const overview = await buildPlatformOverview(prisma, rangeParsed.range);
     res.status(200).json(overview);
+  });
+
+  /** Serie temporal de altas, prompts y sesiones (super admin). Query: from, to, scope=pool|platform */
+  app.get("/platform/metrics/time-series", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const scopeRaw = typeof req.query.scope === "string" ? req.query.scope.trim() : "platform";
+    const scope: PlatformTimeSeriesScope = scopeRaw === "pool" ? "pool" : "platform";
+    const platform = await prisma.company.findUnique({
+      where: { slug: "platform-internal" },
+      select: { id: true },
+    });
+    if (!platform) {
+      res.status(200).json({ data: [], scope, range: null });
+      return;
+    }
+    const data = await buildPlatformTimeSeries(
+      prisma,
+      platform.id,
+      rangeParsed.range,
+      scope
+    );
+    const range = rangeParsed.range
+      ? {
+          from: rangeParsed.range.from.toISOString().slice(0, 10),
+          to: rangeParsed.range.to.toISOString().slice(0, 10),
+        }
+      : null;
+    res.status(200).json({ data, scope, range });
   });
 
   /** Listado reciente de usuarios del pool público (sin invitación B2B). */

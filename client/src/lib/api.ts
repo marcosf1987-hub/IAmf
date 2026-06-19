@@ -540,6 +540,32 @@ export async function fetchPlatformAiHealth(params?: {
   return fetchAuth(`/platform/ai-health${q ? `?${q}` : ""}`);
 }
 
+export type PlatformTimeSeriesScope = "pool" | "platform";
+
+export type PlatformTimeSeriesPoint = {
+  date: string;
+  users: number;
+  prompts: number;
+  logins: number;
+};
+
+export async function fetchPlatformTimeSeries(params?: {
+  from?: string;
+  to?: string;
+  scope?: PlatformTimeSeriesScope;
+}): Promise<{
+  data: PlatformTimeSeriesPoint[];
+  scope: PlatformTimeSeriesScope;
+  range: { from: string; to: string } | null;
+}> {
+  const qs = new URLSearchParams();
+  if (params?.from?.trim()) qs.set("from", params.from.trim());
+  if (params?.to?.trim()) qs.set("to", params.to.trim());
+  if (params?.scope) qs.set("scope", params.scope);
+  const q = qs.toString();
+  return fetchAuth(`/platform/metrics/time-series${q ? `?${q}` : ""}`);
+}
+
 export async function setPlatformUserHiddenFromRankings(
   userId: string,
   hidden: boolean

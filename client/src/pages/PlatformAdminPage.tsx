@@ -6,6 +6,7 @@ import PlatformCompanyDrawer from "../components/PlatformCompanyDrawer";
 import PlatformAiHealthPanel from "../components/PlatformAiHealthPanel";
 import PlatformDateRangeBar from "../components/PlatformDateRangeBar";
 import PlatformRetentionCards from "../components/PlatformRetentionCards";
+import PlatformActivityChart from "../components/PlatformActivityChart";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -17,6 +18,7 @@ import {
   fetchPlatformOverview,
   fetchPlatformSettings,
   fetchPlatformSystemHealth,
+  fetchPlatformTimeSeries,
   fetchPlatformUsers,
   patchPlatformCompany,
   resetPlatformOrgAdminPassword,
@@ -33,6 +35,8 @@ import {
   type PlatformAiHealth,
   type PlatformOverview,
   type PlatformReportRange,
+  type PlatformTimeSeriesPoint,
+  type PlatformTimeSeriesScope,
   type PlatformUserRow,
   type SystemHealthPayload,
 } from "../lib/api";
@@ -171,6 +175,9 @@ export default function PlatformAdminPage() {
   const [fromInput, setFromInput] = useState("");
   const [toInput, setToInput] = useState("");
   const [rangeAllTime, setRangeAllTime] = useState(true);
+  const [chartScope, setChartScope] = useState<PlatformTimeSeriesScope>("platform");
+  const [timeSeries, setTimeSeries] = useState<PlatformTimeSeriesPoint[]>([]);
+  const [timeSeriesLoading, setTimeSeriesLoading] = useState(false);
 
   const reportRangeHint = useMemo(() => {
     if (reportRange === "all") return "Histórico completo (sin filtro de fechas)";
@@ -224,6 +231,25 @@ export default function PlatformAdminPage() {
       setAiHealthLoading(false);
     }
   }, [userFilter, companyFilter, reportRange]);
+
+  const reloadTimeSeries = useCallback(async () => {
+    setTimeSeriesLoading(true);
+    try {
+      const rangeQs = reportRangeQuery(reportRange);
+      const res = await fetchPlatformTimeSeries({ ...rangeQs, scope: chartScope });
+      setTimeSeries(res.data);
+    } catch {
+      setTimeSeries([]);
+    } finally {
+      setTimeSeriesLoading(false);
+    }
+  }, [reportRange, chartScope]);
+
+  useEffect(() => {
+    if (tab === "resumen" || tab === "usuarios") {
+      void reloadTimeSeries();
+    }
+  }, [tab, reloadTimeSeries]);
 
   function applyReportRange() {
     if (rangeAllTime) {
@@ -586,6 +612,14 @@ export default function PlatformAdminPage() {
 
           {overview ? <PlatformRetentionCards overview={overview} /> : null}
 
+          <PlatformActivityChart
+            data={timeSeries}
+            loading={timeSeriesLoading}
+            scope={chartScope}
+            onScopeChange={setChartScope}
+            reportScoped={reportRange !== "all"}
+          />
+
           <PlatformAiHealthPanel data={aiHealth} loading={aiHealthLoading} />
         </>
       )}
@@ -863,6 +897,14 @@ export default function PlatformAdminPage() {
             </div>
           </>
         ) : null}
+
+        <PlatformActivityChart
+          data={timeSeries}
+          loading={timeSeriesLoading}
+          scope={chartScope}
+          onScopeChange={setChartScope}
+          reportScoped={reportRange !== "all"}
+        />
 
         {!loading && (
           <div style={{ marginTop: "1.25rem" }}>

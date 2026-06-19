@@ -5995,6 +5995,30 @@ a.btn-oauth--unconfigured {
   color: #dc2626;
 }
 
+.platform-activity-chart-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.platform-activity-chart-header h2 {
+  margin: 0;
+}
+
+.platform-activity-chart-scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.platform-scope-active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
 .admin-chart-scope-hint {
   margin: 0 0 0.75rem;
   font-size: 0.85rem;
