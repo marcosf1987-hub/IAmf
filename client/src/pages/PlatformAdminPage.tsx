@@ -8,6 +8,7 @@ import PlatformDateRangeBar from "../components/PlatformDateRangeBar";
 import PlatformRetentionCards from "../components/PlatformRetentionCards";
 import PlatformActivityChart from "../components/PlatformActivityChart";
 import PlatformExportsPanel from "../components/PlatformExportsPanel";
+import PlatformSystemHealthPanel from "../components/PlatformSystemHealthPanel";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -472,64 +473,6 @@ export default function PlatformAdminPage() {
 
       {tab === "resumen" && (
         <>
-          <section className="admin-section platform-system-health">
-        <div className="platform-system-health-header">
-          <h2>Estado del sistema</h2>
-          <button
-            type="button"
-            className="btn-secondary btn-sm"
-            onClick={() => void reloadSystemHealth()}
-            disabled={systemHealthLoading}
-          >
-            {systemHealthLoading ? "Comprobando…" : "Actualizar"}
-          </button>
-        </div>
-        {systemHealthLoading && !systemHealth ? (
-          <p className="placeholder-text">Comprobando base de datos, migraciones y configuración…</p>
-        ) : systemHealth ? (
-          <>
-            <p className="page-subtitle platform-system-health-summary">
-              <span
-                className={`platform-health-badge ${systemHealth.ok ? "platform-health-badge--ok" : "platform-health-badge--warn"}`}
-              >
-                {systemHealth.ok ? "Todo OK" : "Requiere atención"}
-              </span>
-              {" · "}
-              Entorno: <strong>{systemHealth.environment}</strong>
-              {" · "}
-              Uptime: {Math.floor(systemHealth.uptimeSeconds / 3600)}h{" "}
-              {Math.floor((systemHealth.uptimeSeconds % 3600) / 60)}m
-              {" · "}
-              Migraciones: {systemHealth.migrations.applied}
-              {systemHealth.migrations.expected > 0
-                ? `/${systemHealth.migrations.expected}`
-                : ""}
-              {systemHealth.migrations.pending.length > 0
-                ? ` · Pendientes: ${systemHealth.migrations.pending.join(", ")}`
-                : ""}
-            </p>
-            <ul className="platform-system-health-list">
-              {systemHealth.checks.map((check) => (
-                <li
-                  key={check.id}
-                  className={`platform-system-health-item ${check.ok ? "platform-system-health-item--ok" : "platform-system-health-item--fail"}`}
-                >
-                  <span className="platform-system-health-status" aria-hidden="true">
-                    {check.ok ? "✓" : "✗"}
-                  </span>
-                  <span className="platform-system-health-label">{check.label}</span>
-                  {check.detail ? (
-                    <span className="platform-system-health-detail">{check.detail}</span>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="placeholder-text">No se pudo cargar el estado del sistema.</p>
-        )}
-      </section>
-
           <PlatformDateRangeBar
             fromInput={fromInput}
             toInput={toInput}
@@ -622,6 +565,12 @@ export default function PlatformAdminPage() {
           />
 
           <PlatformAiHealthPanel data={aiHealth} loading={aiHealthLoading} />
+
+          <PlatformSystemHealthPanel
+            health={systemHealth}
+            loading={systemHealthLoading}
+            onRefresh={reloadSystemHealth}
+          />
         </>
       )}
 

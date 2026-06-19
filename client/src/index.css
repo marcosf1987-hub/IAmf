@@ -6368,6 +6368,153 @@ a.btn-oauth--unconfigured {
   margin-bottom: 1rem;
 }
 
+.platform-system-health-hero {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .platform-system-health-hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.platform-system-health-status-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  background: var(--bg-card);
+}
+
+.platform-system-health-status-card--ok {
+  border-color: rgba(34, 197, 94, 0.35);
+  background: rgba(34, 197, 94, 0.08);
+}
+
+.platform-system-health-status-card--warn {
+  border-color: rgba(234, 179, 8, 0.45);
+  background: rgba(234, 179, 8, 0.1);
+}
+
+.platform-system-health-status-card-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.platform-system-health-status-card-value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.platform-system-health-status-card-sub {
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.platform-system-health-kpis {
+  margin: 0;
+}
+
+.platform-system-health-kpi-value {
+  font-size: 1.15rem;
+}
+
+.platform-system-health-ok-hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.platform-system-health-alerts {
+  margin-bottom: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.platform-system-health-alerts-title {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.platform-system-health-alert-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.platform-system-health-toggle {
+  margin-bottom: 0.75rem;
+}
+
+.platform-system-health-detail {
+  margin-top: 0.25rem;
+}
+
+.platform-system-health-group + .platform-system-health-group {
+  margin-top: 1.25rem;
+}
+
+.platform-system-health-check-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0.65rem;
+}
+
+.platform-system-health-check-card {
+  display: flex;
+  gap: 0.6rem;
+  align-items: flex-start;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  font-size: 0.88rem;
+}
+
+.platform-system-health-check-card--fail {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.platform-system-health-dot {
+  flex-shrink: 0;
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.35rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.platform-system-health-dot--ok {
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+.platform-system-health-dot--fail {
+  background: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+.platform-system-health-check-label {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.platform-system-health-check-detail {
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
 .platform-health-badge {
   display: inline-block;
   padding: 0.15rem 0.5rem;
@@ -6377,64 +6524,13 @@ a.btn-oauth--unconfigured {
 }
 
 .platform-health-badge--ok {
-  background: #e8f5e9;
-  color: #2e7d32;
+  background: rgba(34, 197, 94, 0.15);
+  color: #4ade80;
 }
 
 .platform-health-badge--warn {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.platform-system-health-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.5rem;
-}
-
-.platform-system-health-item {
-  display: grid;
-  grid-template-columns: 1.5rem 12rem 1fr;
-  gap: 0.5rem 0.75rem;
-  align-items: baseline;
-  padding: 0.5rem 0.65rem;
-  border-radius: 6px;
-  background: var(--color-surface-muted, #f5f5f5);
-  font-size: 0.92rem;
-}
-
-.platform-system-health-item--ok .platform-system-health-status {
-  color: #2e7d32;
-}
-
-.platform-system-health-item--fail {
-  background: #fff8f0;
-}
-
-.platform-system-health-item--fail .platform-system-health-status {
-  color: #c62828;
-  font-weight: 700;
-}
-
-.platform-system-health-label {
-  font-weight: 600;
-}
-
-.platform-system-health-detail {
-  color: var(--color-text-muted, #555);
-  word-break: break-word;
-}
-
-@media (max-width: 640px) {
-  .platform-system-health-item {
-    grid-template-columns: 1.5rem 1fr;
-  }
-
-  .platform-system-health-detail {
-    grid-column: 2;
-  }
+  background: rgba(234, 179, 8, 0.18);
+  color: #fbbf24;
 }
 
 .platform-settings-grid {
