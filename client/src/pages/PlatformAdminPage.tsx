@@ -7,6 +7,7 @@ import PlatformAiHealthPanel from "../components/PlatformAiHealthPanel";
 import PlatformDateRangeBar from "../components/PlatformDateRangeBar";
 import PlatformRetentionCards from "../components/PlatformRetentionCards";
 import PlatformActivityChart from "../components/PlatformActivityChart";
+import PlatformExportsPanel from "../components/PlatformExportsPanel";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -646,6 +647,7 @@ export default function PlatformAdminPage() {
       )}
 
       {tab === "operaciones" && (
+      <>
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Resultados del Mundial (football-data.org)</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
@@ -741,6 +743,9 @@ export default function PlatformAdminPage() {
           </div>
         ) : null}
       </section>
+
+      <PlatformExportsPanel reportRange={reportRange} />
+      </>
       )}
 
       {tab === "usuarios" && (
@@ -944,6 +949,12 @@ export default function PlatformAdminPage() {
               >
                 Buscar
               </button>
+              <PlatformExportsPanel
+                reportRange={reportRange}
+                userFilter={userFilter}
+                companyFilter={companyFilter}
+                usersOnly
+              />
               {userFilter || companyFilter ? (
                 <button
                   type="button"

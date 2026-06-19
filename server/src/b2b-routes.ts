@@ -26,6 +26,14 @@ import { setSessionCookies } from "./session-cookie";
 import { buildPlatformOverview, loadPlatformUserMetrics } from "./platform-metrics";
 import { buildPlatformAiHealth } from "./platform-ai-health";
 import { buildPlatformTimeSeries, type PlatformTimeSeriesScope } from "./platform-time-series";
+import {
+  buildPlatformLoginsCsv,
+  buildPlatformPromptsCsv,
+  buildPlatformUsersCsv,
+  platformExportFilename,
+  sendPlatformCsv,
+  type PlatformExportFilters,
+} from "./platform-exports";
 import { parseAdminDateRangeQuery } from "./admin-date-range";
 import { recordUserSession } from "./login-event";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
@@ -688,6 +696,57 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
     const payload = await buildPlatformAiHealth(prisma, rangeParsed.range);
     res.status(200).json(payload);
+  });
+
+  function platformExportFiltersFromQuery(req: Request): PlatformExportFilters {
+    const q = typeof req.query.q === "string" ? req.query.q.trim() : "";
+    const company = typeof req.query.company === "string" ? req.query.company.trim() : "";
+    return {
+      ...(q ? { q } : {}),
+      ...(company ? { company } : {}),
+    };
+  }
+
+  app.get("/platform/exports/users.csv", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const csv = await buildPlatformUsersCsv(prisma, rangeParsed.range, platformExportFiltersFromQuery(req));
+    sendPlatformCsv(
+      res,
+      platformExportFilename("platform_users", rangeParsed.range),
+      csv
+    );
+  });
+
+  app.get("/platform/exports/prompts.csv", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const csv = await buildPlatformPromptsCsv(prisma, rangeParsed.range, platformExportFiltersFromQuery(req));
+    sendPlatformCsv(
+      res,
+      platformExportFilename("platform_prompts", rangeParsed.range),
+      csv
+    );
+  });
+
+  app.get("/platform/exports/logins.csv", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const csv = await buildPlatformLoginsCsv(prisma, rangeParsed.range, platformExportFiltersFromQuery(req));
+    sendPlatformCsv(
+      res,
+      platformExportFilename("platform_logins", rangeParsed.range),
+      csv
+    );
   });
 
   app.patch("/platform/users/:userId/hidden-from-rankings", superAuth, async (req, res) => {

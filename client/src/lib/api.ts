@@ -566,6 +566,48 @@ export async function fetchPlatformTimeSeries(params?: {
   return fetchAuth(`/platform/metrics/time-series${q ? `?${q}` : ""}`);
 }
 
+export async function downloadPlatformExport(
+  type: "users" | "prompts" | "logins",
+  params?: {
+    from?: string;
+    to?: string;
+    q?: string;
+    company?: string;
+  }
+): Promise<void> {
+  const qs = new URLSearchParams();
+  if (params?.from?.trim()) qs.set("from", params.from.trim());
+  if (params?.to?.trim()) qs.set("to", params.to.trim());
+  if (params?.q?.trim()) qs.set("q", params.q.trim());
+  if (params?.company?.trim()) qs.set("company", params.company.trim());
+  const q = qs.toString();
+  const csrf = readBrowserCsrfCookie();
+  const res = await fetch(`${API_BASE}/platform/exports/${type}.csv${q ? `?${q}` : ""}`, {
+    credentials: "include",
+    headers: csrf ? { "X-CSRF-Token": csrf } : {},
+  });
+  if (!res.ok) {
+    const errText = await res.text();
+    let msg = "Error al descargar";
+    try {
+      const j = JSON.parse(errText) as { message?: string };
+      if (j.message) msg = j.message;
+    } catch {
+      /* CSV u otro */
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const cd = res.headers.get("Content-Disposition");
+  const m = cd?.match(/filename=([^;]+)/i);
+  a.download = m?.[1]?.replace(/"/g, "").trim() || `platform_${type}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export async function setPlatformUserHiddenFromRankings(
   userId: string,
   hidden: boolean

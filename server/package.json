@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc -p tsconfig.json",
-    "test": "tsx --test src/security/security.test.ts src/ai-parse.test.ts src/match-prediction-window.test.ts src/leaderboard-scoring.test.ts src/football-data.test.ts src/sync-match-results.test.ts src/platform-metrics.test.ts src/platform-ai-health.test.ts src/platform-time-series.test.ts",
+    "test": "tsx --test src/security/security.test.ts src/ai-parse.test.ts src/match-prediction-window.test.ts src/leaderboard-scoring.test.ts src/football-data.test.ts src/sync-match-results.test.ts src/platform-metrics.test.ts src/platform-ai-health.test.ts src/platform-time-series.test.ts src/platform-exports.test.ts",
     "postinstall": "prisma generate",
     "start": "node dist/index.js",
     "db:seed": "prisma db seed",
