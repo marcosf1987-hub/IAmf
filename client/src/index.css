@@ -5966,6 +5966,35 @@ a.btn-oauth--unconfigured {
   color: var(--text-muted);
 }
 
+.platform-ai-health-table td {
+  font-size: 0.85rem;
+}
+
+.platform-ai-status {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.platform-ai-status--ok {
+  background: rgba(34, 197, 94, 0.15);
+  color: #16a34a;
+}
+
+.platform-ai-status--partial {
+  background: rgba(234, 179, 8, 0.18);
+  color: #ca8a04;
+}
+
+.platform-ai-status--failed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #dc2626;
+}
+
 .admin-chart-scope-hint {
   margin: 0 0 0.75rem;
   font-size: 0.85rem;

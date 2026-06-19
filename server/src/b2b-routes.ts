@@ -24,6 +24,8 @@ import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { buildSystemHealth } from "./system-health";
 import { setSessionCookies } from "./session-cookie";
 import { buildPlatformOverview, loadPlatformUserMetrics } from "./platform-metrics";
+import { buildPlatformAiHealth } from "./platform-ai-health";
+import { parseAdminDateRangeQuery } from "./admin-date-range";
 import { recordUserSession } from "./login-event";
 import { isMailConfigured, sendInvitationEmail } from "./mail";
 import { envString } from "./env-dynamic";
@@ -549,6 +551,12 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
 
   /** Todos los usuarios de la plataforma (super admin), con empresa y métricas de uso. */
   app.get("/platform/users", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+
     const rawLimit = req.query.limit;
     const parsedLimit = rawLimit !== undefined && rawLimit !== "" ? parseInt(String(rawLimit), 10) : 80;
     const limit = Math.min(200, Math.max(1, Number.isFinite(parsedLimit) ? parsedLimit : 80));
@@ -597,7 +605,7 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     ]);
 
     const userIds = users.map((u) => u.id);
-    const metricsByUser = await loadPlatformUserMetrics(prisma, userIds);
+    const metricsByUser = await loadPlatformUserMetrics(prisma, userIds, rangeParsed.range);
 
     const rows = users.map((u) => {
       const metrics = metricsByUser.get(u.id) ?? {
@@ -622,7 +630,26 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
       };
     });
 
-    res.status(200).json({ users: rows, total });
+    res.status(200).json({
+      users: rows,
+      total,
+      range: rangeParsed.range
+        ? {
+            from: rangeParsed.range.from.toISOString().slice(0, 10),
+            to: rangeParsed.range.to.toISOString().slice(0, 10),
+          }
+        : null,
+    });
+  });
+
+  app.get("/platform/ai-health", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const payload = await buildPlatformAiHealth(prisma, rangeParsed.range);
+    res.status(200).json(payload);
   });
 
   app.patch("/platform/users/:userId/hidden-from-rankings", superAuth, async (req, res) => {

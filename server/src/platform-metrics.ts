@@ -236,12 +236,21 @@ export async function buildPlatformOverview(prisma: PrismaClient): Promise<Platf
   };
 }
 
+import type { AdminDateRange } from "./admin-date-range";
+
+function createdAtInRange(range?: AdminDateRange) {
+  return range ? { createdAt: { gte: range.from, lte: range.to } } : {};
+}
+
 export async function loadPlatformUserMetrics(
   prisma: PrismaClient,
-  userIds: string[]
+  userIds: string[],
+  range?: AdminDateRange
 ): Promise<Map<string, PlatformUserMetrics>> {
   const result = new Map<string, PlatformUserMetrics>();
   if (userIds.length === 0) return result;
+
+  const dateWhere = createdAtInRange(range);
 
   const [
     loginCounts,
@@ -258,27 +267,27 @@ export async function loadPlatformUserMetrics(
   ] = await Promise.all([
     prisma.loginEvent.groupBy({
       by: ["userId"],
-      where: { userId: { in: userIds } },
+      where: { userId: { in: userIds }, ...dateWhere },
       _count: { _all: true },
     }),
     prisma.promptLog.groupBy({
       by: ["userId"],
-      where: { userId: { in: userIds } },
+      where: { userId: { in: userIds }, ...dateWhere },
       _count: { _all: true },
     }),
     prisma.promptLog.groupBy({
       by: ["userId"],
-      where: { userId: { in: userIds }, batchId: { not: null } },
+      where: { userId: { in: userIds }, batchId: { not: null }, ...dateWhere },
       _count: { _all: true },
     }),
     prisma.prediction.groupBy({
       by: ["userId"],
-      where: { userId: { in: userIds } },
+      where: { userId: { in: userIds }, ...dateWhere },
       _count: { _all: true },
     }),
     prisma.f1Prediction.groupBy({
       by: ["userId"],
-      where: { userId: { in: userIds } },
+      where: { userId: { in: userIds }, ...dateWhere },
       _count: { _all: true },
     }),
     prisma.prodeGuidelines.findMany({

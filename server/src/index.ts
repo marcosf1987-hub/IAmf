@@ -47,6 +47,7 @@ import {
   syncF1SeasonRaces,
 } from "./openf1-sync";
 import { logSecurityEvent, readSecurityCounters, securityError } from "./security-utils";
+import { parseAdminDateRangeQuery } from "./admin-date-range";
 
 /** Express 5 tipa `req.params` como string | string[] */
 function routeParamId(req: express.Request): string | undefined {
@@ -1514,34 +1515,6 @@ app.patch("/admin/matches/:id/result", requireOrgOrSuperAdmin, async (req, res) 
   });
   res.status(200).json({ ok: true });
 });
-
-const ADMIN_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-
-type AdminDateRangeResult =
-  | { ok: true; range?: { from: Date; to: Date } }
-  | { ok: false; message: string };
-
-/** Query `from` y `to` en YYYY-MM-DD (día UTC). Sin parámetros = todo el período. */
-function parseAdminDateRangeQuery(req: express.Request): AdminDateRangeResult {
-  const fromRaw = typeof req.query.from === "string" ? req.query.from.trim() : "";
-  const toRaw = typeof req.query.to === "string" ? req.query.to.trim() : "";
-  if (!fromRaw && !toRaw) return { ok: true };
-  if (!fromRaw || !toRaw) {
-    return { ok: false, message: "Indicá fecha desde y hasta, o ninguna para todo el período." };
-  }
-  if (!ADMIN_DATE_RE.test(fromRaw) || !ADMIN_DATE_RE.test(toRaw)) {
-    return { ok: false, message: "Las fechas deben tener formato YYYY-MM-DD." };
-  }
-  const from = new Date(`${fromRaw}T00:00:00.000Z`);
-  const to = new Date(`${toRaw}T23:59:59.999Z`);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
-    return { ok: false, message: "Fecha inválida." };
-  }
-  if (from > to) {
-    return { ok: false, message: "La fecha desde no puede ser posterior a la fecha hasta." };
-  }
-  return { ok: true, range: { from, to } };
-}
 
 app.get("/admin/stats", requireAdmin, async (req, res) => {
   const parsed = parseAdminDateRangeQuery(req);

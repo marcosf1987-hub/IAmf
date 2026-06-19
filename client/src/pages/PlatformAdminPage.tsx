@@ -3,11 +3,14 @@ import { Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import PlatformConfigSection from "../components/PlatformConfigSection";
 import PlatformCompanyDrawer from "../components/PlatformCompanyDrawer";
+import PlatformAiHealthPanel from "../components/PlatformAiHealthPanel";
+import PlatformDateRangeBar from "../components/PlatformDateRangeBar";
 import {
   createPlatformCompany,
   deletePlatformUser,
   formatApiError,
   fetchPlatformAiConfig,
+  fetchPlatformAiHealth,
   fetchPlatformCompanies,
   fetchPlatformMatchResultsSyncStatus,
   fetchPlatformOverview,
@@ -26,13 +29,20 @@ import {
   type SyncMatchResultsResponse,
   type CompanyCompetitionScope,
   type PlatformCompanyRow,
+  type PlatformAiHealth,
   type PlatformOverview,
+  type PlatformReportRange,
   type PlatformUserRow,
   type SystemHealthPayload,
 } from "../lib/api";
 import { scopeLabel } from "../lib/company-competition-scope";
 
 type CompanyFilterOption = { value: string; label: string };
+
+function reportRangeQuery(range: PlatformReportRange): { from?: string; to?: string } {
+  if (range === "all") return {};
+  return { from: range.from, to: range.to };
+}
 
 function CompanyFilterCombobox({
   value,
@@ -150,6 +160,17 @@ export default function PlatformAdminPage() {
   const [userActionBusy, setUserActionBusy] = useState<string | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealthPayload | null>(null);
   const [systemHealthLoading, setSystemHealthLoading] = useState(false);
+  const [aiHealth, setAiHealth] = useState<PlatformAiHealth | null>(null);
+  const [aiHealthLoading, setAiHealthLoading] = useState(false);
+  const [reportRange, setReportRange] = useState<PlatformReportRange>("all");
+  const [fromInput, setFromInput] = useState("");
+  const [toInput, setToInput] = useState("");
+  const [rangeAllTime, setRangeAllTime] = useState(true);
+
+  const reportRangeHint = useMemo(() => {
+    if (reportRange === "all") return "Histórico completo (sin filtro de fechas)";
+    return `Actividad entre ${reportRange.from} y ${reportRange.to} (UTC, día calendario)`;
+  }, [reportRange]);
 
   const companyFilterOptions = useMemo<CompanyFilterOption[]>(
     () => [
@@ -162,22 +183,27 @@ export default function PlatformAdminPage() {
 
   const reload = useCallback(async () => {
     setLoading(true);
+    setAiHealthLoading(true);
     setError("");
+    const rangeQs = reportRangeQuery(reportRange);
     try {
-      const [{ companies: list }, ov, usersRes, aiRes, settings, syncStatus] = await Promise.all([
-        fetchPlatformCompanies(),
-        fetchPlatformOverview(),
-        fetchPlatformUsers({ limit: 100, q: userFilter, company: companyFilter }),
-        fetchPlatformAiConfig(),
-        fetchPlatformSettings(),
-        fetchPlatformMatchResultsSyncStatus(),
-      ]);
+      const [{ companies: list }, ov, usersRes, aiRes, settings, syncStatus, aiHealthRes] =
+        await Promise.all([
+          fetchPlatformCompanies(),
+          fetchPlatformOverview(),
+          fetchPlatformUsers({ limit: 100, q: userFilter, company: companyFilter, ...rangeQs }),
+          fetchPlatformAiConfig(),
+          fetchPlatformSettings(),
+          fetchPlatformMatchResultsSyncStatus(),
+          fetchPlatformAiHealth(rangeQs),
+        ]);
       setCompanies(list);
       setOverview(ov);
       setPlatformUsers(usersRes.users);
       setPlatformUsersTotal(usersRes.total);
       setPlatformAiConfig(aiRes.config);
       setMatchSyncStatus(syncStatus);
+      setAiHealth(aiHealthRes);
       setDefaultScope(settings.defaultCompetitionScope);
       setDefaultScopeDraft(settings.defaultCompetitionScope);
     } catch (e) {
@@ -187,10 +213,25 @@ export default function PlatformAdminPage() {
       setPlatformUsers([]);
       setPlatformUsersTotal(0);
       setMatchSyncStatus(null);
+      setAiHealth(null);
     } finally {
       setLoading(false);
+      setAiHealthLoading(false);
     }
-  }, [userFilter, companyFilter]);
+  }, [userFilter, companyFilter, reportRange]);
+
+  function applyReportRange() {
+    if (rangeAllTime) {
+      setReportRange("all");
+      return;
+    }
+    if (!fromInput || !toInput) {
+      setError("Indicá fecha desde y hasta, o marcá todo el período.");
+      return;
+    }
+    setError("");
+    setReportRange({ from: fromInput, to: toInput });
+  }
 
   const reloadSystemHealth = useCallback(async () => {
     setSystemHealthLoading(true);
@@ -489,6 +530,22 @@ export default function PlatformAdminPage() {
           ) : loading ? (
             <p className="placeholder-text">Cargando indicadores…</p>
           ) : null}
+
+          <PlatformDateRangeBar
+            fromInput={fromInput}
+            toInput={toInput}
+            rangeAllTime={rangeAllTime}
+            appliedLabel={reportRangeHint}
+            onFromChange={setFromInput}
+            onToChange={setToInput}
+            onRangeAllTimeChange={(v) => {
+              setRangeAllTime(v);
+              if (v) setReportRange("all");
+            }}
+            onApply={applyReportRange}
+          />
+
+          <PlatformAiHealthPanel data={aiHealth} loading={aiHealthLoading} />
         </>
       )}
 
@@ -612,12 +669,26 @@ export default function PlatformAdminPage() {
       )}
 
       {tab === "usuarios" && (
+      <>
+      <PlatformDateRangeBar
+        fromInput={fromInput}
+        toInput={toInput}
+        rangeAllTime={rangeAllTime}
+        appliedLabel={reportRangeHint}
+        onFromChange={setFromInput}
+        onToChange={setToInput}
+        onRangeAllTimeChange={(v) => {
+          setRangeAllTime(v);
+          if (v) setReportRange("all");
+        }}
+        onApply={applyReportRange}
+      />
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Indicadores de plataforma</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
           Métricas del pool público (<code className="platform-slug-code">platform-internal</code>), del resto de
-          empresas B2B y del engagement con el Prode. Los números de invitaciones a ligas distinguen pool público vs
-          toda la plataforma.
+          empresas B2B y del engagement con el Prode. En la tabla, sesiones/prompts/predicciones respetan el período
+          seleccionado; pautas y última actividad son históricos.
         </p>
         {loading ? (
           <p className="placeholder-text">Cargando resumen…</p>
@@ -714,8 +785,9 @@ export default function PlatformAdminPage() {
           <div style={{ marginTop: "1.25rem" }}>
             <h3 style={{ fontSize: "1rem", marginBottom: "0.35rem" }}>Usuarios de la plataforma</h3>
             <p className="page-subtitle" style={{ marginTop: 0, marginBottom: "0.75rem", fontSize: "0.9rem" }}>
-              Todos los usuarios (pool + empresas B2B). Las columnas de actividad son acumuladas desde el alta;{" "}
-              <strong>Sesiones</strong> cuenta logins explícitos, registro, Google e invitación B2B.
+              Todos los usuarios (pool + empresas B2B). Sesiones, prompts y predicciones respetan el período del
+              reporte; pautas y última actividad son históricos.{" "}
+              <strong>Sesiones</strong> cuenta logins, registro, Google e invitación B2B.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", alignItems: "center", marginBottom: "0.75rem" }}>
               <input
@@ -947,6 +1019,7 @@ export default function PlatformAdminPage() {
           </p>
         )}
       </section>
+      </>
       )}
 
       {tab === "empresas" && (

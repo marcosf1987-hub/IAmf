@@ -428,6 +428,34 @@ export type PlatformUserRow = {
   lastActivityAt: string | null;
 };
 
+export type PlatformReportRange = "all" | { from: string; to: string };
+
+export type PlatformAiHealth = {
+  range: { from: string; to: string } | null;
+  batches: {
+    total: number;
+    ok: number;
+    partial: number;
+    failed: number;
+    successRate: number;
+  };
+  predictions: {
+    savedViaAi: number;
+    prodePrompts: number;
+    usersWithAiGeneration: number;
+  };
+  recentBatches: Array<{
+    batchId: string;
+    userId: string;
+    userEmail: string;
+    createdAt: string;
+    promptCount: number;
+    savedCount: number;
+    status: "ok" | "partial" | "failed";
+    phaseLabel: string | null;
+  }>;
+};
+
 export type SystemHealthCheck = {
   id: string;
   label: string;
@@ -470,11 +498,30 @@ export async function fetchPlatformUsers(params?: {
   limit?: number;
   q?: string;
   company?: string;
-}): Promise<{ users: PlatformUserRow[]; total: number }> {
+  from?: string;
+  to?: string;
+}): Promise<{
+  users: PlatformUserRow[];
+  total: number;
+  range: { from: string; to: string } | null;
+}> {
   const qs = new URLSearchParams({ limit: String(params?.limit ?? 100) });
   if (params?.q?.trim()) qs.set("q", params.q.trim());
   if (params?.company?.trim()) qs.set("company", params.company.trim());
+  if (params?.from?.trim()) qs.set("from", params.from.trim());
+  if (params?.to?.trim()) qs.set("to", params.to.trim());
   return fetchAuth(`/platform/users?${qs.toString()}`);
+}
+
+export async function fetchPlatformAiHealth(params?: {
+  from?: string;
+  to?: string;
+}): Promise<PlatformAiHealth> {
+  const qs = new URLSearchParams();
+  if (params?.from?.trim()) qs.set("from", params.from.trim());
+  if (params?.to?.trim()) qs.set("to", params.to.trim());
+  const q = qs.toString();
+  return fetchAuth(`/platform/ai-health${q ? `?${q}` : ""}`);
 }
 
 export async function setPlatformUserHiddenFromRankings(
