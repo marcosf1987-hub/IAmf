@@ -395,6 +395,15 @@ export type PlatformOverview = {
     matchesWithResult: number;
     matchesTotal: number;
   };
+  retention: {
+    publicPool: { active7d: number; active30d: number };
+    platformWide: { active7d: number; active30d: number };
+  };
+  range: { from: string; to: string } | null;
+  inPeriod: {
+    publicPool: { newUsers: number; activeUsers: number };
+    platformWide: { newUsers: number; activeUsers: number };
+  } | null;
 };
 
 export type PlatformPublicPoolUser = {
@@ -481,8 +490,15 @@ export async function fetchPlatformSystemHealth(): Promise<SystemHealthPayload> 
   return fetchAuth("/health/system");
 }
 
-export async function fetchPlatformOverview(): Promise<PlatformOverview> {
-  return fetchAuth("/platform/overview");
+export async function fetchPlatformOverview(params?: {
+  from?: string;
+  to?: string;
+}): Promise<PlatformOverview> {
+  const qs = new URLSearchParams();
+  if (params?.from?.trim()) qs.set("from", params.from.trim());
+  if (params?.to?.trim()) qs.set("to", params.to.trim());
+  const q = qs.toString();
+  return fetchAuth(`/platform/overview${q ? `?${q}` : ""}`);
 }
 
 export async function fetchPlatformPublicPoolUsers(

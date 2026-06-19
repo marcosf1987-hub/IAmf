@@ -502,9 +502,14 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
     }
   });
 
-  /** Resumen pool público + liga universal (super admin). */
-  app.get("/platform/overview", superAuth, async (_req, res) => {
-    const overview = await buildPlatformOverview(prisma);
+  /** Resumen pool público + liga universal (super admin). Query opcional from/to (YYYY-MM-DD). */
+  app.get("/platform/overview", superAuth, async (req, res) => {
+    const rangeParsed = parseAdminDateRangeQuery(req);
+    if (!rangeParsed.ok) {
+      res.status(400).json({ error: "invalid_query", message: rangeParsed.message });
+      return;
+    }
+    const overview = await buildPlatformOverview(prisma, rangeParsed.range);
     res.status(200).json(overview);
   });
 

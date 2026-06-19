@@ -5,6 +5,7 @@ import PlatformConfigSection from "../components/PlatformConfigSection";
 import PlatformCompanyDrawer from "../components/PlatformCompanyDrawer";
 import PlatformAiHealthPanel from "../components/PlatformAiHealthPanel";
 import PlatformDateRangeBar from "../components/PlatformDateRangeBar";
+import PlatformRetentionCards from "../components/PlatformRetentionCards";
 import {
   createPlatformCompany,
   deletePlatformUser,
@@ -42,6 +43,10 @@ type CompanyFilterOption = { value: string; label: string };
 function reportRangeQuery(range: PlatformReportRange): { from?: string; to?: string } {
   if (range === "all") return {};
   return { from: range.from, to: range.to };
+}
+
+function overviewIsScoped(overview: PlatformOverview | null): boolean {
+  return overview?.range != null;
 }
 
 function CompanyFilterCombobox({
@@ -190,7 +195,7 @@ export default function PlatformAdminPage() {
       const [{ companies: list }, ov, usersRes, aiRes, settings, syncStatus, aiHealthRes] =
         await Promise.all([
           fetchPlatformCompanies(),
-          fetchPlatformOverview(),
+          fetchPlatformOverview(rangeQs),
           fetchPlatformUsers({ limit: 100, q: userFilter, company: companyFilter, ...rangeQs }),
           fetchPlatformAiConfig(),
           fetchPlatformSettings(),
@@ -498,39 +503,6 @@ export default function PlatformAdminPage() {
         )}
       </section>
 
-          {overview ? (
-            <section className="admin-section platform-resumen-kpis">
-              <h2>Vista rápida</h2>
-              <div className="platform-overview-cards">
-                <div className="platform-overview-card">
-                  <div className="platform-overview-card-label">Pool activos</div>
-                  <div className="platform-overview-card-value">{overview.publicPool.activeUsers}</div>
-                </div>
-                <div className="platform-overview-card">
-                  <div className="platform-overview-card-label">Plataforma activos</div>
-                  <div className="platform-overview-card-value">{overview.platformWide.activeUsers}</div>
-                </div>
-                <div className="platform-overview-card">
-                  <div className="platform-overview-card-label">Con predicciones</div>
-                  <div className="platform-overview-card-value">
-                    {overview.engagement.usersWithFootballPredictions}
-                  </div>
-                </div>
-                <div className="platform-overview-card">
-                  <div className="platform-overview-card-label">Partidos con resultado</div>
-                  <div className="platform-overview-card-value">
-                    {overview.engagement.matchesWithResult}/{overview.engagement.matchesTotal}
-                  </div>
-                </div>
-              </div>
-              <p className="page-subtitle platform-resumen-hint">
-                Métricas detalladas en la pestaña <button type="button" className="platform-inline-link" onClick={() => setTab("usuarios")}>Usuarios</button>.
-              </p>
-            </section>
-          ) : loading ? (
-            <p className="placeholder-text">Cargando indicadores…</p>
-          ) : null}
-
           <PlatformDateRangeBar
             fromInput={fromInput}
             toInput={toInput}
@@ -544,6 +516,75 @@ export default function PlatformAdminPage() {
             }}
             onApply={applyReportRange}
           />
+
+          {overview ? (
+            <section className="admin-section platform-resumen-kpis">
+              <h2>Vista rápida</h2>
+              {overviewIsScoped(overview) ? (
+                <p className="page-subtitle platform-resumen-hint" style={{ marginTop: 0 }}>
+                  Predicciones e invitaciones filtradas al período {overview.range!.from} — {overview.range!.to}.
+                </p>
+              ) : null}
+              <div className="platform-overview-cards">
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">
+                    {overview.inPeriod ? "Pool activos (período)" : "Pool activos"}
+                  </div>
+                  <div className="platform-overview-card-value">
+                    {overview.inPeriod
+                      ? overview.inPeriod.publicPool.activeUsers
+                      : overview.publicPool.activeUsers}
+                  </div>
+                  {overview.inPeriod ? (
+                    <div className="platform-overview-card-sub">
+                      {overview.inPeriod.publicPool.newUsers} altas · {overview.publicPool.activeUsers} activos hoy
+                    </div>
+                  ) : null}
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">
+                    {overview.inPeriod ? "Plataforma activos (período)" : "Plataforma activos"}
+                  </div>
+                  <div className="platform-overview-card-value">
+                    {overview.inPeriod
+                      ? overview.inPeriod.platformWide.activeUsers
+                      : overview.platformWide.activeUsers}
+                  </div>
+                  {overview.inPeriod ? (
+                    <div className="platform-overview-card-sub">
+                      {overview.inPeriod.platformWide.newUsers} altas · {overview.platformWide.activeUsers} activos hoy
+                    </div>
+                  ) : null}
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">
+                    {overviewIsScoped(overview) ? "Con predicciones (período)" : "Con predicciones"}
+                  </div>
+                  <div className="platform-overview-card-value">
+                    {overview.engagement.usersWithFootballPredictions}
+                  </div>
+                </div>
+                <div className="platform-overview-card">
+                  <div className="platform-overview-card-label">Partidos con resultado</div>
+                  <div className="platform-overview-card-value">
+                    {overview.engagement.matchesWithResult}/{overview.engagement.matchesTotal}
+                  </div>
+                  <div className="platform-overview-card-sub">Histórico del torneo</div>
+                </div>
+              </div>
+              <p className="page-subtitle platform-resumen-hint">
+                Métricas detalladas en la pestaña{" "}
+                <button type="button" className="platform-inline-link" onClick={() => setTab("usuarios")}>
+                  Usuarios
+                </button>
+                .
+              </p>
+            </section>
+          ) : loading ? (
+            <p className="placeholder-text">Cargando indicadores…</p>
+          ) : null}
+
+          {overview ? <PlatformRetentionCards overview={overview} /> : null}
 
           <PlatformAiHealthPanel data={aiHealth} loading={aiHealthLoading} />
         </>
@@ -683,12 +724,16 @@ export default function PlatformAdminPage() {
         }}
         onApply={applyReportRange}
       />
+      {overview ? <PlatformRetentionCards overview={overview} /> : null}
       <section className="admin-section" style={{ marginBottom: "2rem" }}>
         <h2>Indicadores de plataforma</h2>
         <p className="page-subtitle" style={{ marginTop: "0.25rem", marginBottom: "1rem" }}>
           Métricas del pool público (<code className="platform-slug-code">platform-internal</code>), del resto de
           empresas B2B y del engagement con el Prode. En la tabla, sesiones/prompts/predicciones respetan el período
           seleccionado; pautas y última actividad son históricos.
+          {overviewIsScoped(overview)
+            ? ` Invitaciones y predicciones de las cards también usan el período ${overview!.range!.from} — ${overview!.range!.to}.`
+            : ""}
         </p>
         {loading ? (
           <p className="placeholder-text">Cargando resumen…</p>
@@ -697,9 +742,19 @@ export default function PlatformAdminPage() {
             <h3 className="platform-metrics-group-title">Pool público</h3>
             <div className="platform-overview-cards">
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Usuarios activos</div>
-                <div className="platform-overview-card-value">{overview.publicPool.activeUsers}</div>
-                <div className="platform-overview-card-sub">Registro público y Google</div>
+                <div className="platform-overview-card-label">
+                  {overview.inPeriod ? "Activos con actividad (período)" : "Usuarios activos"}
+                </div>
+                <div className="platform-overview-card-value">
+                  {overview.inPeriod
+                    ? overview.inPeriod.publicPool.activeUsers
+                    : overview.publicPool.activeUsers}
+                </div>
+                <div className="platform-overview-card-sub">
+                  {overview.inPeriod
+                    ? `${overview.inPeriod.publicPool.newUsers} altas · ${overview.publicPool.activeUsers} activos hoy`
+                    : "Registro público y Google"}
+                </div>
               </div>
               <div className="platform-overview-card">
                 <div className="platform-overview-card-label">Liga universal (activos)</div>
@@ -714,62 +769,90 @@ export default function PlatformAdminPage() {
                 </div>
               </div>
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Invit. ligas pool</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Invit. enviadas pool" : "Invit. ligas pool"}
+                </div>
                 <div className="platform-overview-card-value">
                   {overview.platformWide.publicPoolCompetitionInvitesPending}
                 </div>
-                <div className="platform-overview-card-sub">Pendientes (no vencidas)</div>
+                <div className="platform-overview-card-sub">
+                  {overviewIsScoped(overview) ? "Enviadas en el período" : "Pendientes (no vencidas)"}
+                </div>
               </div>
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Invit. ligas pool</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Invit. aceptadas pool" : "Invit. ligas pool"}
+                </div>
                 <div className="platform-overview-card-value">
                   {overview.platformWide.publicPoolCompetitionInvitesAccepted}
                 </div>
-                <div className="platform-overview-card-sub">Aceptadas (histórico)</div>
+                <div className="platform-overview-card-sub">
+                  {overviewIsScoped(overview) ? "Aceptadas en el período" : "Aceptadas (histórico)"}
+                </div>
               </div>
             </div>
 
             <h3 className="platform-metrics-group-title">Toda la plataforma</h3>
             <div className="platform-overview-cards">
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Usuarios activos</div>
-                <div className="platform-overview-card-value">{overview.platformWide.activeUsers}</div>
+                <div className="platform-overview-card-label">
+                  {overview.inPeriod ? "Activos con actividad (período)" : "Usuarios activos"}
+                </div>
+                <div className="platform-overview-card-value">
+                  {overview.inPeriod
+                    ? overview.inPeriod.platformWide.activeUsers
+                    : overview.platformWide.activeUsers}
+                </div>
                 <div className="platform-overview-card-sub">
-                  B2B: {overview.platformWide.b2bActiveUsers} · Deshabilitados:{" "}
-                  {overview.platformWide.disabledUsers}
+                  {overview.inPeriod
+                    ? `${overview.inPeriod.platformWide.newUsers} altas · B2B: ${overview.platformWide.b2bActiveUsers} · Deshabilitados: ${overview.platformWide.disabledUsers}`
+                    : `B2B: ${overview.platformWide.b2bActiveUsers} · Deshabilitados: ${overview.platformWide.disabledUsers}`}
                 </div>
               </div>
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Invit. ligas (global)</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Invit. enviadas (global)" : "Invit. ligas (global)"}
+                </div>
                 <div className="platform-overview-card-value">
                   {overview.platformWide.competitionInvitesPending}
                 </div>
-                <div className="platform-overview-card-sub">Pendientes en todas las empresas</div>
+                <div className="platform-overview-card-sub">
+                  {overviewIsScoped(overview) ? "Enviadas en el período" : "Pendientes en todas las empresas"}
+                </div>
               </div>
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Invit. ligas (global)</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Invit. aceptadas (global)" : "Invit. ligas (global)"}
+                </div>
                 <div className="platform-overview-card-value">
                   {overview.platformWide.competitionInvitesAccepted}
                 </div>
-                <div className="platform-overview-card-sub">Aceptadas en todas las empresas</div>
+                <div className="platform-overview-card-sub">
+                  {overviewIsScoped(overview) ? "Aceptadas en el período" : "Aceptadas en todas las empresas"}
+                </div>
               </div>
             </div>
 
             <h3 className="platform-metrics-group-title">Engagement Prode</h3>
             <div className="platform-overview-cards">
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Con predicciones fútbol</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Con predicciones fútbol (período)" : "Con predicciones fútbol"}
+                </div>
                 <div className="platform-overview-card-value">
                   {overview.engagement.usersWithFootballPredictions}
                 </div>
               </div>
               <div className="platform-overview-card">
-                <div className="platform-overview-card-label">Con predicciones F1</div>
+                <div className="platform-overview-card-label">
+                  {overviewIsScoped(overview) ? "Con predicciones F1 (período)" : "Con predicciones F1"}
+                </div>
                 <div className="platform-overview-card-value">{overview.engagement.usersWithF1Predictions}</div>
               </div>
               <div className="platform-overview-card">
                 <div className="platform-overview-card-label">Con pautas guardadas</div>
                 <div className="platform-overview-card-value">{overview.engagement.usersWithGuidelines}</div>
+                <div className="platform-overview-card-sub">Histórico (sin filtro de fechas)</div>
               </div>
               <div className="platform-overview-card">
                 <div className="platform-overview-card-label">Partidos con resultado</div>

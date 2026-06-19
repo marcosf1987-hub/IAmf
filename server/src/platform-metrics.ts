@@ -1,5 +1,8 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
+import type { AdminDateRange } from "./admin-date-range";
 import { UNIVERSAL_COMPETITION_SLUG } from "./universal-league";
+
+const MS_DAY = 24 * 60 * 60 * 1000;
 
 export type PlatformOverviewPayload = {
   platformCompany: { id: string; name: string } | null;
@@ -24,6 +27,15 @@ export type PlatformOverviewPayload = {
     matchesWithResult: number;
     matchesTotal: number;
   };
+  retention: {
+    publicPool: { active7d: number; active30d: number };
+    platformWide: { active7d: number; active30d: number };
+  };
+  range: { from: string; to: string } | null;
+  inPeriod: {
+    publicPool: { newUsers: number; activeUsers: number };
+    platformWide: { newUsers: number; activeUsers: number };
+  } | null;
 };
 
 export type PlatformUserMetrics = {
@@ -94,7 +106,36 @@ function latestActivity(...dates: (Date | undefined)[]): Date | null {
 
 const nonSuperAdminWhere = { role: { not: "super_admin" as const } };
 
-export async function buildPlatformOverview(prisma: PrismaClient): Promise<PlatformOverviewPayload> {
+function activityOrClause(since: Date, until?: Date) {
+  const createdAt = until ? { gte: since, lte: until } : { gte: since };
+  const updatedAt = until ? { gte: since, lte: until } : { gte: since };
+  return [
+    { loginEvents: { some: { createdAt } } },
+    { promptLogs: { some: { createdAt } } },
+    { predictions: { some: { createdAt } } },
+    { f1Predictions: { some: { updatedAt } } },
+    { predictionHistory: { some: { createdAt } } },
+  ];
+}
+
+async function countActiveUsersWithActivity(
+  prisma: PrismaClient,
+  baseWhere: Prisma.UserWhereInput,
+  since: Date,
+  until?: Date
+): Promise<number> {
+  return prisma.user.count({
+    where: {
+      ...baseWhere,
+      OR: activityOrClause(since, until),
+    },
+  });
+}
+
+export async function buildPlatformOverview(
+  prisma: PrismaClient,
+  range?: AdminDateRange
+): Promise<PlatformOverviewPayload> {
   const empty: PlatformOverviewPayload = {
     platformCompany: null,
     publicPool: {
@@ -118,6 +159,12 @@ export async function buildPlatformOverview(prisma: PrismaClient): Promise<Platf
       matchesWithResult: 0,
       matchesTotal: 0,
     },
+    retention: {
+      publicPool: { active7d: 0, active30d: 0 },
+      platformWide: { active7d: 0, active30d: 0 },
+    },
+    range: null,
+    inPeriod: null,
   };
 
   const platform = await prisma.company.findUnique({
@@ -210,6 +257,120 @@ export async function buildPlatformOverview(prisma: PrismaClient): Promise<Platf
 
   const usersWithGuidelines = guidelinesRows.filter(guidelinesRowHasContent).length;
 
+  const since7d = new Date(now.getTime() - 7 * MS_DAY);
+  const since30d = new Date(now.getTime() - 30 * MS_DAY);
+  const poolUserWhere: Prisma.UserWhereInput = {
+    companyId: platform.id,
+    status: "active",
+    ...nonSuperAdminWhere,
+  };
+  const platformUserWhere: Prisma.UserWhereInput = {
+    status: "active",
+    ...nonSuperAdminWhere,
+  };
+
+  const retentionPromise = Promise.all([
+    countActiveUsersWithActivity(prisma, poolUserWhere, since7d),
+    countActiveUsersWithActivity(prisma, poolUserWhere, since30d),
+    countActiveUsersWithActivity(prisma, platformUserWhere, since7d),
+    countActiveUsersWithActivity(prisma, platformUserWhere, since30d),
+  ]);
+
+  const periodPromise = range
+    ? Promise.all([
+        prisma.user.count({
+          where: {
+            companyId: platform.id,
+            ...nonSuperAdminWhere,
+            createdAt: { gte: range.from, lte: range.to },
+          },
+        }),
+        countActiveUsersWithActivity(prisma, poolUserWhere, range.from, range.to),
+        prisma.user.count({
+          where: {
+            ...nonSuperAdminWhere,
+            createdAt: { gte: range.from, lte: range.to },
+          },
+        }),
+        countActiveUsersWithActivity(prisma, platformUserWhere, range.from, range.to),
+        prisma.user.count({
+          where: {
+            ...nonSuperAdminWhere,
+            predictions: { some: { createdAt: { gte: range.from, lte: range.to } } },
+          },
+        }),
+        prisma.user.count({
+          where: {
+            ...nonSuperAdminWhere,
+            f1Predictions: { some: { updatedAt: { gte: range.from, lte: range.to } } },
+          },
+        }),
+        prisma.competitionInvitation.count({
+          where: { createdAt: { gte: range.from, lte: range.to } },
+        }),
+        prisma.competitionInvitation.count({
+          where: {
+            acceptedAt: { gte: range.from, lte: range.to },
+          },
+        }),
+        prisma.competitionInvitation.count({
+          where: {
+            createdAt: { gte: range.from, lte: range.to },
+            competition: { companyId: platform.id },
+          },
+        }),
+        prisma.competitionInvitation.count({
+          where: {
+            acceptedAt: { gte: range.from, lte: range.to },
+            competition: { companyId: platform.id },
+          },
+        }),
+      ])
+    : Promise.resolve(null);
+
+  const [
+    [poolActive7d, poolActive30d, platformActive7d, platformActive30d],
+    periodMetrics,
+  ] = await Promise.all([retentionPromise, periodPromise]);
+
+  let engagementFootball = usersWithFootballPredictions;
+  let engagementF1 = usersWithF1Predictions;
+  let invitesPending = competitionInvitesPending;
+  let invitesAccepted = competitionInvitesAccepted;
+  let poolInvitesPending = publicPoolCompetitionInvitesPending;
+  let poolInvitesAccepted = publicPoolCompetitionInvitesAccepted;
+  let inPeriod: PlatformOverviewPayload["inPeriod"] = null;
+  let rangeOut: PlatformOverviewPayload["range"] = null;
+
+  if (range && periodMetrics) {
+    const [
+      poolNewUsers,
+      poolActiveInPeriod,
+      platformNewUsers,
+      platformActiveInPeriod,
+      footballInPeriod,
+      f1InPeriod,
+      invitesSent,
+      invitesAcceptedInPeriod,
+      poolInvitesSent,
+      poolInvitesAcceptedInPeriod,
+    ] = periodMetrics;
+    engagementFootball = footballInPeriod;
+    engagementF1 = f1InPeriod;
+    invitesPending = invitesSent;
+    invitesAccepted = invitesAcceptedInPeriod;
+    poolInvitesPending = poolInvitesSent;
+    poolInvitesAccepted = poolInvitesAcceptedInPeriod;
+    inPeriod = {
+      publicPool: { newUsers: poolNewUsers, activeUsers: poolActiveInPeriod },
+      platformWide: { newUsers: platformNewUsers, activeUsers: platformActiveInPeriod },
+    };
+    rangeOut = {
+      from: range.from.toISOString().slice(0, 10),
+      to: range.to.toISOString().slice(0, 10),
+    };
+  }
+
   return {
     platformCompany: { id: platform.id, name: platform.name },
     publicPool: {
@@ -221,22 +382,26 @@ export async function buildPlatformOverview(prisma: PrismaClient): Promise<Platf
       activeUsers: platformActiveUsers,
       b2bActiveUsers: b2bActiveUsers,
       disabledUsers: platformDisabledUsers,
-      competitionInvitesPending,
-      competitionInvitesAccepted,
-      publicPoolCompetitionInvitesPending,
-      publicPoolCompetitionInvitesAccepted,
+      competitionInvitesPending: invitesPending,
+      competitionInvitesAccepted: invitesAccepted,
+      publicPoolCompetitionInvitesPending: poolInvitesPending,
+      publicPoolCompetitionInvitesAccepted: poolInvitesAccepted,
     },
     engagement: {
-      usersWithFootballPredictions,
-      usersWithF1Predictions,
+      usersWithFootballPredictions: engagementFootball,
+      usersWithF1Predictions: engagementF1,
       usersWithGuidelines,
       matchesWithResult,
       matchesTotal,
     },
+    retention: {
+      publicPool: { active7d: poolActive7d, active30d: poolActive30d },
+      platformWide: { active7d: platformActive7d, active30d: platformActive30d },
+    },
+    range: rangeOut,
+    inPeriod,
   };
 }
-
-import type { AdminDateRange } from "./admin-date-range";
 
 function createdAtInRange(range?: AdminDateRange) {
   return range ? { createdAt: { gte: range.from, lte: range.to } } : {};
