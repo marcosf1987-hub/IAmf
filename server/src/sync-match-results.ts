@@ -1,6 +1,7 @@
 import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   GROUP_STAGE_SLOT_CODES,
+  assignRoundOf32FromApi,
   type FootballDataMatch,
   type OurMatch,
   type OurMatchStage,
@@ -10,8 +11,10 @@ import {
   hasUsableApiTeamNames,
   isTerminalMatchStatus,
   mapScoreToOurMatch,
+  needsNameFromApi,
   normalizeTeamName,
   resolveOurMatchFromApi,
+  teamsPairEqual,
 } from "./football-data";
 import { repairCorruptedKnockoutMatches } from "./repair-knockout-matches";
 
@@ -104,6 +107,10 @@ export type SyncMatchResultsResult = {
   pendingInDb: number;
   /** Filas de eliminatoria restauradas desde placeholders del seed. */
   knockoutsRepaired: number;
+  /** Marcadores borrados en filas con placeholders (1A vs 2B, etc.). */
+  orphanScoresCleared: number;
+  /** Partidos de 16avos actualizados desde API LAST_32. */
+  roundOf32Synced: number;
   /** No hubo filas pendientes: no se llamó a la API. */
   skippedFetch: boolean;
   diagnostics: SyncMatchDiagnostics;
@@ -215,6 +222,8 @@ export async function syncMatchResultsFromFootballData(
       teamsResolved: 0,
       pendingInDb: 0,
       knockoutsRepaired: repairResult.repaired,
+      orphanScoresCleared: repairResult.scoresCleared,
+      roundOf32Synced: 0,
       skippedFetch: true,
       diagnostics: emptyDiagnostics,
     };
@@ -255,6 +264,74 @@ export async function syncMatchResultsFromFootballData(
 
   let updated = 0;
   let teamsResolved = 0;
+  let roundOf32Synced = 0;
+
+  const r32Assignments = assignRoundOf32FromApi(apiMatches, workingOur);
+  for (const assignment of r32Assignments) {
+    const teams = { teamA: assignment.teamA, teamB: assignment.teamB };
+    const scores = mapScoreToOurMatch(assignment.apiMatch, teams);
+    const hadPlaceholders =
+      needsNameFromApi(assignment.ourMatch.teamA) || needsNameFromApi(assignment.ourMatch.teamB);
+    const kickoffChanged =
+      assignment.ourMatch.kickoffAt.getTime() !== assignment.kickoffAt.getTime();
+
+    const data: {
+      teamA: string;
+      teamB: string;
+      kickoffAt: Date;
+      resultScoreA?: number;
+      resultScoreB?: number;
+    } = {
+      teamA: teams.teamA,
+      teamB: teams.teamB,
+      kickoffAt: assignment.kickoffAt,
+    };
+    if (scores) {
+      data.resultScoreA = scores.scoreA;
+      data.resultScoreB = scores.scoreB;
+    }
+
+    const changed =
+      hadPlaceholders ||
+      kickoffChanged ||
+      scores != null ||
+      !teamsPairEqual(assignment.ourMatch.teamA, assignment.ourMatch.teamB, teams.teamA, teams.teamB);
+
+    if (!changed) continue;
+
+    await prisma.match.update({
+      where: { id: assignment.ourMatch.id },
+      data,
+    });
+    updated++;
+    roundOf32Synced++;
+    if (hadPlaceholders) {
+      teamsResolved++;
+      diagnostics.teamsFilled++;
+    }
+    if (scores) diagnostics.scoresWritten++;
+    diagnostics.matched++;
+
+    const row = workingOur.find((m) => m.id === assignment.ourMatch.id);
+    if (row) {
+      row.teamA = teams.teamA;
+      row.teamB = teams.teamB;
+      row.kickoffAt = assignment.kickoffAt;
+    }
+
+    pushSample({
+      kind: "updated",
+      ...apiSampleBase(assignment.apiMatch),
+      ourTeamA: teams.teamA,
+      ourTeamB: teams.teamB,
+      ourKickoff: assignment.kickoffAt.toISOString(),
+      resultScoreA: scores?.scoreA,
+      resultScoreB: scores?.scoreB,
+    });
+  }
+
+  const r32OurIds = new Set(r32Assignments.map((a) => a.ourMatch.id));
+
   for (const apiMatch of apiMatches) {
     if (!hasUsableApiTeamNames(apiMatch)) continue;
 
@@ -278,6 +355,10 @@ export async function syncMatchResultsFromFootballData(
       continue;
     }
 
+    if (r32OurIds.has(resolved.ourMatch.id)) {
+      continue;
+    }
+
     if (!pendingIds.has(resolved.ourMatch.id)) {
       continue;
     }
@@ -290,11 +371,18 @@ export async function syncMatchResultsFromFootballData(
         : { teamA: resolved.teamA, teamB: resolved.teamB };
 
     const scores = mapScoreToOurMatch(apiMatch, teams);
-    const data: { teamA?: string; teamB?: string; resultScoreA?: number; resultScoreB?: number } = {};
+    const data: {
+      teamA?: string;
+      teamB?: string;
+      kickoffAt?: Date;
+      resultScoreA?: number;
+      resultScoreB?: number;
+    } = {};
 
     if (resolved.kind === "fill_teams") {
       data.teamA = teams.teamA;
       data.teamB = teams.teamB;
+      if (resolved.kickoffAt) data.kickoffAt = resolved.kickoffAt;
       teamsResolved++;
       diagnostics.teamsFilled++;
     }
@@ -344,6 +432,7 @@ export async function syncMatchResultsFromFootballData(
     if (row) {
       row.teamA = teams.teamA;
       row.teamB = teams.teamB;
+      if (data.kickoffAt) row.kickoffAt = data.kickoffAt;
     }
   }
 
@@ -354,6 +443,8 @@ export async function syncMatchResultsFromFootballData(
     teamsResolved,
     pendingInDb: pendingRows.length,
     knockoutsRepaired: repairResult.repaired,
+    orphanScoresCleared: repairResult.scoresCleared,
+    roundOf32Synced,
     skippedFetch: false,
     diagnostics,
   };
@@ -367,6 +458,8 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
   teamsResolved: number;
   pendingInDb: number;
   knockoutsRepaired: number;
+  orphanScoresCleared: number;
+  roundOf32Synced: number;
   skippedFetch: boolean;
   diagnostics: SyncMatchDiagnostics;
   message: string;
@@ -378,12 +471,18 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
     teamsResolved,
     pendingInDb,
     knockoutsRepaired,
+    orphanScoresCleared,
+    roundOf32Synced,
     skippedFetch,
     diagnostics,
   } = result;
 
   const repairNote =
     knockoutsRepaired > 0 ? `${knockoutsRepaired} slot(s) de eliminatoria restaurado(s). ` : "";
+  const orphanNote =
+    orphanScoresCleared > 0 ? `${orphanScoresCleared} marcador(es) huérfano(s) limpiado(s). ` : "";
+  const r32Note =
+    roundOf32Synced > 0 ? `${roundOf32Synced} partido(s) de 16avos desde API. ` : "";
 
   const detail = skippedFetch
     ? "Sin filas pendientes; no se llamó a la API."
@@ -397,9 +496,11 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
     teamsResolved,
     pendingInDb,
     knockoutsRepaired,
+    orphanScoresCleared,
+    roundOf32Synced,
     skippedFetch,
     diagnostics,
-    message: `${repairNote}Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
+    message: `${repairNote}${orphanNote}${r32Note}Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
   };
 }
 

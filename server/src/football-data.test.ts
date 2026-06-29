@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  assignRoundOf32FromApi,
   canonicalTeamName,
   findUniqueOurMatchByTeams,
   getMatchScore,
@@ -255,4 +256,67 @@ test("resolveOurMatchFromApi: sin fila de grupo pendiente, no rellena 16avos con
     },
   ];
   assert.equal(resolveOurMatchFromApi(api, our), null);
+});
+
+test("assignRoundOf32FromApi: empareja por equipos (Sudáfrica vs Canadá)", () => {
+  const api = [
+    apiMatch({
+      id: 50,
+      utcDate: "2026-06-28T19:49:00Z",
+      stage: "LAST_32",
+      status: "FINISHED",
+      score: { fullTime: { home: 0, away: 1 }, regularTime: { home: 0, away: 1 } },
+      homeTeam: { id: 1, name: "South Africa" },
+      awayTeam: { id: 2, name: "Canada" },
+    }),
+  ];
+  const our: OurMatch[] = [
+    {
+      id: "r32-sa",
+      teamA: "South Africa",
+      teamB: "Canada",
+      kickoffAt: new Date("2026-06-28T19:00:00Z"),
+      stage: "roundOf32",
+    },
+    {
+      id: "r32-ph",
+      teamA: "1A",
+      teamB: "2B",
+      kickoffAt: new Date("2026-06-28T19:00:00Z"),
+      stage: "roundOf32",
+    },
+  ];
+  const assignments = assignRoundOf32FromApi(api, our);
+  assert.equal(assignments.length, 1);
+  assert.equal(assignments[0].ourMatch.id, "r32-sa");
+  assert.equal(assignments[0].teamA, "South Africa");
+  assert.equal(assignments[0].teamB, "Canada");
+});
+
+test("assignRoundOf32FromApi: Brasil vs Japón en slot placeholder sin validar letras", () => {
+  const api = [
+    apiMatch({
+      id: 51,
+      utcDate: "2026-06-29T11:00:00Z",
+      stage: "LAST_32",
+      status: "FINISHED",
+      score: { fullTime: { home: 2, away: 1 }, regularTime: { home: 2, away: 1 } },
+      homeTeam: { id: 3, name: "Brazil" },
+      awayTeam: { id: 4, name: "Japan" },
+    }),
+  ];
+  const our: OurMatch[] = [
+    {
+      id: "r32-br",
+      teamA: "1C",
+      teamB: "3D",
+      kickoffAt: new Date("2026-06-28T23:00:00Z"),
+      stage: "roundOf32",
+    },
+  ];
+  const assignments = assignRoundOf32FromApi(api, our);
+  assert.equal(assignments.length, 1);
+  assert.equal(assignments[0].ourMatch.id, "r32-br");
+  assert.equal(assignments[0].teamA, "Brazil");
+  assert.equal(assignments[0].teamB, "Japan");
 });

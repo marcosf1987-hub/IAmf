@@ -175,8 +175,11 @@ export function findMatchingOurMatch(
 /** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
 export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
 
-/** Eliminatorias: horarios alineados con el fixture oficial (±3 h). */
+/** Eliminatorias sin stage API explícito (±3 h). */
 export const KNOCKOUT_KICKOFF_TOLERANCE_MS = 3 * 60 * 60 * 1000;
+
+/** LAST_32 en football-data.org: horario FIFA puede diferir del seed (±24 h). */
+export const ROUND_OF_32_API_KICKOFF_TOLERANCE_MS = 24 * 60 * 60 * 1000;
 
 const GROUP_FIXTURE_PAIR_KEYS = new Set(
   MATCHES_SEED.filter((m) => m.stage === "group").map((m) =>
@@ -231,6 +234,15 @@ export function isApiGroupStage(apiMatch: FootballDataMatch): boolean {
   return s === "GROUP_STAGE" || s === "GROUP";
 }
 
+export function isApiRoundOf32(apiMatch: FootballDataMatch): boolean {
+  return apiStageToOurStage(apiMatch.stage) === "roundOf32";
+}
+
+/** Cruce publicado en eliminatoria (no es partido de fase de grupos). */
+export function isOfficialKnockoutPair(home: string, away: string): boolean {
+  return !isGroupFixturePair(home, away) && !areSameGroupMembers(home, away);
+}
+
 export function apiStageToOurStage(apiStage: string | undefined): OurMatchStage | null {
   const s = (apiStage ?? "").toUpperCase();
   const map: Record<string, OurMatchStage> = {
@@ -248,7 +260,10 @@ export function apiStageToOurStage(apiStage: string | undefined): OurMatchStage 
   return map[s] ?? null;
 }
 
-function kickoffToleranceForStage(stage: OurMatchStage): number {
+function kickoffToleranceForStage(stage: OurMatchStage, apiMatch?: FootballDataMatch): number {
+  if (stage !== "group" && apiMatch && isApiRoundOf32(apiMatch)) {
+    return ROUND_OF_32_API_KICKOFF_TOLERANCE_MS;
+  }
   return stage === "group" ? FOOTBALL_DATA_KICKOFF_TOLERANCE_MS : KNOCKOUT_KICKOFF_TOLERANCE_MS;
 }
 
@@ -329,7 +344,30 @@ export function filterApiMatchesNearOurMatches(
 export type ResolvedOurMatch =
   | { kind: "exact"; ourMatch: OurMatch }
   /** Sustituye TBD y/o slots de bracket por los nombres que devuelve football-data.org (grupos + R32, octavos, etc.). */
-  | { kind: "fill_teams"; ourMatch: OurMatch; teamA: string; teamB: string };
+  | { kind: "fill_teams"; ourMatch: OurMatch; teamA: string; teamB: string; kickoffAt?: Date };
+
+export type RoundOf32Assignment = {
+  ourMatch: OurMatch;
+  teamA: string;
+  teamB: string;
+  kickoffAt: Date;
+  apiMatch: FootballDataMatch;
+};
+
+function mapApiTeamsToOurOrder(
+  ourMatch: OurMatch,
+  home: string,
+  away: string
+): { teamA: string; teamB: string } {
+  if (
+    needsNameFromApi(ourMatch.teamA) ||
+    needsNameFromApi(ourMatch.teamB) ||
+    teamsPairEqual(ourMatch.teamA, ourMatch.teamB, home, away)
+  ) {
+    return { teamA: home, teamB: away };
+  }
+  return { teamA: away, teamB: home };
+}
 
 function kickoffDistanceMs(our: OurMatch, apiTime: number): number {
   return Math.abs(new Date(our.kickoffAt).getTime() - apiTime);
@@ -347,9 +385,11 @@ export function tryFillTeamsFromApi(
   candidates: OurMatch[],
   apiTime: number,
   home: string,
-  away: string
+  away: string,
+  options?: { officialRoundOf32?: boolean }
 ): ResolvedOurMatch | null {
-  if (isGroupFixturePair(home, away) || areSameGroupMembers(home, away)) return null;
+  if (!isOfficialKnockoutPair(home, away)) return null;
+  const skipSlotCheck = options?.officialRoundOf32 === true;
 
   const needing = candidates.filter(
     (m) =>
@@ -363,7 +403,12 @@ export function tryFillTeamsFromApi(
   );
   const closestBoth = pickClosestOurMatch(bothPlaceholder, apiTime);
   if (closestBoth) {
-    if (!isBracketAssignmentValid(closestBoth.teamA, closestBoth.teamB, home, away)) return null;
+    if (
+      !skipSlotCheck &&
+      !isBracketAssignmentValid(closestBoth.teamA, closestBoth.teamB, home, away)
+    ) {
+      return null;
+    }
     return { kind: "fill_teams", ourMatch: closestBoth, teamA: home, teamB: away };
   }
 
@@ -392,10 +437,84 @@ export function tryFillTeamsFromApi(
   const closest = partial.reduce((best, c) =>
     kickoffDistanceMs(c.ourMatch, apiTime) < kickoffDistanceMs(best.ourMatch, apiTime) ? c : best
   );
-  if (!isBracketAssignmentValid(closest.ourMatch.teamA, closest.ourMatch.teamB, closest.teamA, closest.teamB)) {
+  if (
+    !skipSlotCheck &&
+    !isBracketAssignmentValid(closest.ourMatch.teamA, closest.ourMatch.teamB, closest.teamA, closest.teamB)
+  ) {
     return null;
   }
   return { kind: "fill_teams", ourMatch: closest.ourMatch, teamA: closest.teamA, teamB: closest.teamB };
+}
+
+/**
+ * Emparejamiento 1:1 entre partidos API `LAST_32` y filas `roundOf32` en BD.
+ * Primero por par de equipos; luego por kickoff más cercano (ventana ±24 h).
+ */
+export function assignRoundOf32FromApi(
+  apiMatches: FootballDataMatch[],
+  ourMatches: OurMatch[]
+): RoundOf32Assignment[] {
+  const apiR32 = apiMatches.filter((m) => {
+    if (!isApiRoundOf32(m) || !hasUsableApiTeamNames(m)) return false;
+    const home = normalizeTeamName(m.homeTeam.name);
+    const away = normalizeTeamName(m.awayTeam.name);
+    return Boolean(home && away && isOfficialKnockoutPair(home, away));
+  });
+
+  const ourR32 = ourMatches.filter((m) => m.stage === "roundOf32");
+  const usedOurIds = new Set<string>();
+  const usedApiIds = new Set<number>();
+  const assignments: RoundOf32Assignment[] = [];
+
+  const pushAssignment = (api: FootballDataMatch, our: OurMatch) => {
+    const home = normalizeTeamName(api.homeTeam.name)!;
+    const away = normalizeTeamName(api.awayTeam.name)!;
+    const teams = mapApiTeamsToOurOrder(our, home, away);
+    assignments.push({
+      ourMatch: our,
+      teamA: teams.teamA,
+      teamB: teams.teamB,
+      kickoffAt: new Date(api.utcDate),
+      apiMatch: api,
+    });
+    usedOurIds.add(our.id);
+    usedApiIds.add(api.id);
+  };
+
+  for (const api of apiR32) {
+    const home = normalizeTeamName(api.homeTeam.name)!;
+    const away = normalizeTeamName(api.awayTeam.name)!;
+    const hits = ourR32.filter(
+      (m) => !usedOurIds.has(m.id) && teamsPairEqual(m.teamA, m.teamB, home, away)
+    );
+    if (hits.length === 0) continue;
+    const our = hits.length === 1 ? hits[0] : pickClosestOurMatch(hits, new Date(api.utcDate).getTime())!;
+    pushAssignment(api, our);
+  }
+
+  for (const api of apiR32) {
+    if (usedApiIds.has(api.id)) continue;
+    const apiTime = new Date(api.utcDate).getTime();
+    const home = normalizeTeamName(api.homeTeam.name)!;
+    const away = normalizeTeamName(api.awayTeam.name)!;
+
+    let best: OurMatch | null = null;
+    let bestDist = Infinity;
+    for (const m of ourR32) {
+      if (usedOurIds.has(m.id)) continue;
+      const hasPlaceholders = needsNameFromApi(m.teamA) || needsNameFromApi(m.teamB);
+      if (!hasPlaceholders) continue;
+      const d = kickoffDistanceMs(m, apiTime);
+      if (d < bestDist) {
+        bestDist = d;
+        best = m;
+      }
+    }
+    if (!best || bestDist > ROUND_OF_32_API_KICKOFF_TOLERANCE_MS) continue;
+    pushAssignment(api, best);
+  }
+
+  return assignments;
 }
 
 function findExactGroupMatch(
@@ -441,9 +560,22 @@ export function resolveOurMatchFromApi(
     return null;
   }
 
+  if (isApiRoundOf32(apiMatch)) {
+    const knockoutExact = ourMatches.filter(
+      (m) => m.stage === "roundOf32" && teamsPairEqual(m.teamA, m.teamB, home, away)
+    );
+    if (knockoutExact.length === 1) {
+      return { kind: "exact", ourMatch: knockoutExact[0] };
+    }
+    if (knockoutExact.length > 1) {
+      const closest = pickClosestOurMatch(knockoutExact, apiTime);
+      if (closest) return { kind: "exact", ourMatch: closest };
+    }
+  }
+
   const stagePool = filterMatchesForApiStage(apiMatch, ourMatches);
   const inTol = (m: OurMatch) =>
-    kickoffDistanceMs(m, apiTime) <= kickoffToleranceForStage(m.stage);
+    kickoffDistanceMs(m, apiTime) <= kickoffToleranceForStage(m.stage, apiMatch);
 
   const candidates = stagePool.filter(inTol);
 
@@ -455,7 +587,9 @@ export function resolveOurMatchFromApi(
     }
 
     if (!apiIsGroup) {
-      const filled = tryFillTeamsFromApi(candidates, apiTime, home, away);
+      const filled = tryFillTeamsFromApi(candidates, apiTime, home, away, {
+        officialRoundOf32: isApiRoundOf32(apiMatch),
+      });
       if (filled) return filled;
     }
   }
