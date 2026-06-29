@@ -235,6 +235,63 @@ export type ResolvedOurMatch =
   /** Sustituye TBD y/o slots de bracket por los nombres que devuelve football-data.org (grupos + R32, octavos, etc.). */
   | { kind: "fill_teams"; ourMatch: OurMatch; teamA: string; teamB: string };
 
+function kickoffDistanceMs(our: OurMatch, apiTime: number): number {
+  return Math.abs(new Date(our.kickoffAt).getTime() - apiTime);
+}
+
+function pickClosestOurMatch(candidates: OurMatch[], apiTime: number): OurMatch | null {
+  if (candidates.length === 0) return null;
+  return candidates.reduce((best, c) =>
+    kickoffDistanceMs(c, apiTime) < kickoffDistanceMs(best, apiTime) ? c : best
+  );
+}
+
+/** Elige la fila BD más cercana en horario para rellenar placeholders con nombres de la API. */
+export function tryFillTeamsFromApi(
+  candidates: OurMatch[],
+  apiTime: number,
+  home: string,
+  away: string
+): ResolvedOurMatch | null {
+  const needing = candidates.filter((m) => needsNameFromApi(m.teamA) || needsNameFromApi(m.teamB));
+  if (needing.length === 0) return null;
+
+  const bothPlaceholder = needing.filter(
+    (m) => needsNameFromApi(m.teamA) && needsNameFromApi(m.teamB)
+  );
+  const closestBoth = pickClosestOurMatch(bothPlaceholder, apiTime);
+  if (closestBoth) {
+    return { kind: "fill_teams", ourMatch: closestBoth, teamA: home, teamB: away };
+  }
+
+  type PartialFill = { ourMatch: OurMatch; teamA: string; teamB: string };
+  const partial: PartialFill[] = [];
+  for (const m of needing) {
+    const a = m.teamA;
+    const b = m.teamB;
+    const na = needsNameFromApi(a);
+    const nb = needsNameFromApi(b);
+    if (!na && nb) {
+      if (canonicalTeamName(a) === canonicalTeamName(home)) {
+        partial.push({ ourMatch: m, teamA: home, teamB: away });
+      } else if (canonicalTeamName(a) === canonicalTeamName(away)) {
+        partial.push({ ourMatch: m, teamA: away, teamB: home });
+      }
+    } else if (na && !nb) {
+      if (canonicalTeamName(b) === canonicalTeamName(home)) {
+        partial.push({ ourMatch: m, teamA: away, teamB: home });
+      } else if (canonicalTeamName(b) === canonicalTeamName(away)) {
+        partial.push({ ourMatch: m, teamA: home, teamB: away });
+      }
+    }
+  }
+  if (partial.length === 0) return null;
+  const closest = partial.reduce((best, c) =>
+    kickoffDistanceMs(c.ourMatch, apiTime) < kickoffDistanceMs(best.ourMatch, apiTime) ? c : best
+  );
+  return { kind: "fill_teams", ourMatch: closest.ourMatch, teamA: closest.teamA, teamB: closest.teamB };
+}
+
 /**
  * Empareja un partido de la API con nuestra fila por fecha/hora y equipos:
  * - coincidencia exacta de nombres;
@@ -262,34 +319,8 @@ export function resolveOurMatchFromApi(
       }
     }
 
-    const fills: ResolvedOurMatch[] = [];
-    for (const m of candidates) {
-      const a = m.teamA;
-      const b = m.teamB;
-      const na = needsNameFromApi(a);
-      const nb = needsNameFromApi(b);
-      if (!na && !nb) continue;
-
-      if (na && nb) {
-        fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
-        continue;
-      }
-      if (!na && nb) {
-        if (canonicalTeamName(a) === canonicalTeamName(home)) {
-          fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
-        } else if (canonicalTeamName(a) === canonicalTeamName(away)) {
-          fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
-        }
-      } else if (na && !nb) {
-        if (canonicalTeamName(b) === canonicalTeamName(home)) {
-          fills.push({ kind: "fill_teams", ourMatch: m, teamA: away, teamB: home });
-        } else if (canonicalTeamName(b) === canonicalTeamName(away)) {
-          fills.push({ kind: "fill_teams", ourMatch: m, teamA: home, teamB: away });
-        }
-      }
-    }
-
-    if (fills.length === 1) return fills[0];
+    const filled = tryFillTeamsFromApi(candidates, apiTime, home, away);
+    if (filled) return filled;
   }
 
   const byDate = findMatchingOurMatch(apiMatch, ourMatches);

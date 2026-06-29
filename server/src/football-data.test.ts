@@ -153,3 +153,34 @@ test("findUniqueOurMatchByTeams: solo cuando el cruce es único", () => {
     null
   );
 });
+
+test("resolveOurMatchFromApi: rellena placeholder por kickoff más cercano (16avos)", () => {
+  const api = apiMatch({
+    utcDate: "2026-06-28T19:05:00Z",
+    status: "SCHEDULED",
+    score: undefined,
+    homeTeam: { id: 10, name: "France" },
+    awayTeam: { id: 11, name: "Argentina" },
+  });
+  const our: OurMatch[] = [
+    {
+      id: "r32-a",
+      teamA: "1A",
+      teamB: "2B",
+      kickoffAt: new Date("2026-06-28T19:00:00Z"),
+    },
+    {
+      id: "r32-b",
+      teamA: "1C",
+      teamB: "3D",
+      kickoffAt: new Date("2026-06-28T23:00:00Z"),
+    },
+  ];
+  const resolved = resolveOurMatchFromApi(api, our);
+  assert.equal(resolved?.kind, "fill_teams");
+  assert.equal(resolved?.ourMatch.id, "r32-a");
+  if (resolved?.kind === "fill_teams") {
+    assert.equal(resolved.teamA, "France");
+    assert.equal(resolved.teamB, "Argentina");
+  }
+});

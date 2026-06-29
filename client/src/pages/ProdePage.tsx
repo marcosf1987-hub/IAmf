@@ -525,8 +525,8 @@ export default function ProdePage() {
           <div className="prode-knockout-region" id="prode-eliminatorias">
             <h2 className="prode-knockout-region-title">Eliminatorias</h2>
             <p className="prode-knockout-region-lead">
-              Cruces posteriores a la fase de grupos. Los equipos se completan con los resultados oficiales de
-              grupos y eliminatorias previas cuando están disponibles.
+              Cruces posteriores a la fase de grupos. Los equipos se cargan desde football-data.org (incluye los
+              8 mejores terceros). Si ves códigos tipo 1A o 3D, sincronizá resultados en el panel de plataforma.
             </p>
           </div>
         )}
