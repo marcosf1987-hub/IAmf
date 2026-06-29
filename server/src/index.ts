@@ -19,6 +19,7 @@ import { hashPassword, verifyPassword } from "./password";
 import { chat } from "./ai-provider";
 import { parseAiScore, parseAiChampionRunnerUp, parseAiBatchScoresJson } from "./ai-parse";
 import { startFootballDataResultAutoSync, getFootballDataSyncStatus, runFootballDataMatchSync } from "./sync-match-results";
+import { repairCorruptedKnockoutMatches } from "./repair-knockout-matches";
 import { anonymizeUserId, isExactHit, scoreFootballMatchPoints } from "./leaderboard";
 import { adminCreateUserSchema, adminUpdateUserSchema, adminAiConfigSchema, adminCompanyConfigSchema, loginSchema, predictionSchema, signupSchema, chatSchema, updateMeSchema, matchResultSchema, prodeGuidelinesSchema } from "./validators";
 import {
@@ -2160,6 +2161,18 @@ app.listen(port, () => {
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error("backfillAllCompanyUniversalLeagues:", e);
+    }
+  })();
+  void (async () => {
+    try {
+      const repair = await repairCorruptedKnockoutMatches(prisma);
+      if (repair.repaired > 0) {
+        // eslint-disable-next-line no-console
+        console.log(`[football-data] Reparados ${repair.repaired} slot(s) de eliminatoria al iniciar.`);
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.error("repairCorruptedKnockoutMatches:", e);
     }
   })();
   startFootballDataResultAutoSync(prisma);

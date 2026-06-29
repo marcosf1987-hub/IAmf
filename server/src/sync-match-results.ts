@@ -2,6 +2,8 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import {
   GROUP_STAGE_SLOT_CODES,
   type FootballDataMatch,
+  type OurMatch,
+  type OurMatchStage,
   fetchWorldCupMatches,
   filterApiMatchesNearOurMatches,
   getMatchScore,
@@ -11,6 +13,7 @@ import {
   normalizeTeamName,
   resolveOurMatchFromApi,
 } from "./football-data";
+import { repairCorruptedKnockoutMatches } from "./repair-knockout-matches";
 
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
@@ -99,6 +102,8 @@ export type SyncMatchResultsResult = {
   apiMatchesConsidered: number;
   teamsResolved: number;
   pendingInDb: number;
+  /** Filas de eliminatoria restauradas desde placeholders del seed. */
+  knockoutsRepaired: number;
   /** No hubo filas pendientes: no se llamó a la API. */
   skippedFetch: boolean;
   diagnostics: SyncMatchDiagnostics;
@@ -151,47 +156,65 @@ export async function syncMatchResultsFromFootballData(
 
   const fullScan = options?.fullScan ?? isFullScanSyncEnv();
 
-  let ourMatches: {
+  const repairResult = await repairCorruptedKnockoutMatches(prisma);
+
+  let pendingRows: {
     id: string;
     teamA: string;
     teamB: string;
     kickoffAt: Date;
+    stage: OurMatchStage;
     resultScoreA: number | null;
     resultScoreB: number | null;
   }[];
 
   if (fullScan) {
-    ourMatches = await prisma.match.findMany({
+    pendingRows = await prisma.match.findMany({
       select: {
         id: true,
         teamA: true,
         teamB: true,
         kickoffAt: true,
+        stage: true,
         resultScoreA: true,
         resultScoreB: true,
       },
     });
   } else {
-    ourMatches = await prisma.match.findMany({
+    pendingRows = await prisma.match.findMany({
       where: pendingMatchWhere(),
       select: {
         id: true,
         teamA: true,
         teamB: true,
         kickoffAt: true,
+        stage: true,
         resultScoreA: true,
         resultScoreB: true,
       },
     });
   }
 
-  if (!fullScan && ourMatches.length === 0) {
+  const pendingIds = new Set(pendingRows.map((m) => m.id));
+
+  const allRows = await prisma.match.findMany({
+    select: {
+      id: true,
+      teamA: true,
+      teamB: true,
+      kickoffAt: true,
+      stage: true,
+    },
+  });
+
+  if (!fullScan && pendingRows.length === 0) {
     return {
       updated: 0,
       totalApi: 0,
       apiMatchesConsidered: 0,
       teamsResolved: 0,
       pendingInDb: 0,
+      knockoutsRepaired: repairResult.repaired,
       skippedFetch: true,
       diagnostics: emptyDiagnostics,
     };
@@ -200,14 +223,15 @@ export async function syncMatchResultsFromFootballData(
   const apiMatchesRaw = await fetchWorldCupMatches(apiKey);
   let apiMatches = apiMatchesRaw;
   if (!fullScan) {
-    apiMatches = filterApiMatchesNearOurMatches(apiMatchesRaw, ourMatches);
+    apiMatches = filterApiMatchesNearOurMatches(apiMatchesRaw, pendingRows);
   }
 
-  const workingOur = ourMatches.map((m) => ({
+  const workingOur: OurMatch[] = allRows.map((m) => ({
     id: m.id,
     teamA: m.teamA,
     teamB: m.teamB,
     kickoffAt: m.kickoffAt,
+    stage: m.stage as OurMatchStage,
   }));
 
   const diagnostics: SyncMatchDiagnostics = {
@@ -251,6 +275,10 @@ export async function syncMatchResultsFromFootballData(
           reason: "Sin fila en BD con mismos equipos/fecha",
         });
       }
+      continue;
+    }
+
+    if (!pendingIds.has(resolved.ourMatch.id)) {
       continue;
     }
 
@@ -324,7 +352,8 @@ export async function syncMatchResultsFromFootballData(
     totalApi: apiMatchesRaw.length,
     apiMatchesConsidered: apiMatches.length,
     teamsResolved,
-    pendingInDb: ourMatches.length,
+    pendingInDb: pendingRows.length,
+    knockoutsRepaired: repairResult.repaired,
     skippedFetch: false,
     diagnostics,
   };
@@ -337,6 +366,7 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
   apiMatchesConsidered: number;
   teamsResolved: number;
   pendingInDb: number;
+  knockoutsRepaired: number;
   skippedFetch: boolean;
   diagnostics: SyncMatchDiagnostics;
   message: string;
@@ -347,9 +377,13 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
     apiMatchesConsidered,
     teamsResolved,
     pendingInDb,
+    knockoutsRepaired,
     skippedFetch,
     diagnostics,
   } = result;
+
+  const repairNote =
+    knockoutsRepaired > 0 ? `${knockoutsRepaired} slot(s) de eliminatoria restaurado(s). ` : "";
 
   const detail = skippedFetch
     ? "Sin filas pendientes; no se llamó a la API."
@@ -362,9 +396,10 @@ export function buildSyncMatchResultsHttpBody(result: SyncMatchResultsResult): {
     apiMatchesConsidered,
     teamsResolved,
     pendingInDb,
+    knockoutsRepaired,
     skippedFetch,
     diagnostics,
-    message: `Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
+    message: `${repairNote}Actualizado: ${updated} fila(s) (${teamsResolved} reemplazo(s) TBD). ${detail}`,
   };
 }
 

@@ -5,6 +5,8 @@
  * FIFA World Cup 2026: competition code WC, season 2026.
  */
 
+import { MATCHES_SEED } from "./matches-seed-data";
+
 const API_BASE = "https://api.football-data.org/v4";
 const WC_COMPETITION = "WC";
 const WC_SEASON = "2026";
@@ -21,6 +23,8 @@ export type FootballDataMatch = {
   id: number;
   utcDate: string;
   status: string;
+  /** football-data.org: GROUP_STAGE, LAST_32, LAST_16, … */
+  stage?: string;
   homeTeam: { id: number; name: string | null };
   awayTeam: { id: number; name: string | null };
   score?: {
@@ -130,7 +134,22 @@ export async function fetchWorldCupMatches(apiKey: string): Promise<FootballData
   return data.matches ?? [];
 }
 
-export type OurMatch = { id: string; teamA: string; teamB: string; kickoffAt: Date };
+export type OurMatchStage =
+  | "group"
+  | "roundOf32"
+  | "roundOf16"
+  | "quarterFinal"
+  | "semiFinal"
+  | "thirdPlace"
+  | "final";
+
+export type OurMatch = {
+  id: string;
+  teamA: string;
+  teamB: string;
+  kickoffAt: Date;
+  stage: OurMatchStage;
+};
 
 /**
  * Encuentra nuestro match por equipos y fecha.
@@ -155,6 +174,83 @@ export function findMatchingOurMatch(
 
 /** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
 export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
+
+/** Eliminatorias: horarios alineados con el fixture oficial (±3 h). */
+export const KNOCKOUT_KICKOFF_TOLERANCE_MS = 3 * 60 * 60 * 1000;
+
+const GROUP_FIXTURE_PAIR_KEYS = new Set(
+  MATCHES_SEED.filter((m) => m.stage === "group").map((m) =>
+    [canonicalTeamName(m.teamA), canonicalTeamName(m.teamB)].sort().join("|")
+  )
+);
+
+const TEAM_TO_GROUP = (() => {
+  const map = new Map<string, string>();
+  for (const m of MATCHES_SEED) {
+    if (m.stage !== "group" || !m.groupCode) continue;
+    map.set(canonicalTeamName(m.teamA), m.groupCode);
+    map.set(canonicalTeamName(m.teamB), m.groupCode);
+  }
+  return map;
+})();
+
+export function isGroupFixturePair(teamA: string, teamB: string): boolean {
+  const key = [canonicalTeamName(teamA), canonicalTeamName(teamB)].sort().join("|");
+  return GROUP_FIXTURE_PAIR_KEYS.has(key);
+}
+
+export function areSameGroupMembers(teamA: string, teamB: string): boolean {
+  const gA = TEAM_TO_GROUP.get(canonicalTeamName(teamA));
+  const gB = TEAM_TO_GROUP.get(canonicalTeamName(teamB));
+  return Boolean(gA && gB && gA === gB);
+}
+
+/** Slot 1A/2B/3F → el equipo debe pertenecer al grupo de la letra. */
+export function teamFitsBracketSlot(slot: string, team: string): boolean {
+  const m = /^([123])([A-L])$/.exec(slot);
+  if (!m) return true;
+  const group = m[2];
+  return TEAM_TO_GROUP.get(canonicalTeamName(team)) === group;
+}
+
+export function isBracketAssignmentValid(
+  slotA: string,
+  slotB: string,
+  fillTeamA: string,
+  fillTeamB: string
+): boolean {
+  if (isGroupFixturePair(fillTeamA, fillTeamB)) return false;
+  if (areSameGroupMembers(fillTeamA, fillTeamB)) return false;
+  const aOk = !isBracketSlotPlaceholder(slotA) || teamFitsBracketSlot(slotA, fillTeamA);
+  const bOk = !isBracketSlotPlaceholder(slotB) || teamFitsBracketSlot(slotB, fillTeamB);
+  return aOk && bOk;
+}
+
+export function isApiGroupStage(apiMatch: FootballDataMatch): boolean {
+  const s = (apiMatch.stage ?? "").toUpperCase();
+  return s === "GROUP_STAGE" || s === "GROUP";
+}
+
+export function apiStageToOurStage(apiStage: string | undefined): OurMatchStage | null {
+  const s = (apiStage ?? "").toUpperCase();
+  const map: Record<string, OurMatchStage> = {
+    GROUP_STAGE: "group",
+    GROUP: "group",
+    LAST_32: "roundOf32",
+    ROUND_OF_32: "roundOf32",
+    LAST_16: "roundOf16",
+    ROUND_OF_16: "roundOf16",
+    QUARTER_FINALS: "quarterFinal",
+    SEMI_FINALS: "semiFinal",
+    THIRD_PLACE: "thirdPlace",
+    FINAL: "final",
+  };
+  return map[s] ?? null;
+}
+
+function kickoffToleranceForStage(stage: OurMatchStage): number {
+  return stage === "group" ? FOOTBALL_DATA_KICKOFF_TOLERANCE_MS : KNOCKOUT_KICKOFF_TOLERANCE_MS;
+}
 
 /** Slots tipo 1A/2B, R32-1, R16-1… (seed de eliminatorias hasta que la API asigna rivales reales). */
 export function isBracketSlotPlaceholder(name: string): boolean {
@@ -253,7 +349,13 @@ export function tryFillTeamsFromApi(
   home: string,
   away: string
 ): ResolvedOurMatch | null {
-  const needing = candidates.filter((m) => needsNameFromApi(m.teamA) || needsNameFromApi(m.teamB));
+  if (isGroupFixturePair(home, away) || areSameGroupMembers(home, away)) return null;
+
+  const needing = candidates.filter(
+    (m) =>
+      m.stage !== "group" &&
+      (needsNameFromApi(m.teamA) || needsNameFromApi(m.teamB))
+  );
   if (needing.length === 0) return null;
 
   const bothPlaceholder = needing.filter(
@@ -261,6 +363,7 @@ export function tryFillTeamsFromApi(
   );
   const closestBoth = pickClosestOurMatch(bothPlaceholder, apiTime);
   if (closestBoth) {
+    if (!isBracketAssignmentValid(closestBoth.teamA, closestBoth.teamB, home, away)) return null;
     return { kind: "fill_teams", ourMatch: closestBoth, teamA: home, teamB: away };
   }
 
@@ -289,7 +392,31 @@ export function tryFillTeamsFromApi(
   const closest = partial.reduce((best, c) =>
     kickoffDistanceMs(c.ourMatch, apiTime) < kickoffDistanceMs(best.ourMatch, apiTime) ? c : best
   );
+  if (!isBracketAssignmentValid(closest.ourMatch.teamA, closest.ourMatch.teamB, closest.teamA, closest.teamB)) {
+    return null;
+  }
   return { kind: "fill_teams", ourMatch: closest.ourMatch, teamA: closest.teamA, teamB: closest.teamB };
+}
+
+function findExactGroupMatch(
+  ourMatches: OurMatch[],
+  home: string,
+  away: string,
+  apiTime: number
+): OurMatch | null {
+  const hits = ourMatches.filter(
+    (m) => m.stage === "group" && teamsPairEqual(m.teamA, m.teamB, home, away)
+  );
+  if (hits.length === 0) return null;
+  if (hits.length === 1) return hits[0];
+  return pickClosestOurMatch(hits, apiTime);
+}
+
+function filterMatchesForApiStage(apiMatch: FootballDataMatch, ourMatches: OurMatch[]): OurMatch[] {
+  const apiMapped = apiStageToOurStage(apiMatch.stage);
+  if (apiMapped) return ourMatches.filter((m) => m.stage === apiMapped);
+  if (isApiGroupStage(apiMatch)) return ourMatches.filter((m) => m.stage === "group");
+  return ourMatches;
 }
 
 /**
@@ -299,18 +426,26 @@ export function tryFillTeamsFromApi(
  */
 export function resolveOurMatchFromApi(
   apiMatch: FootballDataMatch,
-  ourMatches: OurMatch[],
-  kickoffToleranceMs = FOOTBALL_DATA_KICKOFF_TOLERANCE_MS
+  ourMatches: OurMatch[]
 ): ResolvedOurMatch | null {
   const home = normalizeTeamName(apiMatch.homeTeam.name);
   const away = normalizeTeamName(apiMatch.awayTeam.name);
   if (!home || !away || home === PLACEHOLDER_TBD || away === PLACEHOLDER_TBD) return null;
 
   const apiTime = new Date(apiMatch.utcDate).getTime();
-  const inTol = (m: OurMatch) =>
-    Math.abs(new Date(m.kickoffAt).getTime() - apiTime) <= kickoffToleranceMs;
+  const apiIsGroup = isApiGroupStage(apiMatch) || isGroupFixturePair(home, away);
 
-  const candidates = ourMatches.filter(inTol);
+  if (isGroupFixturePair(home, away)) {
+    const groupRow = findExactGroupMatch(ourMatches, home, away, apiTime);
+    if (groupRow) return { kind: "exact", ourMatch: groupRow };
+    return null;
+  }
+
+  const stagePool = filterMatchesForApiStage(apiMatch, ourMatches);
+  const inTol = (m: OurMatch) =>
+    kickoffDistanceMs(m, apiTime) <= kickoffToleranceForStage(m.stage);
+
+  const candidates = stagePool.filter(inTol);
 
   if (candidates.length > 0) {
     for (const m of candidates) {
@@ -319,14 +454,20 @@ export function resolveOurMatchFromApi(
       }
     }
 
-    const filled = tryFillTeamsFromApi(candidates, apiTime, home, away);
-    if (filled) return filled;
+    if (!apiIsGroup) {
+      const filled = tryFillTeamsFromApi(candidates, apiTime, home, away);
+      if (filled) return filled;
+    }
   }
 
-  const byDate = findMatchingOurMatch(apiMatch, ourMatches);
+  const byDatePool = apiIsGroup ? ourMatches.filter((m) => m.stage === "group") : stagePool;
+  const byDate = findMatchingOurMatch(apiMatch, byDatePool);
   if (byDate) return { kind: "exact", ourMatch: byDate };
 
-  const unique = findUniqueOurMatchByTeams(apiMatch, ourMatches);
+  const uniquePool = apiIsGroup
+    ? ourMatches.filter((m) => m.stage === "group")
+    : stagePool.filter((m) => m.stage !== "group");
+  const unique = findUniqueOurMatchByTeams(apiMatch, uniquePool);
   if (unique) return { kind: "exact", ourMatch: unique };
 
   return null;

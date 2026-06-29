@@ -4,6 +4,8 @@ import {
   canonicalTeamName,
   findUniqueOurMatchByTeams,
   getMatchScore,
+  isBracketAssignmentValid,
+  isGroupFixturePair,
   mapScoreToOurMatch,
   resolveOurMatchFromApi,
   teamsPairEqual,
@@ -31,6 +33,7 @@ const mexicoSouthAfricaOur: OurMatch = {
   teamA: "Mexico",
   teamB: "South Africa",
   kickoffAt: new Date("2026-06-11T19:00:00Z"),
+  stage: "group",
 };
 
 test("canonicalTeamName: ignora acentos y mayúsculas", () => {
@@ -42,6 +45,16 @@ test("teamsPairEqual: respeta orden home/away invertido", () => {
   assert.equal(teamsPairEqual("Mexico", "South Africa", "Mexico", "South Africa"), true);
   assert.equal(teamsPairEqual("Mexico", "South Africa", "South Africa", "Mexico"), true);
   assert.equal(teamsPairEqual("Mexico", "South Africa", "Mexico", "Korea Republic"), false);
+});
+
+test("isGroupFixturePair: detecta cruces de fase de grupos", () => {
+  assert.equal(isGroupFixturePair("Panama", "England"), true);
+  assert.equal(isGroupFixturePair("Mexico", "Canada"), false);
+});
+
+test("isBracketAssignmentValid: rechaza rivales del mismo grupo en slot 1A vs 2B", () => {
+  assert.equal(isBracketAssignmentValid("1A", "2B", "Panama", "England"), false);
+  assert.equal(isBracketAssignmentValid("1A", "2B", "Mexico", "Canada"), true);
 });
 
 test("getMatchScore: FINISHED y AWARDED con marcador", () => {
@@ -120,7 +133,7 @@ test("resolveOurMatchFromApi: fallback por par único si kickoff difiere", () =>
     ...mexicoSouthAfricaOur,
     kickoffAt: new Date("2026-06-11T19:00:00Z"),
   };
-  const resolved = resolveOurMatchFromApi(match, [our], 60_000);
+  const resolved = resolveOurMatchFromApi(match, [our]);
   assert.equal(resolved?.kind, "exact");
   assert.equal(resolved?.ourMatch.id, "m1");
 });
@@ -148,19 +161,26 @@ test("findUniqueOurMatchByTeams: solo cuando el cruce es único", () => {
   assert.equal(
     findUniqueOurMatchByTeams(match, [
       mexicoSouthAfricaOur,
-      { id: "m2", teamA: "Mexico", teamB: "South Africa", kickoffAt: new Date("2026-06-25T01:00:00Z") },
+      {
+        id: "m2",
+        teamA: "Mexico",
+        teamB: "South Africa",
+        kickoffAt: new Date("2026-06-25T01:00:00Z"),
+        stage: "group",
+      },
     ]),
     null
   );
 });
 
-test("resolveOurMatchFromApi: rellena placeholder por kickoff más cercano (16avos)", () => {
+test("resolveOurMatchFromApi: rellena placeholder de 16avos con equipos válidos para el slot", () => {
   const api = apiMatch({
     utcDate: "2026-06-28T19:05:00Z",
     status: "SCHEDULED",
+    stage: "LAST_32",
     score: undefined,
-    homeTeam: { id: 10, name: "France" },
-    awayTeam: { id: 11, name: "Argentina" },
+    homeTeam: { id: 10, name: "Mexico" },
+    awayTeam: { id: 11, name: "Canada" },
   });
   const our: OurMatch[] = [
     {
@@ -168,19 +188,71 @@ test("resolveOurMatchFromApi: rellena placeholder por kickoff más cercano (16av
       teamA: "1A",
       teamB: "2B",
       kickoffAt: new Date("2026-06-28T19:00:00Z"),
+      stage: "roundOf32",
     },
     {
       id: "r32-b",
       teamA: "1C",
       teamB: "3D",
       kickoffAt: new Date("2026-06-28T23:00:00Z"),
+      stage: "roundOf32",
     },
   ];
   const resolved = resolveOurMatchFromApi(api, our);
   assert.equal(resolved?.kind, "fill_teams");
   assert.equal(resolved?.ourMatch.id, "r32-a");
   if (resolved?.kind === "fill_teams") {
-    assert.equal(resolved.teamA, "France");
-    assert.equal(resolved.teamB, "Argentina");
+    assert.equal(resolved.teamA, "Mexico");
+    assert.equal(resolved.teamB, "Canada");
   }
+});
+
+test("resolveOurMatchFromApi: no asigna partido de grupos a slot de 16avos", () => {
+  const api = apiMatch({
+    utcDate: "2026-06-28T19:05:00Z",
+    status: "FINISHED",
+    stage: "GROUP_STAGE",
+    score: { fullTime: { home: 0, away: 2 }, regularTime: { home: 0, away: 2 } },
+    homeTeam: { id: 10, name: "Panama" },
+    awayTeam: { id: 11, name: "England" },
+  });
+  const our: OurMatch[] = [
+    {
+      id: "group-l",
+      teamA: "Panama",
+      teamB: "England",
+      kickoffAt: new Date("2026-06-27T21:00:00Z"),
+      stage: "group",
+    },
+    {
+      id: "r32-a",
+      teamA: "1A",
+      teamB: "2B",
+      kickoffAt: new Date("2026-06-28T19:00:00Z"),
+      stage: "roundOf32",
+    },
+  ];
+  const resolved = resolveOurMatchFromApi(api, our);
+  assert.equal(resolved?.kind, "exact");
+  assert.equal(resolved?.ourMatch.id, "group-l");
+});
+
+test("resolveOurMatchFromApi: sin fila de grupo pendiente, no rellena 16avos con rivales de grupo", () => {
+  const api = apiMatch({
+    utcDate: "2026-06-28T19:05:00Z",
+    status: "FINISHED",
+    score: { fullTime: { home: 0, away: 2 }, regularTime: { home: 0, away: 2 } },
+    homeTeam: { id: 10, name: "Panama" },
+    awayTeam: { id: 11, name: "England" },
+  });
+  const our: OurMatch[] = [
+    {
+      id: "r32-a",
+      teamA: "1A",
+      teamB: "2B",
+      kickoffAt: new Date("2026-06-28T19:00:00Z"),
+      stage: "roundOf32",
+    },
+  ];
+  assert.equal(resolveOurMatchFromApi(api, our), null);
 });

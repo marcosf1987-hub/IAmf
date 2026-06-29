@@ -9,6 +9,7 @@ test("buildSyncMatchResultsHttpBody incluye diagnóstico en message", () => {
     apiMatchesConsidered: 104,
     teamsResolved: 0,
     pendingInDb: 50,
+    knockoutsRepaired: 3,
     skippedFetch: false,
     diagnostics: {
       finishedInApi: 3,
@@ -27,4 +28,5 @@ test("buildSyncMatchResultsHttpBody incluye diagnóstico en message", () => {
   assert.equal(body.diagnostics.scoresWritten, 2);
   assert.match(body.message, /2 marcadores escritos/);
   assert.match(body.message, /1 sin marcador/);
+  assert.match(body.message, /3 slot\(s\) de eliminatoria restaurado/);
 });
