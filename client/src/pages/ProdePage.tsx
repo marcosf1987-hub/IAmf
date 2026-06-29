@@ -17,7 +17,15 @@ import {
 import { getCurrentPhase, getPhaseLabel, formatTimeLeft, type ProdePhaseId } from "../lib/prode-phases";
 import { isMatchPredictionOpen } from "../lib/match-prediction-window";
 import { formatMatchScore, hasOfficialMatchResult } from "../lib/match-result";
-import { computeBestThirds, computeGroupStandings, type ThirdPlaceCandidate } from "../lib/prode-standings";
+import {
+  buildBracketSlotContext,
+  resolveMatchDisplayTeams,
+} from "../lib/bracket-slot-resolve";
+import {
+  computeBestThirdsOfficialOnly,
+  computeGroupStandingsOfficialOnly,
+  type ThirdPlaceCandidate,
+} from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 import { formatDateTime } from "../lib/intl-format";
 
@@ -238,12 +246,14 @@ export default function ProdePage() {
     [sections]
   );
 
+  const bracketCtx = useMemo(() => buildBracketSlotContext(matches), [matches]);
+
   const bestThirds = useMemo(() => {
     const groups = groupSections
       .filter((s) => s.id !== "group-unknown")
       .map((s) => ({ label: s.title, matches: s.matches }));
-    return computeBestThirds(groups, predictions);
-  }, [groupSections, predictions]);
+    return computeBestThirdsOfficialOnly(groups);
+  }, [groupSections]);
 
   /** Refresca el countdown del subtítulo cada minuto. */
   const [clockTick, setClockTick] = useState(0);
@@ -511,32 +521,12 @@ export default function ProdePage() {
           </p>
         )}
 
-        {groupSections.length > 0 && (
-          <section className="prode-groups-stage" aria-labelledby="prode-sim-groups-heading">
-            <div className="prode-groups-stage-head">
-              <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
-                {t("groupStageNav")}
-              </h2>
-            </div>
-            <div className="prode-groups-grid">
-              {groupSections.map((section) => (
-                <GroupSimulatorCard
-                  key={section.id}
-                  section={section}
-                  predictions={predictions}
-                  iaStatus={groupIaStatus[section.id]}
-                />
-              ))}
-            </div>
-            {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
-          </section>
-        )}
-
         {knockoutSections.length > 0 && (
           <div className="prode-knockout-region" id="prode-eliminatorias">
             <h2 className="prode-knockout-region-title">Eliminatorias</h2>
             <p className="prode-knockout-region-lead">
-              Cruces posteriores a la fase de grupos. Abre cada fase para ver tus predicciones.
+              Cruces posteriores a la fase de grupos. Los equipos se completan con los resultados oficiales de
+              grupos y eliminatorias previas cuando están disponibles.
             </p>
           </div>
         )}
@@ -571,10 +561,13 @@ export default function ProdePage() {
                   <div className="prode-match-grid">
                     {section.matches.map((m) => {
                       const pred = predictions[m.id];
+                      const display = resolveMatchDisplayTeams(m, bracketCtx);
                       return (
                         <MatchCard
                           key={m.id}
                           match={m}
+                          displayTeamA={display.teamA}
+                          displayTeamB={display.teamB}
                           prediction={pred}
                           stageLabels={stageLabels}
                           locked={!isMatchPredictionOpen(m.kickoffAt)}
@@ -604,6 +597,30 @@ export default function ProdePage() {
             </div>
           </div>
         )}
+
+        {groupSections.length > 0 && (
+          <section className="prode-groups-stage prode-groups-stage--after-knockout" aria-labelledby="prode-sim-groups-heading">
+            <div className="prode-groups-stage-head">
+              <h2 id="prode-sim-groups-heading" className="prode-simulator-heading">
+                {t("groupStageNav")}
+              </h2>
+              <p className="prode-groups-stage-lead">
+                Tablas según resultados oficiales de la fase de grupos (referencia).
+              </p>
+            </div>
+            <div className="prode-groups-grid">
+              {groupSections.map((section) => (
+                <GroupSimulatorCard
+                  key={section.id}
+                  section={section}
+                  predictions={predictions}
+                  iaStatus={groupIaStatus[section.id]}
+                />
+              ))}
+            </div>
+            {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
+          </section>
+        )}
       </div>
     </div>
   );
@@ -619,8 +636,8 @@ function GroupSimulatorCard({
   iaStatus?: "idle" | "loading" | "done" | "error";
 }) {
   const standings = useMemo(
-    () => computeGroupStandings(section.matches, predictions),
-    [section.matches, predictions]
+    () => computeGroupStandingsOfficialOnly(section.matches),
+    [section.matches]
   );
   const predictedCount = section.matches.filter((m) => predictions[m.id]).length;
 
@@ -753,7 +770,7 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
     <div className="prode-best-thirds">
       <h3 className="prode-best-thirds-title">Mejores terceros</h3>
       <p className="prode-best-thirds-hint">
-        Así quedarían la tabla de 3º en sus grupos según tus predicciones.
+        Terceros de cada grupo según resultados oficiales (los 8 mejores clasifican a 16avos).
       </p>
       <div className="prode-best-thirds-wrap">
         <table className="prode-best-thirds-table">
@@ -789,17 +806,23 @@ function BestThirdsTable({ candidates }: { candidates: ThirdPlaceCandidate[] }) 
 
 function MatchCard({
   match,
+  displayTeamA,
+  displayTeamB,
   prediction,
   stageLabels,
   locked,
 }: {
   match: Match;
+  displayTeamA?: string;
+  displayTeamB?: string;
   prediction?: Prediction;
   stageLabels: Record<string, string>;
   locked: boolean;
 }) {
   const { t } = useTranslation("prode");
   const official = hasOfficialMatchResult(match);
+  const teamA = displayTeamA ?? match.teamA;
+  const teamB = displayTeamB ?? match.teamB;
   const date = formatDateTime(match.kickoffAt, {
     day: "numeric",
     month: "short",
@@ -826,11 +849,11 @@ function MatchCard({
       </div>
       <div className="prode-teams">
         <span>
-          <ProdeFlag country={match.teamA} /> {match.teamA}
+          <ProdeFlag country={teamA} /> {teamA}
         </span>
         <span className="prode-vs">vs</span>
         <span>
-          <ProdeFlag country={match.teamB} /> {match.teamB}
+          <ProdeFlag country={teamB} /> {teamB}
         </span>
       </div>
       <div className="prode-form prode-form-readonly">

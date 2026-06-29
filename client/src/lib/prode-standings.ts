@@ -85,6 +85,65 @@ export function computeGroupStandings(
   return list;
 }
 
+/** Tabla de grupo usando solo partidos con resultado oficial cargado. */
+export function computeGroupStandingsOfficialOnly(matches: Match[]): GroupStandingRow[] {
+  const byTeam = new Map<string, GroupStandingRow>();
+
+  function row(team: string): GroupStandingRow {
+    let r = byTeam.get(team);
+    if (!r) {
+      r = { team, pj: 0, g: 0, e: 0, p: 0, gf: 0, gc: 0, dg: 0, pts: 0 };
+      byTeam.set(team, r);
+    }
+    return r;
+  }
+
+  for (const m of matches) {
+    if (!hasOfficialMatchResult(m)) continue;
+    row(m.teamA);
+    row(m.teamB);
+
+    const scoreA = m.resultScoreA!;
+    const scoreB = m.resultScoreB!;
+    const a = row(m.teamA);
+    const b = row(m.teamB);
+    a.pj += 1;
+    b.pj += 1;
+    a.gf += scoreA;
+    a.gc += scoreB;
+    b.gf += scoreB;
+    b.gc += scoreA;
+
+    if (scoreA > scoreB) {
+      a.g += 1;
+      b.p += 1;
+      a.pts += 3;
+    } else if (scoreA < scoreB) {
+      b.g += 1;
+      a.p += 1;
+      b.pts += 3;
+    } else {
+      a.e += 1;
+      b.e += 1;
+      a.pts += 1;
+      b.pts += 1;
+    }
+  }
+
+  for (const r of byTeam.values()) {
+    r.dg = r.gf - r.gc;
+  }
+
+  const list = Array.from(byTeam.values());
+  list.sort((x, y) => {
+    if (y.pts !== x.pts) return y.pts - x.pts;
+    if (y.dg !== x.dg) return y.dg - x.dg;
+    return y.gf - x.gf;
+  });
+
+  return list;
+}
+
 export type ThirdPlaceCandidate = {
   team: string;
   groupLabel: string;
@@ -101,6 +160,31 @@ export function computeBestThirds(
   const thirds: ThirdPlaceCandidate[] = [];
   for (const g of groups) {
     const table = computeGroupStandings(g.matches, predictions);
+    if (table.length < 3) continue;
+    const third = table[2];
+    thirds.push({
+      team: third.team,
+      groupLabel: g.label,
+      pts: third.pts,
+      dg: third.dg,
+      gf: third.gf,
+    });
+  }
+  thirds.sort((a, b) => {
+    if (b.pts !== a.pts) return b.pts - a.pts;
+    if (b.dg !== a.dg) return b.dg - a.dg;
+    return b.gf - a.gf;
+  });
+  return thirds;
+}
+
+/** Mejores terceros según posiciones finales oficiales de cada grupo. */
+export function computeBestThirdsOfficialOnly(
+  groups: { label: string; matches: Match[] }[]
+): ThirdPlaceCandidate[] {
+  const thirds: ThirdPlaceCandidate[] = [];
+  for (const g of groups) {
+    const table = computeGroupStandingsOfficialOnly(g.matches);
     if (table.length < 3) continue;
     const third = table[2];
     thirds.push({
