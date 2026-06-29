@@ -320,3 +320,50 @@ test("assignRoundOf32FromApi: Brasil vs Japón en slot placeholder sin validar l
   assert.equal(assignments[0].teamA, "Brazil");
   assert.equal(assignments[0].teamB, "Japan");
 });
+
+test("assignRoundOf32FromApi: fase 3 asigna restantes por orden cronológico si el seed está desfasado", () => {
+  const api = [
+    apiMatch({
+      id: 60,
+      utcDate: "2026-07-01T16:00:00Z",
+      stage: "LAST_32",
+      status: "SCHEDULED",
+      score: undefined,
+      homeTeam: { id: 5, name: "England" },
+      awayTeam: { id: 6, name: "Congo DR" },
+    }),
+    apiMatch({
+      id: 61,
+      utcDate: "2026-07-04T02:30:00Z",
+      stage: "LAST_32",
+      status: "SCHEDULED",
+      score: undefined,
+      homeTeam: { id: 7, name: "Colombia" },
+      awayTeam: { id: 8, name: "Ghana" },
+    }),
+  ];
+  const our: OurMatch[] = [
+    {
+      id: "r32-k",
+      teamA: "1K",
+      teamB: "3L",
+      kickoffAt: new Date("2026-06-28T03:00:00Z"),
+      stage: "roundOf32",
+    },
+    {
+      id: "r32-c",
+      teamA: "1C",
+      teamB: "3D",
+      kickoffAt: new Date("2026-06-28T23:00:00Z"),
+      stage: "roundOf32",
+    },
+  ];
+  const assignments = assignRoundOf32FromApi(api, our);
+  assert.equal(assignments.length, 2);
+  assert.equal(assignments[0].ourMatch.id, "r32-k");
+  assert.equal(assignments[0].teamA, "England");
+  assert.equal(assignments[0].teamB, "DR Congo");
+  assert.equal(assignments[1].ourMatch.id, "r32-c");
+  assert.equal(assignments[1].teamA, "Colombia");
+  assert.equal(assignments[1].teamB, "Ghana");
+});

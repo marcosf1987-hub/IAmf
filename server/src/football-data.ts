@@ -492,11 +492,11 @@ export function assignRoundOf32FromApi(
     pushAssignment(api, our);
   }
 
-  for (const api of apiR32) {
+  for (const api of [...apiR32].sort(
+    (a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime()
+  )) {
     if (usedApiIds.has(api.id)) continue;
     const apiTime = new Date(api.utcDate).getTime();
-    const home = normalizeTeamName(api.homeTeam.name)!;
-    const away = normalizeTeamName(api.awayTeam.name)!;
 
     let best: OurMatch | null = null;
     let bestDist = Infinity;
@@ -512,6 +512,23 @@ export function assignRoundOf32FromApi(
     }
     if (!best || bestDist > ROUND_OF_32_API_KICKOFF_TOLERANCE_MS) continue;
     pushAssignment(api, best);
+  }
+
+  // Fase 3: horarios del seed desfasados respecto a FIFA — zip cronológico del resto.
+  const remainingApi = apiR32
+    .filter((m) => !usedApiIds.has(m.id))
+    .sort((a, b) => new Date(a.utcDate).getTime() - new Date(b.utcDate).getTime());
+  const remainingOur = ourR32
+    .filter(
+      (m) =>
+        !usedOurIds.has(m.id) &&
+        (needsNameFromApi(m.teamA) || needsNameFromApi(m.teamB))
+    )
+    .sort((a, b) => a.kickoffAt.getTime() - b.kickoffAt.getTime());
+
+  const tail = Math.min(remainingApi.length, remainingOur.length);
+  for (let i = 0; i < tail; i++) {
+    pushAssignment(remainingApi[i], remainingOur[i]);
   }
 
   return assignments;
