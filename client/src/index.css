@@ -3544,6 +3544,12 @@ a.btn-oauth--unconfigured {
   margin-right: auto;
 }
 
+.prode-knockout-region--completed {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.08));
+}
+
 .prode-simulator-heading {
   font-family: var(--font-display);
   font-size: 1.25rem;

@@ -28,6 +28,10 @@ import {
 } from "../lib/prode-standings";
 import { enrichMatchesWithInferredGroupCodes } from "../lib/match-group-infer";
 import { formatDateTime } from "../lib/intl-format";
+import {
+  splitKnockoutStages,
+  type ProdeKnockoutSection,
+} from "../lib/prode-section-order";
 
 function useStageLabels(): Record<string, string> {
   const { t } = useTranslation("prode");
@@ -45,8 +49,6 @@ function useStageLabels(): Record<string, string> {
   );
 }
 
-/** Orden de visualización: cronológico por fase (grupos primero, final al final) */
-const STAGE_ORDER = ["group", "roundOf32", "roundOf16", "quarterFinal", "semiFinal", "thirdPlace", "final"];
 
 const GROUP_LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"] as const;
 
@@ -55,6 +57,12 @@ function sortByKickoff(a: Match, b: Match) {
 }
 
 type ProdeSection = { id: string; title: string; matches: Match[] };
+
+type ProdeSectionsLayout = {
+  groupSections: ProdeSection[];
+  activeKnockoutSections: ProdeKnockoutSection[];
+  completedKnockoutSections: ProdeKnockoutSection[];
+};
 
 function normalizeGroupCode(raw: string): string {
   const t = raw.trim();
@@ -76,12 +84,12 @@ function isGroupStage(m: Match): boolean {
   return String(m.stage).toLowerCase() === "group";
 }
 
-function buildProdeSections(
+function buildProdeSectionsLayout(
   matches: Match[],
   stageLabels: Record<string, string>,
   groupUnknownTitle: string,
   groupTitle: (code: string) => string
-): ProdeSection[] {
+): ProdeSectionsLayout {
   const groupMatches = matches.filter(isGroupStage);
   const knockout = matches.filter((m) => !isGroupStage(m));
 
@@ -138,15 +146,16 @@ function buildProdeSections(
   }
   for (const arr of byStage.values()) arr.sort(sortByKickoff);
 
-  const knockoutOrder = STAGE_ORDER.filter((s) => s !== "group");
-  for (const st of knockoutOrder) {
-    const arr = byStage.get(st);
-    if (arr?.length) {
-      sections.push({ id: `stage-${st}`, title: stageLabels[st] ?? st, matches: arr });
-    }
-  }
+  const { active: activeKnockoutSections, completed: completedKnockoutSections } = splitKnockoutStages(
+    byStage,
+    stageLabels
+  );
 
-  return sections;
+  return {
+    groupSections: sections,
+    activeKnockoutSections,
+    completedKnockoutSections,
+  };
 }
 
 const EMPTY_LAB: ProdeGuidelinesByPhase = { groups: "", roundOf32: "", knockout: "" };
@@ -229,21 +238,12 @@ export default function ProdePage() {
   const [error, setError] = useState("");
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
-  const sections = useMemo(
+  const { groupSections, activeKnockoutSections, completedKnockoutSections } = useMemo(
     () =>
-      buildProdeSections(matches, stageLabels, t("groupUnknown"), (code) =>
+      buildProdeSectionsLayout(matches, stageLabels, t("groupUnknown"), (code) =>
         t("groupTitle", { code })
       ),
     [matches, stageLabels, t]
-  );
-
-  const groupSections = useMemo(
-    () => sections.filter((s) => s.id.startsWith("group-")),
-    [sections]
-  );
-  const knockoutSections = useMemo(
-    () => sections.filter((s) => !s.id.startsWith("group-")),
-    [sections]
   );
 
   const bracketCtx = useMemo(() => buildBracketSlotContext(matches), [matches]);
@@ -273,11 +273,14 @@ export default function ProdePage() {
 
   useEffect(() => {
     const next: Record<string, boolean> = {};
-    knockoutSections.forEach((s, i) => {
+    activeKnockoutSections.forEach((s, i) => {
       next[s.id] = i === 0;
     });
+    completedKnockoutSections.forEach((s) => {
+      next[s.id] = false;
+    });
     setOpenSections(next);
-  }, [knockoutSections]);
+  }, [activeKnockoutSections, completedKnockoutSections]);
 
   function toggleSection(id: string) {
     setOpenSections((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -521,7 +524,7 @@ export default function ProdePage() {
           </p>
         )}
 
-        {knockoutSections.length > 0 && (
+        {activeKnockoutSections.length > 0 && (
           <div className="prode-knockout-region" id="prode-eliminatorias">
             <h2 className="prode-knockout-region-title">Eliminatorias</h2>
             <p className="prode-knockout-region-lead">
@@ -531,55 +534,17 @@ export default function ProdePage() {
           </div>
         )}
 
-        {knockoutSections.map((section) => {
-          const isOpen = openSections[section.id] ?? false;
-          return (
-            <section key={section.id} id={`prode-${section.id}`} className="prode-accordion prode-actions-full">
-              <button
-                type="button"
-                className="prode-accordion-trigger"
-                aria-expanded={isOpen}
-                aria-controls={`prode-panel-${section.id}`}
-                id={`prode-trigger-${section.id}`}
-                onClick={() => toggleSection(section.id)}
-              >
-                <span className="prode-accordion-title">{section.title}</span>
-                <span className="prode-accordion-meta">
-                  {section.matches.length} partido{section.matches.length === 1 ? "" : "s"}
-                </span>
-                <span className="prode-accordion-chevron" aria-hidden>
-                  {isOpen ? "▼" : "▶"}
-                </span>
-              </button>
-              {isOpen && (
-                <div
-                  className="prode-accordion-panel"
-                  id={`prode-panel-${section.id}`}
-                  role="region"
-                  aria-labelledby={`prode-trigger-${section.id}`}
-                >
-                  <div className="prode-match-grid">
-                    {section.matches.map((m) => {
-                      const pred = predictions[m.id];
-                      const display = resolveMatchDisplayTeams(m, bracketCtx);
-                      return (
-                        <MatchCard
-                          key={m.id}
-                          match={m}
-                          displayTeamA={display.teamA}
-                          displayTeamB={display.teamB}
-                          prediction={pred}
-                          stageLabels={stageLabels}
-                          locked={!isMatchPredictionOpen(m.kickoffAt)}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </section>
-          );
-        })}
+        {activeKnockoutSections.map((section) => (
+          <KnockoutStageAccordion
+            key={section.id}
+            section={section}
+            isOpen={openSections[section.id] ?? false}
+            onToggle={() => toggleSection(section.id)}
+            predictions={predictions}
+            bracketCtx={bracketCtx}
+            stageLabels={stageLabels}
+          />
+        ))}
 
         {championPrediction && (
           <div id="prode-campeon" className="prode-champion-block">
@@ -621,8 +586,90 @@ export default function ProdePage() {
             {bestThirds.length > 0 && <BestThirdsTable candidates={bestThirds} />}
           </section>
         )}
+
+        {completedKnockoutSections.length > 0 && (
+          <>
+            <div className="prode-knockout-region prode-knockout-region--completed" id="prode-eliminatorias-pasadas">
+              <h2 className="prode-knockout-region-title">Eliminatorias — etapas finalizadas</h2>
+            </div>
+            {completedKnockoutSections.map((section) => (
+              <KnockoutStageAccordion
+                key={section.id}
+                section={section}
+                isOpen={openSections[section.id] ?? false}
+                onToggle={() => toggleSection(section.id)}
+                predictions={predictions}
+                bracketCtx={bracketCtx}
+                stageLabels={stageLabels}
+              />
+            ))}
+          </>
+        )}
       </div>
     </div>
+  );
+}
+
+function KnockoutStageAccordion({
+  section,
+  isOpen,
+  onToggle,
+  predictions,
+  bracketCtx,
+  stageLabels,
+}: {
+  section: ProdeKnockoutSection;
+  isOpen: boolean;
+  onToggle: () => void;
+  predictions: Record<string, Prediction>;
+  bracketCtx: ReturnType<typeof buildBracketSlotContext>;
+  stageLabels: Record<string, string>;
+}) {
+  return (
+    <section id={`prode-${section.id}`} className="prode-accordion prode-actions-full">
+      <button
+        type="button"
+        className="prode-accordion-trigger"
+        aria-expanded={isOpen}
+        aria-controls={`prode-panel-${section.id}`}
+        id={`prode-trigger-${section.id}`}
+        onClick={onToggle}
+      >
+        <span className="prode-accordion-title">{section.title}</span>
+        <span className="prode-accordion-meta">
+          {section.matches.length} partido{section.matches.length === 1 ? "" : "s"}
+        </span>
+        <span className="prode-accordion-chevron" aria-hidden>
+          {isOpen ? "▼" : "▶"}
+        </span>
+      </button>
+      {isOpen && (
+        <div
+          className="prode-accordion-panel"
+          id={`prode-panel-${section.id}`}
+          role="region"
+          aria-labelledby={`prode-trigger-${section.id}`}
+        >
+          <div className="prode-match-grid">
+            {section.matches.map((m) => {
+              const pred = predictions[m.id];
+              const display = resolveMatchDisplayTeams(m, bracketCtx);
+              return (
+                <MatchCard
+                  key={m.id}
+                  match={m}
+                  displayTeamA={display.teamA}
+                  displayTeamB={display.teamB}
+                  prediction={pred}
+                  stageLabels={stageLabels}
+                  locked={!isMatchPredictionOpen(m.kickoffAt)}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </section>
   );
 }
 
