@@ -159,18 +159,21 @@ test("resolveOurMatchFromApi: slots bracket no roban partido vecino con ventana 
     teamA: "R32-1",
     teamB: "R32-2",
     kickoffAt: new Date("2026-07-04T17:00:00Z"),
+    stage: "roundOf16",
   };
   const paraguayFrance: OurMatch = {
     id: "r16-2",
     teamA: "R32-3",
     teamB: "R32-4",
     kickoffAt: new Date("2026-07-04T21:00:00Z"),
+    stage: "roundOf16",
   };
   const wrongLateSlot: OurMatch = {
     id: "r16-wrong",
     teamA: "R32-5",
     teamB: "R32-6",
     kickoffAt: new Date("2026-07-04T23:00:00Z"),
+    stage: "roundOf16",
   };
 
   const apiCanada = apiMatch({
