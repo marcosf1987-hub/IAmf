@@ -172,6 +172,9 @@ export function findMatchingOurMatch(
   return null;
 }
 
+/** Ventana más estricta al rellenar slots R32-1/R16-1 cuando ambos lados son placeholder. */
+export const BRACKET_SLOT_FILL_TOLERANCE_MS = 3 * 60 * 60 * 1000;
+
 /** Ventana para alinear kickoff en BD vs API (zonas horarias del Mundial). */
 export const FOOTBALL_DATA_KICKOFF_TOLERANCE_MS = 36 * 60 * 60 * 1000;
 
@@ -398,9 +401,9 @@ export function tryFillTeamsFromApi(
   );
   if (needing.length === 0) return null;
 
-  const bothPlaceholder = needing.filter(
-    (m) => needsNameFromApi(m.teamA) && needsNameFromApi(m.teamB)
-  );
+  const bothPlaceholder = needing
+    .filter((m) => needsNameFromApi(m.teamA) && needsNameFromApi(m.teamB))
+    .filter((m) => kickoffDistanceMs(m, apiTime) <= BRACKET_SLOT_FILL_TOLERANCE_MS);
   const closestBoth = pickClosestOurMatch(bothPlaceholder, apiTime);
   if (closestBoth) {
     if (

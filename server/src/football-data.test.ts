@@ -153,6 +153,43 @@ test("canonicalTeamName: null o vacío devuelve cadena vacía", () => {
   assert.equal(canonicalTeamName(""), "");
 });
 
+test("resolveOurMatchFromApi: slots bracket no roban partido vecino con ventana estricta", () => {
+  const canadaMorocco: OurMatch = {
+    id: "r16-1",
+    teamA: "R32-1",
+    teamB: "R32-2",
+    kickoffAt: new Date("2026-07-04T17:00:00Z"),
+  };
+  const paraguayFrance: OurMatch = {
+    id: "r16-2",
+    teamA: "R32-3",
+    teamB: "R32-4",
+    kickoffAt: new Date("2026-07-04T21:00:00Z"),
+  };
+  const wrongLateSlot: OurMatch = {
+    id: "r16-wrong",
+    teamA: "R32-5",
+    teamB: "R32-6",
+    kickoffAt: new Date("2026-07-04T23:00:00Z"),
+  };
+
+  const apiCanada = apiMatch({
+    utcDate: "2026-07-04T17:00:00Z",
+    homeTeam: { id: 10, name: "Canada" },
+    awayTeam: { id: 11, name: "Morocco" },
+  });
+
+  const resolved = resolveOurMatchFromApi(apiCanada, [
+    canadaMorocco,
+    paraguayFrance,
+    wrongLateSlot,
+  ]);
+  assert.equal(resolved?.kind, "fill_teams");
+  assert.equal(resolved?.ourMatch.id, "r16-1");
+  assert.equal(resolved?.kind === "fill_teams" ? resolved.teamA : "", "Canada");
+  assert.equal(resolved?.kind === "fill_teams" ? resolved.teamB : "", "Morocco");
+});
+
 test("findUniqueOurMatchByTeams: solo cuando el cruce es único", () => {
   const match = apiMatch({
     homeTeam: { id: 1, name: "Mexico" },

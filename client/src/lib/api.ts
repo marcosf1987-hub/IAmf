@@ -1559,6 +1559,19 @@ export type SyncMatchResultsResponse = {
   };
 };
 
+export async function repairPlatformRoundOf16(): Promise<{
+  ok: true;
+  updated: number;
+  expected: number;
+  message: string;
+}> {
+  return fetchAuth("/platform/repair-round-of-16", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+}
+
 export async function fetchMatchResultsSyncStatus(): Promise<FootballDataSyncStatus> {
   return fetchAuth("/admin/match-results-sync-status");
 }

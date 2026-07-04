@@ -23,6 +23,7 @@ import {
   fetchPlatformTimeSeries,
   fetchPlatformUsers,
   patchPlatformCompany,
+  repairPlatformRoundOf16,
   resetPlatformOrgAdminPassword,
   setPlatformUserHiddenFromRankings,
   syncPlatformMatchResults,
@@ -165,6 +166,7 @@ export default function PlatformAdminPage() {
   const [companyFilterDraft, setCompanyFilterDraft] = useState("");
   const [platformAiConfig, setPlatformAiConfig] = useState<AiConfig | null>(null);
   const [syncBusy, setSyncBusy] = useState(false);
+  const [repairR16Busy, setRepairR16Busy] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncMatchResultsResponse | null>(null);
   const [matchSyncFullScan, setMatchSyncFullScan] = useState(true);
   const [matchSyncStatus, setMatchSyncStatus] = useState<FootballDataSyncStatus | null>(null);
@@ -419,6 +421,20 @@ export default function PlatformAdminPage() {
     }
   }
 
+  async function runRepairRoundOf16() {
+    setRepairR16Busy(true);
+    setError("");
+    setSuccessMsg("");
+    try {
+      const res = await repairPlatformRoundOf16();
+      setSuccessMsg(res.message);
+    } catch (err) {
+      setError(formatApiError(err) || "Error al reparar octavos");
+    } finally {
+      setRepairR16Busy(false);
+    }
+  }
+
   async function runMatchResultsSync() {
     setSyncBusy(true);
     setError("");
@@ -627,9 +643,17 @@ export default function PlatformAdminPage() {
             type="button"
             className="btn-primary"
             onClick={() => void runMatchResultsSync()}
-            disabled={syncBusy || matchSyncStatus?.apiKeyConfigured === false}
+            disabled={syncBusy || repairR16Busy || matchSyncStatus?.apiKeyConfigured === false}
           >
             {syncBusy ? "Sincronizando…" : "Sincronizar resultados"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => void runRepairRoundOf16()}
+            disabled={repairR16Busy || syncBusy}
+          >
+            {repairR16Busy ? "Reparando…" : "Reparar octavos (fixture FIFA)"}
           </button>
           <label className="admin-date-range-alltime" style={{ margin: 0 }}>
             <input

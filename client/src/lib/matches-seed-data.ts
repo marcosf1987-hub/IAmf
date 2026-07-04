@@ -3,6 +3,18 @@
  * Debe mantenerse alineado: el cliente se construye sin la carpeta server (p. ej. Docker).
  */
 
+/** Octavos de final — horarios UTC según fixture FIFA (football-data.org). */
+export const ROUND_OF_16_FIXTURE = [
+  { teamA: "Canada", teamB: "Morocco", kickoffAt: new Date("2026-07-04T17:00:00Z") },
+  { teamA: "Paraguay", teamB: "France", kickoffAt: new Date("2026-07-04T21:00:00Z") },
+  { teamA: "Brazil", teamB: "Norway", kickoffAt: new Date("2026-07-05T20:00:00Z") },
+  { teamA: "Mexico", teamB: "England", kickoffAt: new Date("2026-07-06T02:00:00Z") },
+  { teamA: "Portugal", teamB: "Spain", kickoffAt: new Date("2026-07-06T20:00:00Z") },
+  { teamA: "USA", teamB: "Belgium", kickoffAt: new Date("2026-07-07T03:00:00Z") },
+  { teamA: "Argentina", teamB: "Egypt", kickoffAt: new Date("2026-07-07T16:00:00Z") },
+  { teamA: "Switzerland", teamB: "Colombia", kickoffAt: new Date("2026-07-07T23:00:00Z") },
+] as const;
+
 export const MATCHES_SEED = [
   // Group A
   { stage: "group" as const, groupCode: "A", teamA: "Mexico", teamB: "South Africa", kickoffAt: new Date("2026-06-11T19:00:00Z") },
@@ -105,15 +117,8 @@ export const MATCHES_SEED = [
   { stage: "roundOf32" as const, teamA: "2E", teamB: "3H", kickoffAt: new Date("2026-07-03T23:00:00Z") },
   { stage: "roundOf32" as const, teamA: "2K", teamB: "3I", kickoffAt: new Date("2026-07-04T03:00:00Z") },
   { stage: "roundOf32" as const, teamA: "2L", teamB: "3J", kickoffAt: new Date("2026-07-04T19:00:00Z") },
-  // Round of 16
-  { stage: "roundOf16" as const, teamA: "R32-1", teamB: "R32-2", kickoffAt: new Date("2026-07-04T23:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-3", teamB: "R32-4", kickoffAt: new Date("2026-07-05T19:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-5", teamB: "R32-6", kickoffAt: new Date("2026-07-05T23:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-7", teamB: "R32-8", kickoffAt: new Date("2026-07-06T19:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-9", teamB: "R32-10", kickoffAt: new Date("2026-07-06T23:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-11", teamB: "R32-12", kickoffAt: new Date("2026-07-07T19:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-13", teamB: "R32-14", kickoffAt: new Date("2026-07-07T23:00:00Z") },
-  { stage: "roundOf16" as const, teamA: "R32-15", teamB: "R32-16", kickoffAt: new Date("2026-07-08T19:00:00Z") },
+  // Round of 16 (octavos — fixture FIFA 2026)
+  ...ROUND_OF_16_FIXTURE.map((m) => ({ stage: "roundOf16" as const, ...m })),
   // Quarter finals
   { stage: "quarterFinal" as const, teamA: "R16-1", teamB: "R16-2", kickoffAt: new Date("2026-07-09T19:00:00Z") },
   { stage: "quarterFinal" as const, teamA: "R16-3", teamB: "R16-4", kickoffAt: new Date("2026-07-09T23:00:00Z") },

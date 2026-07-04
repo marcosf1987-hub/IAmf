@@ -22,6 +22,7 @@ import { encrypt } from "./crypto-util";
 import { buildMeResponse } from "./me-response";
 import { buildOrgSeatSnapshot, isPlatformCompanySlug } from "./org-seat";
 import { buildSystemHealth } from "./system-health";
+import { repairRoundOf16Fixtures } from "./repair-fixtures";
 import { setSessionCookies } from "./session-cookie";
 import { buildPlatformOverview, loadPlatformUserMetrics } from "./platform-metrics";
 import { buildPlatformAiHealth } from "./platform-ai-health";
@@ -1078,6 +1079,17 @@ export function registerB2BRoutes(app: Express, prisma: PrismaClient): void {
         hasApiKey: Boolean(config.apiKeyEnc),
       },
     });
+  });
+
+  app.post("/platform/repair-round-of-16", superAuth, async (_req, res) => {
+    try {
+      const result = await repairRoundOf16Fixtures(prisma);
+      res.status(200).json(result);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("POST /platform/repair-round-of-16 error:", err);
+      res.status(500).json({ error: "server_error" });
+    }
   });
 
   app.patch("/platform/ai-config", superAuth, async (req, res) => {

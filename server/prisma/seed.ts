@@ -1,6 +1,7 @@
 import { PrismaClient, UserRole, UserStatus } from "@prisma/client";
 import { hashPassword } from "../src/password";
 import { MATCHES_SEED } from "../src/matches-seed-data";
+import { repairRoundOf16Fixtures } from "../src/repair-fixtures";
 import { ensureUniversalLeagueMembership } from "../src/universal-league";
 
 const prisma = new PrismaClient();
@@ -102,6 +103,12 @@ async function main() {
       },
       data: { groupCode: m.groupCode },
     });
+  }
+
+  const r16Repair = await repairRoundOf16Fixtures(prisma);
+  if (r16Repair.updated > 0) {
+    // eslint-disable-next-line no-console
+    console.log(r16Repair.message);
   }
 }
 
