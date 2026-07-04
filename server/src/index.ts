@@ -33,6 +33,7 @@ import { competitionRankingDisplay, isPlatformCompanySlug } from "./org-seat";
 import { rankingVisibleUserWhere } from "./ranking-users";
 import { enrichMatchRowWithInferredGroupCode } from "./group-code-infer";
 import { filterOpenMatches, isMatchPredictionOpen } from "./match-prediction-window";
+import { isProdeStageComplete } from "./prode-stage-complete";
 import { recordUserSession } from "./login-event";
 import { backfillAllCompanyUniversalLeagues, ensureUniversalLeagueMembership } from "./universal-league";
 import { parseDisciplineQuery } from "./discipline-query";
@@ -654,6 +655,14 @@ async function countUserPredictionsOnClosedMatches(userId: string, stages: Match
   return { needClosed: closedIds.length, haveClosed };
 }
 
+async function isMatchStageCompleteInDb(stages: MatchStage[], now = new Date()): Promise<boolean> {
+  const rows = await prisma.match.findMany({
+    where: { stage: { in: stages } },
+    select: { kickoffAt: true, resultScoreA: true, resultScoreB: true },
+  });
+  return isProdeStageComplete(rows, now);
+}
+
 type ProdePromptPhase = "groups" | "roundOf32" | "knockout";
 
 function prodePhaseNameEs(phaseKey: ProdePromptPhase): string {
@@ -802,7 +811,8 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
   if (
     phase === "roundOf32" &&
     groupClosed.needClosed > 0 &&
-    groupClosed.haveClosed < groupClosed.needClosed
+    groupClosed.haveClosed < groupClosed.needClosed &&
+    !(await isMatchStageCompleteInDb(["group"]))
   ) {
     res.status(400).json({
       error: "complete_groups_first",
@@ -810,7 +820,12 @@ app.post("/ai/generate-prode-predictions", requireAuth, requireFootballDisciplin
     });
     return;
   }
-  if (phase === "knockout" && r32Closed.needClosed > 0 && r32Closed.haveClosed < r32Closed.needClosed) {
+  if (
+    phase === "knockout" &&
+    r32Closed.needClosed > 0 &&
+    r32Closed.haveClosed < r32Closed.needClosed &&
+    !(await isMatchStageCompleteInDb(["roundOf32"]))
+  ) {
     res.status(400).json({
       error: "complete_roundof32_first",
       message: `Primero completá predicciones para los 16avos que ya cerraron (${r32Closed.haveClosed}/${r32Closed.needClosed}).`,
